@@ -1,7 +1,7 @@
 # DeepFace: Hệ thống kiểm soát ra vào cửa và chấm công bằng khuôn mặt
 
 ## 1. Use case
-# Nhiệm vụ: Hệ thống kiểm soát ra vào cửa và thực hiện chấm công cho nhân viên bằng khuôn mặt trong thời gian thực
+### Nhiệm vụ: Hệ thống kiểm soát ra vào cửa và thực hiện chấm công cho nhân viên bằng khuôn mặt trong thời gian thực
 ```
 Camera tại cửa chụp ảnh mặt nhân viên realtime 
 -> API Backend FastAPI tiếp nhận
