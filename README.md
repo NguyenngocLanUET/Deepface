@@ -33,3 +33,7 @@ Hệ thống nhận diện khuôn mặt nhân viên thông qua webcam realtime. 
 ## 8. API chính
 
 ## 9. Monitoring và Backup
+
+
+
+raw backend: https://graffiti-fit-error.ngrok-free.dev/docs
