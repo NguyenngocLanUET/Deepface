@@ -3,6 +3,7 @@
 ## 1. Use case
 # Nhiệm vụ: Hệ thống kiểm soát ra vào cửa và thực hiện chấm công cho nhân viên bằng khuôn mặt trong thời gian thực
 '''
+Text
 Camera tại cửa chụp ảnh mặt nhân viên realtime 
 -> API Backend FastAPI tiếp nhận
 -> Trích xuất Embedding khuôn mặt (DeepFace - ArcFace Model)
