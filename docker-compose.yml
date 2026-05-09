@@ -1,24 +1,28 @@
+version: '3.8'
+
 services:
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: 123
-      POSTGRES_DB: attendance
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=123
+      - POSTGRES_DB=attendance
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data # Lưu dữ liệu DB
+      - postgres_data:/var/lib/postgresql/data
 
   qdrant:
     image: qdrant/qdrant:latest
     ports:
       - "6333:6333"
     volumes:
-      - qdrant_storage:/qdrant/storage # Cần dòng này để không mất dữ liệu Vector
+      - qdrant_storage:/qdrant/storage
 
   redis:
     image: redis:7-alpine
+    ports:
+      - "6379:6379"
 
   minio:
     image: minio/minio
@@ -34,6 +38,7 @@ services:
 
   backend:
     build: ./backend
+    restart: always
     ports:
       - "8000:8000"
     volumes:
@@ -46,17 +51,17 @@ services:
       - qdrant
       - minio
     environment:
+      - REDIS_HOST=redis
       - QDRANT_HOST=qdrant
-      - CELERY_BROKER_URL=redis://redis:6379/0
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=password123
-      # Thêm chuỗi kết nối DB để backend biết đường tìm admin/123
       - DATABASE_URL=postgresql://admin:123@db:5432/attendance
 
   worker:
     build: ./backend
     command: celery -A app.worker.celery_app worker --loglevel=info    
+    restart: always
     volumes:
       - ./backend:/app
       - temp_faces:/tmp
@@ -66,17 +71,50 @@ services:
       - qdrant
       - minio
     environment:
+      - REDIS_HOST=redis
       - QDRANT_HOST=qdrant
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      # QUAN TRỌNG: Worker cũng cần MinIO để tải ảnh về xử lý
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=password123
       - DATABASE_URL=postgresql://admin:123@db:5432/attendance
 
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+    volumes:
+      - grafana_data:/var/lib/grafana  # Lưu dữ liệu để không phải cài lại dashboard mỗi khi tắt máy
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    restart: always
+    environment:
+      - NGROK_AUTHTOKEN=3DUke8S1i89v6Y3Gw9HKrXQBpl7_35BDPsmaxGCkL7MreGzp3
+    command:
+      - "http"
+      - "--url=graffiti-fit-error.ngrok-free.dev" # THÊM DÒNG NÀY ĐỂ DÙNG DOMAIN CỐ ĐỊNH
+      - "backend:8000"
+    depends_on:
+      - backend
+
 volumes:
-  postgres_data:    # Thêm cái này
+  postgres_data:
   qdrant_storage:
-  minio_data:       # Thêm cái này
+  minio_data:
   temp_faces:
   deepface_models:
+  grafana_data: # Thêm dòng này nữa
