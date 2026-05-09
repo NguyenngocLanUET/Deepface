@@ -13,3 +13,7 @@ pydantic-settings
 boto3
 pandas 
 xlsxwriter
+fastapi-cache2[redis]             # Cache API
+prometheus-fastapi-instrumentator # Monitoring
+alembic                           # Migration Database 
+httpx                             # HTTP Client
