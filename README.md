@@ -9,12 +9,11 @@ Camera tại cửa chụp ảnh mặt nhân viên realtime
 -> Tìm kiếm khuôn mặt tương tự trong Vector DB (Qdrant) với ngưỡng score > 0.5
 -> Nhận diện ID nhân viên 
 -> Kiểm tra logic quyền truy cập (PostgreSQL):
-     1. Tài khoản có Active không?
-     2. Nhân viên có quyền ra vào tại cửa này không?
-     3. Nếu không, có quyền kế thừa từ Phòng ban tại cửa này không?
-     4. Giờ hiện tại có phải trong khung giờ cho phép không?
--> Trả về kết quả: Mở cửa (SUCCESS) hoặc Từ chối (DENIED + Lý do)
--> Lưu lịch sử nhận diện và kết quả kiểm tra vào PostgreSQL
+     1. Tài khoản có Active (is_active) không?
+     2. Cấp quyền theo thứ tự ưu tiên: cá nhân -> phòng ban
+     3. Khung giờ: Giờ hiện tại nằm trong [allowed_start_time, allowed_end_time]
+-> Trả về kết quả JSON: Kết quả match, employee_name, thông báo open_door và message cụ thể.
+-> Lưu lịch sử nhận diện, ảnh snapshot và kết quả kiểm tra vào PostgreSQL (trạng thái SUCCESS/DENIED + lý do).
 ```
 Hệ thống nhận diện khuôn mặt nhân viên thông qua webcam realtime. ✨ Chỉnh sửa lại câu này: Dự án được thiết kế theo yêu cầu đồ án: có frontend nhân viên, frontend quản trị viên, backend, database, object storage, vector database, queue, Nginx reverse proxy, Docker Compose, monitoring và tài liệu tái hiện.
 
@@ -25,9 +24,9 @@ Hệ thống nhận diện khuôn mặt nhân viên thông qua webcam realtime. 
 
    **Quản lý quyền truy cập cho nhân viên**: Cấp quyền truy cập theo cửa và khung giờ. Hỗ trợ cấp quyền riêng cho cá nhân hoặc kế thừa cho nguyên một phòng ban.
 
-   **Quản trị nhân viên**: Tìm kiếm nhân viên nâng cao, khóa/ mở tài khoản, thêm/ xóa hoàn toàn nhân viên.
+   **Quản trị nhân viên**: Tìm kiếm nhân viên nâng cao, khóa/ mở tài khoản, thêm/ xóa hoàn toàn nhân viên
 
-   **Xem lịch sử điểm danh**: Tra cứu nhật ký ra vào thời gian thực, sắp xếp theo thời gian mới nhất, hiển thị trạng thái (SUCCESS/DENIED) và lý do từ chối cụ thể.
+   **Xem lịch sử điểm danh**: Tra cứu nhật ký ra vào thời gian thực (get_attendance_history), sắp xếp theo thời gian mới nhất, hiển thị trạng thái (SUCCESS/DENIED) và lý do từ chối cụ thể.
 
    **Lưu trữ dữ liệu**: Lưu lịch sử vào PostgreSQL, lưu ảnh khuôn mặt gốc vào MinIO, lưu vector khuôn mặt vào Qdrant.
 
@@ -36,7 +35,14 @@ Hệ thống nhận diện khuôn mặt nhân viên thông qua webcam realtime. 
 ## 4. Yêu cầu môi trường
 
 ## 5. Model AI và Dataset
-### 5.1. Dataset
+
+### 5.1. Model AI ✨
+Hệ thống sử dụng thư viện DeepFace với cấu hình tối ưu để đảm bảo độ chính xác:
+- Mô hình Nhận diện: ArcFace (trội hơn về khả năng nhận diện góc nghiêng và ánh sáng phức tạp, vector 512 dims).
+- Mô hình Phát hiện khuôn mặt: retinaface (mạnh nhất để detect và align khuôn mặt).
+- Normalization: "base".
+- Chuẩn hóa Vector: Vector cuối cùng luôn được chuẩn hóa L2 100% trong VisionService.get_embedding
+### 5.2. Dataset
    Dự án này sử dụng bộ dữ liệu ** [SCface (Surveillance Cameras Face Database)](https://scface.org/)** đã chỉnh sửa cho phù hợp dự án để thử nghiệm và đánh giá pipeline nhận diện khuôn mặt.
    
    Cấu trúc dữ liệu sử dụng trong dự án: ✨ % Chỉnh sửa thêm tên của file
@@ -51,6 +57,34 @@ Cấu trúc database
 
 ## 7. Các luồng dữ liệu chính
 
+### 7.1. Luồng xác minh
+```
+Quản trị viên gửi ảnh + tên cửa
+-> backend FastAPI tiếp nhận, lưu tạm ảnh
+-> DeepFace trích xuất vector khuôn mặt
+-> Qdrant tìm kiếm vector tương tự (ngưỡng 0.5)
+-> Nhận diện được ID nhân viên
+-> Kiểm tra logic Quyền truy cập (db_service.check_access_permission):
+     1. Nhân viên/Cửa có tồn tại không?
+     2. Giờ hiện tại nằm trong khung giờ [allowed_start_time, allowed_end_time]?
+-> Trả về kết quả match: True/False, message open_door
+-> backend ghi log điểm danh (status: SUCCESS/DENIED, reason)
+```
+### 7.2. Luồng đăng ký khuôn mặt nhân viên mới 
+
+```
+Admin nhập thông tin + upload 3 ảnh
+-> backend FastAPI kiểm tra số lượng ảnh 
+-> backend tạo hồ sơ nhân viên trong PostgreSQL (department_id)
+-> backend upload ảnh gốc lên MinIO (S3 compatible storage)
+-> backend gửi task Celery background "process_face_registration"
+-> backend trả về thông tin nhân viên mới
+-> Celery Worker tải ảnh từ MinIO
+-> worker gọi DeepFace KIỂM TRA CHẤT LƯỢNG ảnh (quá sáng, nhòe, đúng 1 mặt)
+-> worker trích xuất ArcFace vector, TÍNH AVERAGE VECTOR 
+-> worker chuẩn hóa L2 vector cuối cùng
+-> worker upsert average vector vào Qdrant (dùng ID nhân viên SQL làm ID point)
+```
 ## 8. API chính
 
 ## 9. Monitoring và Backup
