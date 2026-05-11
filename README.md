@@ -165,6 +165,17 @@ GET /health
 ```
 ## 9. Monitoring và Backup
 
+Hệ thống cung cấp các Endpoint chuyên dụng để theo dõi trạng thái vận hành realtime:
+- **Health Check (/health)**: Kiểm tra trạng thái sống (liveness) của ứng dụng, đảm bảo các service cốt lõi (API, Database) đang phản hồi.
+- **Performance Metrics (/metrics)**: Cung cấp các thông số kỹ thuật (thường tương thích với Prometheus) để theo dõi hiệu suất xử lý, tài nguyên RAM/CPU và lưu lượng truy cập.
+- **System Statistics (/admin/system-stats)**: Truy xuất báo cáo tổng quan về trạng thái hệ thống, bao gồm số lượng nhân viên, dữ liệu điểm danh và tình trạng kết nối của các thiết bị cửa (Doors).
+- **Logging Management**: Hệ thống hỗ trợ quản lý log tập trung. Admin có thể thực hiện dọn dẹp log qua endpoint DELETE /admin/clear-logs để tối ưu dung lượng lưu trữ.
 
+**Maintenance & Backup (Bảo trì & Sao lưu)**
+Để đảm bảo tính toàn vẹn của dữ liệu nhận diện khuôn mặt và hệ thống vận hành, các cơ chế sau được triển khai:
+- **Vector Re-sync (/admin/re-sync-all-vectors)**: Đây là tính năng quan trọng nhất cho việc phục hồi dữ liệu AI. Trong trường hợp cơ sở dữ liệu Vector (Vector DB) gặp sự cố, tính năng này sẽ quét toàn bộ ảnh gốc từ storage và tái tạo lại các vector đặc trưng (embeddings) để hệ thống nhận diện hoạt động bình thường mà không cần nhân viên đăng ký lại.
+- **Bulk Data Import (/admin/bulk-import)**: Hỗ trợ sao lưu và khôi phục dữ liệu nhân sự hàng loạt thông qua file cấu hình, giúp nhanh chóng thiết lập lại hệ thống khi di chuyển server.
+- **Attendance Export (/attendance/export/excel)**: Cho phép sao lưu dữ liệu điểm danh định kỳ ra file Excel để lưu trữ ngoại tuyến (offline) hoặc phục vụ mục đích đối soát kế toán.
+- **Storage Redundancy**: Dữ liệu hình ảnh nhân viên được lưu trữ độc lập với Vector DB, tạo ra hai lớp bảo vệ dữ liệu (Ảnh gốc + Vector đại diện).
 
 raw backend: https://graffiti-fit-error.ngrok-free.dev/docs
