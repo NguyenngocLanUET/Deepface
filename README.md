@@ -34,7 +34,7 @@ Hệ thống nhận diện khuôn mặt nhân viên thông qua webcam realtime. 
 ```mermaid
 graph TD
 
-    Client["Camera / Client App"]
+    Client["Client App"]
         -->|"Gửi yêu cầu xác minh / tìm kiếm"| API["FastAPI Server"]
 
     API
@@ -62,7 +62,10 @@ graph TD
         -.->|"Upload ảnh đăng ký / snapshot"| MinIO
 ```
 ## 4. Yêu cầu môi trường
-
+- Docker Desktop
+- Docker Compose
+- Phần cứng ✨
+- Hệ điều hành: đã được thử nghiệm trên Windows
 ## 5. Model AI và Dataset
 
 ### 5.1. Model AI ✨
