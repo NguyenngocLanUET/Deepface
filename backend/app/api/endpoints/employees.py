@@ -22,29 +22,67 @@ async def register(
     if not (1 <= len(files) <= 5):
         raise HTTPException(status_code=400, detail="Vui lòng gửi từ 1 đến 5 ảnh.")
 
-    new_user = db_service.create_employee(full_name, employee_code, department_name)
+    try:
+        new_user = db_service.create_employee(full_name, employee_code, department_name)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi tạo nhân viên: {str(e)}")
+    
     user_id = new_user.id
     
     object_names = []
-    for file in files:
-        temp_path = f"/tmp/{uuid.uuid4()}.jpg"
-        with open(temp_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+    temp_paths = []
+    
+    try:
+        for file in files:
+            temp_path = f"/tmp/{uuid.uuid4()}.jpg"
+            temp_paths.append(temp_path)
+            
+            try:
+                with open(temp_path, "wb") as buffer:
+                    shutil.copyfileobj(file.file, buffer)
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Lỗi lưu file: {str(e)}")
+            
+            try:
+                is_ok, msg = vision_service.check_image_quality(temp_path)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Lỗi kiểm tra ảnh: {str(e)}")
+            
+            if not is_ok:
+                raise HTTPException(status_code=400, detail=f"Ảnh lỗi: {msg}")
+            
+            obj_name = f"avatars/{user_id}/{uuid.uuid4()}.jpg"
+            try:
+                with open(temp_path, "rb") as f:
+                    storage_service.upload_file(f, obj_name)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Lỗi tải ảnh lên storage: {str(e)}")
+            
+            object_names.append(obj_name)
         
-        is_ok, msg = vision_service.check_image_quality(temp_path)
-        if not is_ok:
-            os.remove(temp_path)
-            db_service.delete_employee(user_id) 
-            raise HTTPException(status_code=400, detail=f"Ảnh lỗi: {msg}")
+        try:
+            celery_app.send_task("process_face_registration", args=[user_id, object_names])
+        except Exception as e:
+            print(f"Cảnh báo: Lỗi gửi task Celery - {str(e)}")
         
-        obj_name = f"avatars/{user_id}/{uuid.uuid4()}.jpg"
-        with open(temp_path, "rb") as f:
-            storage_service.upload_file(f, obj_name)
-        object_names.append(obj_name)
-        if os.path.exists(temp_path): os.remove(temp_path)    
-        
-    celery_app.send_task("process_face_registration", args=[user_id, object_names])
-    return new_user
+        return new_user
+    
+    except HTTPException:
+        # Dọn dẹp khi có lỗi
+        try:
+            db_service.delete_employee(user_id)
+        except Exception as e:
+            print(f"Cảnh báo: Lỗi xóa nhân viên khi rollback - {str(e)}")
+        raise
+    
+    finally:
+        # Xóa các file tạm
+        for path in temp_paths:
+            if os.path.exists(path):
+                try:
+                    os.remove(path)
+                except Exception as e:
+                    print(f"Cảnh báo: Lỗi xóa file tạm - {str(e)}")
 
 @router.get("/", response_model=List[EmployeeOut])
 async def list_employees():
