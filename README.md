@@ -70,6 +70,12 @@ Quản trị viên gửi ảnh + tên cửa
 -> Trả về kết quả match: True/False, message open_door
 -> backend ghi log điểm danh (status: SUCCESS/DENIED, reason)
 ```
+API chính
+```
+POST /attendance/identify?door_name=<string>
+Content-Type: multipart/form-data
+file=<image_binary>
+```
 ### 7.2. Luồng đăng ký khuôn mặt nhân viên mới 
 
 ```
@@ -85,8 +91,46 @@ Admin nhập thông tin + upload 3 ảnh
 -> worker chuẩn hóa L2 vector cuối cùng
 -> worker upsert average vector vào Qdrant (dùng ID nhân viên SQL làm ID point)
 ```
+API chính
+```
+POST /employees/register
+Content-Type: multipart/form-data
+files=[<image1_binary>, <image2_binary>, ...]
+full_name=<string>
+employee_code=<string>
+department_id=<int>
+```
 ## 8. API chính
-
+Attendance (Xác minh và điểm danh)
+```
+POST /attendance/identify
+GET  /attendance/history
+Tag: Employees (Quản lý Nhân viên)
+code
+Http
+POST   /employees/register
+GET    /employees/
+GET    /employees/search
+PATCH  /employees/{id}/status
+PUT    /employees/{id}/permissions
+DELETE /employees/{id}
+```
+Departments (Quản lý phòng ban và cửa ra vào)
+```
+GET  /departments/
+POST /departments/
+POST /departments/permissions
+POST /departments/{dept_id}/quick-setup
+```
+Doors (Quản lý Cửa ra vào)
+```
+GET  /doors/
+POST /doors/
+```
+System (Hệ thống)
+```
+GET /health
+```
 ## 9. Monitoring và Backup
 
 
