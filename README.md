@@ -1,7 +1,7 @@
 # DeepFace: Hệ thống kiểm soát ra vào cửa và chấm công bằng khuôn mặt
 
 ## 1. Use case
-### Nhiệm vụ: Hệ thống kiểm soát ra vào cửa và thực hiện chấm công cho nhân viên bằng khuôn mặt trong thời gian thực
+*Nhiệm vụ*: Hệ thống kiểm soát ra vào cửa và thực hiện chấm công cho nhân viên bằng khuôn mặt trong thời gian thực
 ```
 Camera tại cửa chụp ảnh mặt nhân viên realtime 
 -> API Backend FastAPI tiếp nhận
@@ -20,10 +20,14 @@ Hệ thống nhận diện khuôn mặt nhân viên thông qua webcam realtime. 
 
 ## 2. Chức năng chính
 *Điểm danh cho nhân viên*: Tiếp nhận ảnh từ camera cửa, nhận diện khuôn mặt, kiểm tra quyền truy cập nhiều lớp (trạng thái tài khoản, quyền cá nhân, quyền phòng ban, khu vực, khung giờ) rồi mới quyết định mở cửa.
+
 *Đăng ký khuôn mặt cho nhân viên mới*: Hỗ trợ upload 1-3 ảnh cho một nhân viên, liên kết ảnh với dữ liệu nhân viên đã có. Celery Worker xử lý nền để: kiểm tra chất lượng ảnh (độ sáng, độ nhòe, số mặt), tính ArcFace embedding cho từng ảnh, và tính Vector đại diện trung bình (Average Embedding) cuối cùng.
+
 *Quản lý quyền truy cập cho nhân viên*: Cấp quyền truy cập theo cửa và khung giờ. Hỗ trợ cấp quyền riêng cho cá nhân hoặc kế thừa cho nguyên một phòng ban.
 *Quản trị nhân viên*: Tìm kiếm nhân viên nâng cao, khóa/ mở tài khoản, thêm/ xóa hoàn toàn nhân viên.
+
 *Xem lịch sử điểm danh*: Tra cứu nhật ký ra vào thời gian thực, sắp xếp theo thời gian mới nhất, hiển thị trạng thái (SUCCESS/DENIED) và lý do từ chối cụ thể.
+
 *Lưu trữ dữ liệu*: Lưu lịch sử vào PostgreSQL, lưu ảnh khuôn mặt gốc vào MinIO, lưu vector khuôn mặt vào Qdrant.
 ## 3. Kiến trúc
 
