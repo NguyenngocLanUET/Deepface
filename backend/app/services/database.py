@@ -178,8 +178,10 @@ class DBService:
             emp = db.query(Employee).filter(Employee.id == employee_id).first()
             door = db.query(Door).filter(Door.name == door_name).first()
             
-            if not emp: return False, "Nhân viên không tồn tại"
-            if not door: return False, "Cửa không tồn tại"
+            if not emp: 
+                return False, "Nhân viên không tồn tại"
+            if not door: 
+                return False, "Cửa không tồn tại"
             
             current_time = datetime.now().time()
 
@@ -200,6 +202,9 @@ class DBService:
                     return False, f"Ngoài giờ (Cho phép: {perm.allowed_start_time}-{perm.allowed_end_time})"
 
             return True, "Hợp lệ"
+        except Exception as e:
+            print(f"Lỗi check_access_permission: {str(e)}")
+            return False, f"Lỗi: {str(e)}"
         finally:
             db.close()
 
@@ -221,6 +226,10 @@ class DBService:
             db.add(new_log)
             db.commit()
             return new_log
+        except Exception as e:
+            print(f"Lỗi log_attendance: {str(e)}")
+            db.rollback()
+            return None
         finally:
             db.close()
 

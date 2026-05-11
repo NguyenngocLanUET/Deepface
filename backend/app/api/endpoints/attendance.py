@@ -1,6 +1,7 @@
 from fastapi import APIRouter, File, UploadFile, HTTPException
 from fastapi.responses import StreamingResponse
-import shutil, uuid, os, io, time
+from fastapi_cache import FastAPICache
+import shutil, uuid, os, io
 from datetime import date
 import pandas as pd
 
@@ -18,56 +19,112 @@ vector_db = VectorDBService()
 db_service = DBService()
 storage_service = StorageService()
 
-cooldown_cache = {}
 COOLDOWN_SECONDS = 60
 
 @router.post("/identify")
 async def identify(door_name: str, file: UploadFile = File(...)):
     temp_id = str(uuid.uuid4())
     temp_path = f"/tmp/{temp_id}.jpg"
-    with open(temp_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
     
     try:
-        embedding = vision_service.get_embedding(temp_path, detector='opencv') 
+        # Ghi file tạm
+        try:
+            with open(temp_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Lỗi tải file: {str(e)}")
+        
+        try:
+            embedding = vision_service.get_embedding(temp_path, detector='opencv')
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Lỗi trích xuất khuôn mặt: {str(e)}")
         
         if not embedding:
             return {"match": False, "message": "Không tìm thấy khuôn mặt", "open_door": False}
 
-        results = vector_db.search(embedding, collection_name=settings.COLLECTION_NAME)
+        try:
+            results = vector_db.search(embedding, collection_name=settings.COLLECTION_NAME)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Lỗi tìm kiếm Vector DB: {str(e)}")
         
         if not results or results[0].score < 0.45:
-            db_service.log_attendance(None, door_name, "DENIED", "Người lạ")
+            try:
+                db_service.log_attendance(None, door_name, "DENIED", "Người lạ")
+            except Exception as e:
+                print(f"Lỗi log attendance: {str(e)}")
             return {"match": False, "message": "Người lạ", "open_door": False, "score": results[0].score if results else 0}
 
         emp_id = int(results[0].id)
         
-        cache_key = f"{emp_id}_{door_name}"
-        current_time = time.time()
-        if cache_key in cooldown_cache:
-            if current_time - cooldown_cache[cache_key] < COOLDOWN_SECONDS:
-                user_info = db_service.get_employee_by_id(emp_id)
-                return {
-                    "match": True, 
-                    "employee_name": user_info["full_name"], 
-                    "employee_code": user_info["employee_code"],
-                    "open_door": True, 
-                    "message": "Đã ghi nhận (Cooldown)"
-                }
+        # Lấy thông tin nhân viên
+        try:
+            user_info = db_service.get_employee_by_id(emp_id)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Lỗi truy vấn DB: {str(e)}")
+        
+        if not user_info:
+            try:
+                db_service.log_attendance(emp_id, door_name, "DENIED", "Nhân viên không tồn tại")
+            except Exception as e:
+                print(f"Lỗi log attendance: {str(e)}")
+            return {"match": False, "message": "Nhân viên không tồn tại", "open_door": False}
+        
+        # COOLDOWN REDIS - Bảo vệ bằng try-catch
+        cache_key = f"cooldown_{emp_id}_{door_name}"
+        is_cooldown = False
+        
+        try:
+            redis_cache = FastAPICache.get_backend()
+            if redis_cache:
+                is_cooldown = await redis_cache.get(cache_key)
+        except Exception as e:
+            print(f"Cảnh báo: Redis không khả dụng - {str(e)}")
+        
+        if is_cooldown:
+            return {
+                "match": True, 
+                "employee_name": user_info["full_name"], 
+                "employee_code": user_info["employee_code"],
+                "open_door": True, 
+                "message": "Đã ghi nhận (Cooldown)"
+            }
 
-        user_info = db_service.get_employee_by_id(emp_id)
-        if not user_info or not user_info["is_active"]:
-            db_service.log_attendance(emp_id, door_name, "DENIED", "Tài khoản bị khóa")
+        # Kiểm tra tài khoản hoạt động
+        if not user_info.get("is_active", False):
+            try:
+                db_service.log_attendance(emp_id, door_name, "DENIED", "Tài khoản bị khóa")
+            except Exception as e:
+                print(f"Lỗi log attendance: {str(e)}")
             return {"match": False, "message": "Tài khoản bị khóa", "open_door": False}
 
-        is_allowed, msg = db_service.check_access_permission(emp_id, door_name)
+        # Kiểm tra quyền truy cập
+        try:
+            is_allowed, msg = db_service.check_access_permission(emp_id, door_name)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Lỗi kiểm tra quyền: {str(e)}")
         
+        # Upload ảnh snapshot
         snapshot_name = f"snapshots/{date.today()}/{temp_id}.jpg"
-        with open(temp_path, "rb") as f:
-            storage_service.upload_file(f, snapshot_name)
+        try:
+            with open(temp_path, "rb") as f:
+                storage_service.upload_file(f, snapshot_name)
+        except Exception as e:
+            print(f"Cảnh báo: Không tải ảnh lên Storage - {str(e)}")
+            snapshot_name = None
 
-        db_service.log_attendance(emp_id, door_name, "SUCCESS" if is_allowed else "DENIED", msg, snapshot_name)
-        cooldown_cache[cache_key] = current_time
+        # Log attendance
+        try:
+            db_service.log_attendance(emp_id, door_name, "SUCCESS" if is_allowed else "DENIED", msg, snapshot_name)
+        except Exception as e:
+            print(f"Lỗi log attendance: {str(e)}")
+        
+        # Lưu cooldown vào Redis
+        try:
+            redis_cache = FastAPICache.get_backend()
+            if redis_cache:
+                await redis_cache.set(cache_key, "1", expire=COOLDOWN_SECONDS)
+        except Exception as e:
+            print(f"Cảnh báo: Không lưu cooldown vào Redis - {str(e)}")
 
         return {
             "match": True,
@@ -76,22 +133,36 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             "open_door": is_allowed,
             "message": msg
         }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi không xác định: {str(e)}")
     finally:
-        if os.path.exists(temp_path): os.remove(temp_path)
+        if os.path.exists(temp_path): 
+            try:
+                os.remove(temp_path)
+            except Exception as e:
+                print(f"Cảnh báo: Không xóa file tạm - {str(e)}")
 
 @router.get("/history", response_model=List[AttendanceLogOut])
 async def get_history(limit: int = 100, employee_id: Optional[int] = None):
-    return db_service.get_attendance_history(limit, employee_id)
+    try:
+        return db_service.get_attendance_history(limit, employee_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi lấy lịch sử: {str(e)}")
 
 @router.get("/stats/monthly")
 async def get_monthly_stats(month: int, year: int):
-    data = db_service.get_monthly_report_data(month, year)
-    return {
-        "month": month,
-        "year": year,
-        "total_records": len(data),
-        "data": data
-    }
+    try:
+        data = db_service.get_monthly_report_data(month, year)
+        return {
+            "month": month,
+            "year": year,
+            "total_records": len(data),
+            "data": data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi lấy thống kê: {str(e)}")
 
 @router.get("/export/excel")
 async def export_attendance_excel(month: int, year: int):
@@ -100,19 +171,25 @@ async def export_attendance_excel(month: int, year: int):
         if not raw_data:
             raise HTTPException(status_code=404, detail="Không có dữ liệu trong tháng này")
 
-        df = pd.DataFrame(raw_data)
-        df.columns = ['ID Nhân viên', 'Họ Tên', 'Mã NV', 'Ngày', 'Giờ Vào', 'Giờ Ra cuối']
-        
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Attendance')
-        
-        output.seek(0)
+        try:
+            df = pd.DataFrame(raw_data)
+            # Giữ nguyên việc định dạng nếu trong hàm DB bạn không trả về trực tiếp dict đã đổi tên
+            df.columns = ['ID Nhân viên', 'Họ Tên', 'Mã NV', 'Ngày', 'Giờ Vào', 'Giờ Ra cuối']
+            
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False, sheet_name='Attendance')
+            
+            output.seek(0)
 
-        headers = {
-            'Content-Disposition': f'attachment; filename="Attendance_Report_{month}_{year}.xlsx"'
-        }
-        return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            headers = {
+                'Content-Disposition': f'attachment; filename="Attendance_Report_{month}_{year}.xlsx"'
+            }
+            return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Lỗi tạo file Excel: {str(e)}")
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi xuất file: {str(e)}")
