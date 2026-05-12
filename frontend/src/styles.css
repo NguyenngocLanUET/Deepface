@@ -663,6 +663,37 @@ button {
   color: var(--text-muted);
 }
 
+.user-history-profile {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+}
+
+.history-profile-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(88px, 1fr));
+  gap: 10px;
+}
+
+.history-profile-metrics article {
+  display: grid;
+  gap: 2px;
+  min-width: 88px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px solid #dbe6f0;
+  border-radius: 8px;
+}
+
+.history-profile-metrics span {
+  font-size: 11px;
+}
+
+.history-profile-metrics strong {
+  font-size: 18px;
+}
+
 .history-filter-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -706,6 +737,10 @@ button {
   margin-bottom: 18px;
 }
 
+.user-history-summary-grid {
+  margin-top: 4px;
+}
+
 .history-stat {
   display: flex;
   align-items: center;
@@ -727,6 +762,11 @@ button {
   font-size: 18px;
   line-height: 1;
   text-align: right;
+}
+
+.user-history-table th,
+.user-history-table td {
+  padding: 12px 10px;
 }
 
 .table-wrap {
@@ -917,6 +957,14 @@ td {
   .two-column,
   .admin-grid {
     grid-template-columns: 1fr;
+  }
+
+  .user-history-profile {
+    grid-template-columns: 1fr;
+  }
+
+  .history-profile-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

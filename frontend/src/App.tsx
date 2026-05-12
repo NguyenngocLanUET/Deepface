@@ -1405,7 +1405,7 @@ function HistoryPage({
           <h2>{isSelfView ? "Lịch sử chấm công của tôi" : "Lịch sử ra vào"}</h2>
           <p>
             {isSelfView
-              ? "Chỉ hiển thị lịch sử ra vào và chấm công của tài khoản đang đăng nhập."
+              ? "Xem lịch sử ra vào và chấm công của tài khoản đang đăng nhập."
               : "Log thành công/từ chối, lý do từ chối và đường dẫn snapshot nếu backend có lưu."}
           </p>
         </div>
@@ -1413,10 +1413,21 @@ function HistoryPage({
 
       <div className="history-toolbar">
         {isSelfView && (
-          <div className="history-profile">
-            <strong>{session.displayName}</strong>
-            <span>{selectedEmployee?.employee_code ?? `Mã nội bộ #${session.employeeId ?? "-"}`}</span>
-            <small>{workDays} ngày công trong phạm vi đang xem</small>
+          <div className="history-profile user-history-profile">
+            <div>
+              <strong>{session.displayName}</strong>
+              <span>{selectedEmployee?.employee_code ?? `Mã nội bộ #${session.employeeId ?? "-"}`}</span>
+            </div>
+            <div className="history-profile-metrics">
+              <article>
+                <span>Ngày công</span>
+                <strong>{workDays}</strong>
+              </article>
+              <article>
+                <span>Bản ghi</span>
+                <strong>{filteredHistory.length}</strong>
+              </article>
+            </div>
           </div>
         )}
 
@@ -1473,7 +1484,7 @@ function HistoryPage({
         </div>
       </div>
 
-      <div className="history-summary-grid">
+      <div className={isSelfView ? "history-summary-grid user-history-summary-grid" : "history-summary-grid"}>
         <article className="history-stat">
           <span>Tổng bản ghi</span>
           <strong>{filteredHistory.length}</strong>
@@ -1493,28 +1504,28 @@ function HistoryPage({
       </div>
 
       <div className="table-wrap">
-        <table>
+        <table className={isSelfView ? "user-history-table" : undefined}>
           <thead>
             <tr>
               <th>Thời gian</th>
-              <th>Nhân viên</th>
               <th>Cửa</th>
               <th>Trạng thái</th>
               <th>Lý do</th>
-              <th>Snapshot</th>
+              {!isSelfView && <th>Nhân viên</th>}
+              {!isSelfView && <th>Snapshot</th>}
             </tr>
           </thead>
           <tbody>
             {filteredHistory.map((item) => (
               <tr key={item.id}>
                 <td>{formatDateTime(item.checkin_at)}</td>
-                <td>{employeeName(item.employee_id)}</td>
                 <td>{doorName(item.door_id)}</td>
                 <td>
                   <StatusBadge status={item.status} />
                 </td>
                 <td>{item.reason ?? "-"}</td>
-                <td>{item.image_snapshot ?? "-"}</td>
+                {!isSelfView && <td>{employeeName(item.employee_id)}</td>}
+                {!isSelfView && <td>{item.image_snapshot ?? "-"}</td>}
               </tr>
             ))}
           </tbody>
