@@ -2,7 +2,8 @@ from fastapi import APIRouter, File, UploadFile, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi_cache import FastAPICache
 import shutil, uuid, os, io
-from datetime import date
+from datetime import date, datetime, time
+from zoneinfo import ZoneInfo
 import pandas as pd
 
 from app.services.vision import VisionService
@@ -20,6 +21,24 @@ db_service = DBService()
 storage_service = StorageService()
 
 COOLDOWN_SECONDS = 60
+WORK_START = time(9, 0)
+AFTERNOON_START = time(13, 30)
+VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+
+def get_vn_now() -> datetime:
+    return datetime.now(VN_TZ).replace(tzinfo=None)
+
+
+def build_attendance_message(checkin_time: time, is_allowed: bool, default_msg: str) -> str:
+    if not is_allowed:
+        return default_msg
+    if checkin_time < WORK_START:
+        return "Chấm công thành công"
+    if WORK_START <= checkin_time < AFTERNOON_START:
+        return "Chấm công thành công" if checkin_time == WORK_START else "Chấm công thành công (muộn)"
+    if checkin_time == AFTERNOON_START:
+        return "Chấm công thành công"
+    return "Chấm công thành công (muộn)"
 
 @router.post("/identify")
 async def identify(door_name: str, file: UploadFile = File(...)):
@@ -40,7 +59,7 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             raise HTTPException(status_code=500, detail=f"Lỗi trích xuất khuôn mặt: {str(e)}")
         
         if not embedding:
-            return {"match": False, "message": "Không tìm thấy khuôn mặt", "open_door": False}
+            return {"match": False, "message": "Không hợp lệ", "open_door": False}
 
         try:
             results = vector_db.search(embedding, collection_name=settings.COLLECTION_NAME)
@@ -112,9 +131,12 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             print(f"Cảnh báo: Không tải ảnh lên Storage - {str(e)}")
             snapshot_name = None
 
+        checkin_time = get_vn_now().time()
+        attendance_message = build_attendance_message(checkin_time, is_allowed, msg)
+
         # Log attendance
         try:
-            db_service.log_attendance(emp_id, door_name, "SUCCESS" if is_allowed else "DENIED", msg, snapshot_name)
+            db_service.log_attendance(emp_id, door_name, "SUCCESS" if is_allowed else "DENIED", attendance_message, snapshot_name)
         except Exception as e:
             print(f"Lỗi log attendance: {str(e)}")
         
@@ -131,7 +153,7 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             "employee_name": user_info["full_name"],
             "employee_code": user_info["employee_code"],
             "open_door": is_allowed,
-            "message": msg
+            "message": attendance_message
         }
     except HTTPException:
         raise

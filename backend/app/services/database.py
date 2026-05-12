@@ -3,6 +3,9 @@ from sqlalchemy import create_engine, func, cast, Date
 from app.models.models import Base, Employee, AttendanceLog, AccessPermission, Door, DepartmentPermission, Department
 import os
 from datetime import datetime, time
+from zoneinfo import ZoneInfo
+
+VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:123@db:5432/attendance")
 engine = create_engine(DATABASE_URL)
@@ -191,8 +194,6 @@ class DBService:
                 return False, "Nhân viên không tồn tại"
             if not door: 
                 return False, "Cửa không tồn tại"
-            
-            current_time = datetime.now().time()
 
             perm = db.query(AccessPermission).filter_by(
                 employee_id=employee_id, door_id=door.id
@@ -207,6 +208,7 @@ class DBService:
                 return False, "Không có quyền truy cập cửa này"
 
             if perm.allowed_start_time and perm.allowed_end_time:
+                current_time = datetime.now(VN_TZ).replace(tzinfo=None).time()
                 if not (perm.allowed_start_time <= current_time <= perm.allowed_end_time):
                     return False, f"Ngoài giờ (Cho phép: {perm.allowed_start_time}-{perm.allowed_end_time})"
 
