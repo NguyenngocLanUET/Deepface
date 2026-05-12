@@ -969,7 +969,6 @@ function EmployeesPage({
       <div className="section-heading">
         <div>
           <h2>Quản lý nhân viên</h2>
-          <p>Danh sách, tìm kiếm, khóa/mở tài khoản và xóa vector liên quan.</p>
         </div>
         <form className="search-box" onSubmit={(event) => void search(event)}>
           <Search size={17} />
@@ -1068,7 +1067,6 @@ function RegisterPage({
       <div className="section-heading">
         <div>
           <h2>Đăng ký khuôn mặt</h2>
-          <p>Backend nhận 1-5 ảnh, kiểm tra chất lượng, upload MinIO và đẩy job Celery.</p>
         </div>
       </div>
 
@@ -1131,7 +1129,6 @@ function DoorsPage({
         <div className="section-heading">
           <div>
             <h2>Thêm cửa</h2>
-            <p>Tên cửa phải trùng với `door_name` khi camera gửi yêu cầu nhận diện.</p>
           </div>
         </div>
         <form className="stack-form" onSubmit={(event) => void submit(event)}>
@@ -1198,7 +1195,6 @@ function DepartmentsPage({
         <div className="section-heading">
           <div>
             <h2>Thêm phòng ban</h2>
-            <p>Đăng ký nhân viên có thể tự tạo phòng ban theo tên, nhưng màn hình này giúp quản lý rõ hơn.</p>
           </div>
         </div>
         <form className="stack-form" onSubmit={(event) => void submit(event)}>
@@ -1279,7 +1275,6 @@ function PermissionsPage({
       <div className="section-heading">
         <div>
           <h2>Phân quyền ra vào</h2>
-          <p>Backend kiểm tra quyền cá nhân trước, nếu không có thì kiểm tra quyền phòng ban.</p>
         </div>
       </div>
 
@@ -1407,11 +1402,6 @@ function HistoryPage({
       <div className="section-heading">
         <div>
           <h2>{isSelfView ? "Lịch sử chấm công của tôi" : "Lịch sử ra vào"}</h2>
-          <p>
-            {isSelfView
-              ? "Xem lịch sử ra vào và chấm công của tài khoản đang đăng nhập."
-              : "Log thành công/từ chối, lý do từ chối và đường dẫn snapshot nếu backend có lưu."}
-          </p>
         </div>
       </div>
 
@@ -1420,7 +1410,6 @@ function HistoryPage({
           <div className="history-profile user-history-profile">
             <div>
               <strong>{session.displayName}</strong>
-              <span>{selectedEmployee?.employee_code ?? `Mã nội bộ #${session.employeeId ?? "-"}`}</span>
             </div>
             <div className="history-profile-metrics">
               <article>
@@ -1587,7 +1576,6 @@ function ReportsPage({
       <div className="section-heading">
         <div>
           <h2>Báo cáo chấm công</h2>
-          <p>Thống kê theo tháng và tải Excel từ endpoint backend.</p>
         </div>
         <form className="report-controls" onSubmit={(event) => void loadStats(event)}>
           <input min="1" max="12" type="number" value={month} onChange={(event) => setMonth(Number(event.target.value))} />
@@ -1667,7 +1655,6 @@ function AdminToolsPage({ onNotice }: { onNotice: (notice: Notice) => void }) {
         <div className="section-heading">
           <div>
             <h2>Nhập hàng loạt</h2>
-            <p>ZIP gồm metadata.json và ảnh nhân viên.</p>
           </div>
           <FileArchive size={22} />
         </div>
@@ -1686,7 +1673,6 @@ function AdminToolsPage({ onNotice }: { onNotice: (notice: Notice) => void }) {
         <div className="section-heading">
           <div>
             <h2>CSDL vector</h2>
-            <p>Yêu cầu backend tính toán lại vector nếu cần đồng bộ.</p>
           </div>
         </div>
         <button className="primary-button" onClick={() => void resync()} type="button">
@@ -1698,16 +1684,15 @@ function AdminToolsPage({ onNotice }: { onNotice: (notice: Notice) => void }) {
       <section className="panel">
         <div className="section-heading">
           <div>
-            <h2>Dọn log cũ</h2>
-            <p>Endpoint hiện trả thông báo, logic xóa thật có thể bổ sung sau.</p>
+            <h2>Xóa lịch sử ra vào</h2>
           </div>
         </div>
         <label className="field">
-          <span>Cũ hơn số ngày</span>
+          <span>Xóa bản ghi cũ hơn (ngày)</span>
           <input min="1" type="number" value={days} onChange={(event) => setDays(Number(event.target.value))} />
         </label>
         <button className="secondary-button danger" onClick={() => void clearLogs()} type="button">
-          Xóa log cũ
+          Xóa lịch sử
         </button>
       </section>
     </div>
