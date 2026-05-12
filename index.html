@@ -944,7 +944,7 @@
                     
                     const resBox = document.getElementById('scan-result');
                     resBox.style.display = 'block';
-                    document.getElementById('res-name').innerText = data.match ? data.employee_name : "UNKNOWN";
+                    document.getElementById('res-name').innerText = data.match ? data.employee_name : (data.message || "Không hợp lệ");
                     document.getElementById('res-msg').innerText = data.message;
                     
                     document.getElementById('cam-wrapper').className = data.open_door ? "camera-wrapper success" : "camera-wrapper denied";
