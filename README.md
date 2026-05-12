@@ -1,6 +1,9 @@
 # DeepFace: Hệ thống kiểm soát ra vào cửa và chấm công bằng khuôn mặt
+## 1. Kiến trúc
+<img width="7684" height="4924" alt="image" src="https://github.com/user-attachments/assets/6e9c50d5-b90d-4775-b43f-a090b7200751" />
 
-## 1. Use case
+
+## 3. Use case
 **Nhiệm vụ**: Hệ thống kiểm soát ra vào cửa và thực hiện chấm công cho nhân viên bằng khuôn mặt trong thời gian thực
 ```
 Camera tại cửa chụp ảnh mặt nhân viên realtime 
@@ -30,37 +33,6 @@ Hệ thống nhận diện khuôn mặt nhân viên thông qua webcam realtime. 
 
    - **Lưu trữ dữ liệu**: Lưu lịch sử vào PostgreSQL, lưu ảnh khuôn mặt gốc vào MinIO, lưu vector khuôn mặt vào Qdrant.
 
-## 3. Kiến trúc
-```mermaid
-graph TD
-
-    Client["Client App"]
-        -->|"Gửi yêu cầu xác minh / tìm kiếm"| API["FastAPI Server"]
-
-    API
-        -->|"Lưu dữ liệu có cấu trúc"| PostgreSQL[("PostgreSQL")]
-
-    API
-        -->|"Tìm kiếm / Xóa vector realtime"| Qdrant[("Qdrant Vector DB")]
-
-    API
-        -->|"Gửi tác vụ AI nền"| Redis[("Redis Message Broker")]
-
-    Redis
-        --> Worker["Celery AI Worker"]
-
-    Worker
-        -->|"Tải ảnh gốc"| MinIO[("MinIO Object Storage")]
-
-    Worker
-        -->|"Xử lý AI và tính vector đại diện"| DeepFace["ArcFace Model"]
-
-    Worker
-        -->|"Lưu / cập nhật vector"| Qdrant
-
-    API
-        -.->|"Upload ảnh đăng ký / snapshot"| MinIO
-```
 ## 4. Yêu cầu môi trường
 - Docker Desktop
 - Docker Compose
