@@ -1,6 +1,7 @@
 # DeepFace: Hệ thống kiểm soát ra vào cửa và chấm công bằng khuôn mặt
 ## 1. Kiến trúc
-<img width="7684" height="4924" alt="image" src="https://github.com/user-attachments/assets/6e9c50d5-b90d-4775-b43f-a090b7200751" />
+<img width="7684" height="4924" alt="image" src="https://github.com/user-attachments/assets/00117247-30f6-4aaa-91a5-65fe90423ae8" />
+
 
 
 ## 2. Chức năng chính
