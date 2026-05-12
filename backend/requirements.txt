@@ -17,3 +17,6 @@ fastapi-cache2[redis]             # Cache API
 prometheus-fastapi-instrumentator # Monitoring
 alembic                           # Migration Database 
 httpx                             # HTTP Client
+python-jose[cryptography]         # JWT authentication
+passlib[bcrypt]                   # Password hashing
+bcrypt                            # Bcrypt for password hashing

@@ -8,6 +8,15 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:123@db:5432/attenda
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# FastAPI dependency injection for database session
+def get_db():
+    """Get database session for FastAPI dependency injection"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 class DBService:
     def __init__(self):
         Base.metadata.create_all(bind=engine)
