@@ -669,9 +669,34 @@ button {
   gap: 12px;
 }
 
+.history-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.history-filter-grid .field {
+  gap: 5px;
+}
+
+.history-filter-grid .field input,
+.history-filter-grid .field select {
+  min-height: 36px;
+  padding: 7px 10px;
+  font-size: 14px;
+}
+
 .history-actions {
   display: flex;
   justify-content: flex-end;
+  align-self: end;
+}
+
+.history-actions .secondary-button {
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: 14px;
 }
 
 .history-summary-grid {
@@ -682,9 +707,11 @@ button {
 }
 
 .history-stat {
-  display: grid;
-  gap: 6px;
-  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
   background: #f8fafc;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
@@ -692,13 +719,14 @@ button {
 
 .history-stat span {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
 }
 
 .history-stat strong {
-  font-size: 28px;
+  font-size: 18px;
   line-height: 1;
+  text-align: right;
 }
 
 .table-wrap {
@@ -742,6 +770,23 @@ td {
   background: #f7f9fb;
   border: 1px solid #cfd9e3;
   border-radius: 8px;
+}
+
+.time-meridiem-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) minmax(78px, auto);
+  align-items: center;
+  gap: 8px;
+}
+
+.time-meridiem-picker span {
+  font-weight: 800;
+  color: #516174;
+  text-align: center;
+}
+
+.time-meridiem-picker select {
+  min-height: 42px;
 }
 
 .search-box input {
@@ -826,13 +871,26 @@ td {
   font-size: 36px;
 }
 
-.json-preview {
-  max-height: 420px;
-  overflow: auto;
-  padding: 16px;
-  color: #d7f7ee;
-  background: #132830;
-  border-radius: 8px;
+.report-table-wrap {
+  border: 1px solid #dfe7ef;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.report-table th,
+.report-table td {
+  white-space: nowrap;
+}
+
+.report-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f7f9fc;
+}
+
+.report-table tbody tr:hover {
+  background: #f9fcff;
 }
 
 .admin-grid {
@@ -853,6 +911,7 @@ td {
   .metrics-grid,
   .page-grid,
   .kiosk-layout,
+  .history-filter-bar,
   .history-filter-grid,
   .history-summary-grid,
   .two-column,

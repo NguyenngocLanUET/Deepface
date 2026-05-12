@@ -200,6 +200,117 @@ function EmptyState({ text }: { text: string }) {
   return <div className="empty-state">{text}</div>;
 }
 
+type AmPmTime = {
+  hour12: string;
+  minute: string;
+  meridiem: "AM" | "PM";
+};
+
+function formatReportValue(value: unknown) {
+  if (value === null || value === undefined || value === "") {
+    return "—";
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "Có" : "Không";
+  }
+
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+
+  return String(value);
+}
+
+function parse24HourTime(value: string): AmPmTime {
+  const [rawHour = "08", rawMinute = "00"] = value.split(":");
+  const hour24 = Number(rawHour);
+  const meridiem: "AM" | "PM" = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 || 12;
+
+  return {
+    hour12: String(hour12).padStart(2, "0"),
+    minute: rawMinute.padStart(2, "0"),
+    meridiem,
+  };
+}
+
+function to24HourTime({ hour12, minute, meridiem }: AmPmTime) {
+  let hour = Number(hour12) % 12;
+  if (meridiem === "PM") {
+    hour += 12;
+  }
+  return `${String(hour).padStart(2, "0")}:${minute}`;
+}
+
+function sanitizeTimePart(value: string, maxLength: number) {
+  return value.replace(/\D/g, "").slice(0, maxLength);
+}
+
+function clampTimePart(value: string, min: number, max: number, fallback: string) {
+  if (!value) {
+    return fallback;
+  }
+
+  const numericValue = Number(value);
+  if (Number.isNaN(numericValue)) {
+    return fallback;
+  }
+
+  return String(Math.min(max, Math.max(min, numericValue))).padStart(2, "0");
+}
+
+function TimeMeridiemField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: AmPmTime;
+  onChange: (value: AmPmTime) => void;
+}) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <div className="time-meridiem-picker">
+        <input
+          aria-label={`${label} giờ`}
+          inputMode="numeric"
+          maxLength={2}
+          value={value.hour12}
+          onBlur={() => onChange({ ...value, hour12: clampTimePart(value.hour12, 1, 12, "08") })}
+          onChange={(event) => onChange({ ...value, hour12: sanitizeTimePart(event.target.value, 2) })}
+          placeholder="08"
+          type="text"
+        />
+        <span>:</span>
+        <input
+          aria-label={`${label} phút`}
+          inputMode="numeric"
+          maxLength={2}
+          value={value.minute}
+          onBlur={() => onChange({ ...value, minute: clampTimePart(value.minute, 0, 59, "00") })}
+          onChange={(event) => onChange({ ...value, minute: sanitizeTimePart(event.target.value, 2) })}
+          placeholder="00"
+          type="text"
+        />
+        <select
+          aria-label={`${label} AM PM`}
+          value={value.meridiem}
+          onChange={(event) => onChange({ ...value, meridiem: event.target.value as "AM" | "PM" })}
+        >
+          <option value="AM">AM</option>
+          <option value="PM">PM</option>
+        </select>
+      </div>
+    </label>
+  );
+}
+
 function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -560,8 +671,7 @@ function DashboardPage({
       <section className="panel">
         <div className="section-heading">
           <div>
-            <h2>Log mới</h2>
-            <p>5 bản ghi gần nhất từ lịch sử ra vào.</p>
+            <h2>Lịch sử ra vào gần đây</h2>
           </div>
         </div>
         <div className="activity-list">
@@ -744,7 +854,14 @@ function KioskPage({
 
         <div className={cameraFrameClass}>
           <div className="camera-visual">
-            <video ref={camera.videoRef} muted playsInline />
+            <video
+              ref={camera.videoRef}
+              muted
+              playsInline
+              autoPlay
+              disablePictureInPicture
+              disableRemotePlayback
+            />
             <canvas ref={camera.canvasRef} hidden />
             {camera.faceBox && (
               <div className={camera.canSubmit ? "face-box ready" : "face-box"} style={faceBoxStyle}>
@@ -938,7 +1055,7 @@ function RegisterPage({
     setEmployeeCode("");
     setDepartmentName("");
     setFiles(null);
-    onNotice({ type: "success", text: "Đã gửi đăng ký, worker sẽ tạo vector khuôn mặt." });
+    onNotice({ type: "success", text: "Đã gửi đăng ký." });
     onRefresh();
   };
 
@@ -1130,8 +1247,8 @@ function PermissionsPage({
   const [employeeId, setEmployeeId] = useState(employees[0]?.id ?? 0);
   const [departmentId, setDepartmentId] = useState(departments[0]?.id ?? 0);
   const [doorId, setDoorId] = useState(doors[0]?.id ?? 0);
-  const [startTime, setStartTime] = useState("08:00");
-  const [endTime, setEndTime] = useState("17:30");
+  const [startTime, setStartTime] = useState<AmPmTime>(() => parse24HourTime("08:00"));
+  const [endTime, setEndTime] = useState<AmPmTime>(() => parse24HourTime("17:30"));
 
   useEffect(() => {
     if (!employeeId && employees[0]) setEmployeeId(employees[0].id);
@@ -1141,8 +1258,8 @@ function PermissionsPage({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const start = startTime ? `${startTime}:00` : undefined;
-    const end = endTime ? `${endTime}:00` : undefined;
+    const start = `${to24HourTime(startTime)}:00`;
+    const end = `${to24HourTime(endTime)}:00`;
 
     if (mode === "employee") {
       await api.setEmployeePermission(employeeId, doorId, start, end);
@@ -1211,14 +1328,8 @@ function PermissionsPage({
           </select>
         </label>
 
-        <label className="field">
-          <span>Từ giờ</span>
-          <input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
-        </label>
-        <label className="field">
-          <span>Đến giờ</span>
-          <input type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} />
-        </label>
+        <TimeMeridiemField label="Từ giờ" value={startTime} onChange={setStartTime} />
+        <TimeMeridiemField label="Đến giờ" value={endTime} onChange={setEndTime} />
 
         <button className="primary-button" type="submit">
           <ShieldCheck size={18} />
@@ -1309,54 +1420,56 @@ function HistoryPage({
           </div>
         )}
 
-        <div className="history-filter-grid">
-          <label className="field">
-            <span>Từ ngày</span>
-            <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
-          </label>
-          <label className="field">
-            <span>Đến ngày</span>
-            <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
-          </label>
-          {!isSelfView && (
+        <div className="history-filter-bar">
+          <div className="history-filter-grid">
             <label className="field">
-              <span>Nhân viên</span>
-              <select value={employeeFilter} onChange={(event) => setEmployeeFilter(event.target.value)}>
-                <option value="ALL">Tất cả nhân viên</option>
-                {employees.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.employee_code} - {employee.full_name}
+              <span>Từ ngày</span>
+              <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+            </label>
+            <label className="field">
+              <span>Đến ngày</span>
+              <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+            </label>
+            {!isSelfView && (
+              <label className="field">
+                <span>Nhân viên</span>
+                <select value={employeeFilter} onChange={(event) => setEmployeeFilter(event.target.value)}>
+                  <option value="ALL">Tất cả nhân viên</option>
+                  {employees.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.employee_code} - {employee.full_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <label className="field">
+              <span>Khu vực</span>
+              <select value={doorFilter} onChange={(event) => setDoorFilter(event.target.value)}>
+                <option value="ALL">Tất cả cửa</option>
+                {doors.map((door) => (
+                  <option key={door.id} value={door.id}>
+                    {door.name}
                   </option>
                 ))}
               </select>
             </label>
-          )}
-          <label className="field">
-            <span>Khu vực</span>
-            <select value={doorFilter} onChange={(event) => setDoorFilter(event.target.value)}>
-              <option value="ALL">Tất cả cửa</option>
-              {doors.map((door) => (
-                <option key={door.id} value={door.id}>
-                  {door.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Trạng thái</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              <option value="ALL">Tất cả trạng thái</option>
-              <option value="SUCCESS">Thành công</option>
-              <option value="DENIED">Từ chối</option>
-              <option value="UNKNOWN">Không xác định</option>
-            </select>
-          </label>
-        </div>
+            <label className="field">
+              <span>Trạng thái</span>
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                <option value="ALL">Tất cả trạng thái</option>
+                <option value="SUCCESS">Thành công</option>
+                <option value="DENIED">Từ chối</option>
+                <option value="UNKNOWN">Không xác định</option>
+              </select>
+            </label>
+          </div>
 
-        <div className="history-actions">
-          <button className="secondary-button" onClick={resetFilters} type="button">
-            Đặt lại bộ lọc
-          </button>
+          <div className="history-actions">
+            <button className="secondary-button" onClick={resetFilters} type="button">
+              Đặt lại bộ lọc
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1426,6 +1539,25 @@ function ReportsPage({
   const today = new Date();
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear] = useState(today.getFullYear());
+  const reportColumns = useMemo(() => {
+    if (!monthlyStats?.data.length) {
+      return [];
+    }
+
+    const seen = new Set<string>();
+    const orderedKeys: string[] = [];
+
+    for (const row of monthlyStats.data) {
+      for (const key of Object.keys(row)) {
+        if (!seen.has(key)) {
+          seen.add(key);
+          orderedKeys.push(key);
+        }
+      }
+    }
+
+    return orderedKeys;
+  }, [monthlyStats]);
 
   const loadStats = async (event: FormEvent) => {
     event.preventDefault();
@@ -1457,7 +1589,30 @@ function ReportsPage({
             <strong>{monthlyStats.total_records}</strong>
             <span>dòng dữ liệu trong tháng {monthlyStats.month}/{monthlyStats.year}</span>
           </div>
-          <pre className="json-preview">{JSON.stringify(monthlyStats.data, null, 2)}</pre>
+          {monthlyStats.data.length ? (
+            <div className="table-wrap report-table-wrap">
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    {reportColumns.map((column) => (
+                      <th key={column}>{column}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthlyStats.data.map((row, index) => (
+                    <tr key={`${String(row.employee_id ?? "row")}-${String(row.date ?? index)}-${index}`}>
+                      {reportColumns.map((column) => (
+                        <td key={`${index}-${column}`}>{formatReportValue(row[column])}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState text="Không có dữ liệu báo cáo trong khoảng thời gian đã chọn." />
+          )}
         </>
       ) : (
         <EmptyState text="Chọn tháng/năm và bấm Tải để xem báo cáo." />
