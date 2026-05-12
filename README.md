@@ -1,5 +1,6 @@
 # DeepFace: Hệ thống kiểm soát ra vào cửa và chấm công bằng khuôn mặt
-<img width="6524" height="4924" alt="image" src="https://github.com/user-attachments/assets/993ce713-1ae3-4da5-9297-933a0b9e2967" />
+<img width="7684" height="4924" alt="image" src="https://github.com/user-attachments/assets/6e9c50d5-b90d-4775-b43f-a090b7200751" />
+
 
 ## 1. Use case
 **Nhiệm vụ**: Hệ thống kiểm soát ra vào cửa và thực hiện chấm công cho nhân viên bằng khuôn mặt trong thời gian thực
