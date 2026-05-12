@@ -4,6 +4,26 @@ from datetime import datetime
 
 Base = declarative_base()
 
+class User(Base):
+    """Model để quản lý tài khoản đăng nhập - tách biệt với Employee"""
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, index=True, nullable=False)
+    email = Column(String(100), unique=True, index=True, nullable=False)
+    hashed_password = Column(String(255), nullable=False)
+    
+    # Liên kết với Employee (1 User có thể quản lý 1 hoặc nhiều Employee)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    employee = relationship("Employee", foreign_keys=[employee_id])
+    
+    # Quản lý quyền
+    is_active = Column(Boolean, default=True)
+    role = Column(String(20), default="user")  # "admin", "manager", "user"
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 class Employee(Base):
     __tablename__ = "employees"
 

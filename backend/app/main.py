@@ -7,7 +7,7 @@ from fastapi_cache.backends.redis import RedisBackend
 from redis import asyncio as aioredis
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from app.api.endpoints import employees, attendance, doors, departments, admin
+from app.api.endpoints import employees, attendance, doors, departments, admin, auth
 from app.services.vector_db import VectorDBService
 from app.services.storage import StorageService
 from app.core.config import settings
@@ -38,6 +38,9 @@ app.add_middleware(
 # ====================================================================
 # ĐĂNG KÝ ROUTER SONG SONG ĐỂ CHỐNG LỖI 404 TỪ FRONTEND
 # ====================================================================
+
+# 0. Authentication router (PHẢI đặt trước các router khác)
+app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
 
 # 1. Cấu hình nguyên bản của bạn (Giữ nguyên để không vỡ các API cũ)
 app.include_router(employees.router, prefix="/api/v1/employees", tags=["Employees_V1"])
