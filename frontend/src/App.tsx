@@ -492,7 +492,11 @@ function App() {
   const handleLogin = (nextSession: AppSession) => {
     setSession(nextSession);
     setActivePage(defaultPageByRole[nextSession.role]);
-    setNotice({ type: "success", text: `Đã đăng nhập bằng tài khoản ${nextSession.displayName}.` });
+    setNotice(
+      nextSession.role === "admin"
+        ? { type: "success", text: `Đã đăng nhập bằng tài khoản ${nextSession.displayName}.` }
+        : null,
+    );
   };
 
   const handleLogout = () => {
@@ -1484,24 +1488,26 @@ function HistoryPage({
         </div>
       </div>
 
-      <div className={isSelfView ? "history-summary-grid user-history-summary-grid" : "history-summary-grid"}>
-        <article className="history-stat">
-          <span>Tổng bản ghi</span>
-          <strong>{filteredHistory.length}</strong>
-        </article>
-        <article className="history-stat">
-          <span>Thành công</span>
-          <strong>{successCount}</strong>
-        </article>
-        <article className="history-stat">
-          <span>Từ chối</span>
-          <strong>{deniedCount}</strong>
-        </article>
-        <article className="history-stat">
-          <span>Ngày công</span>
-          <strong>{workDays}</strong>
-        </article>
-      </div>
+      {!isSelfView && (
+        <div className="history-summary-grid">
+          <article className="history-stat">
+            <span>Tổng bản ghi</span>
+            <strong>{filteredHistory.length}</strong>
+          </article>
+          <article className="history-stat">
+            <span>Thành công</span>
+            <strong>{successCount}</strong>
+          </article>
+          <article className="history-stat">
+            <span>Từ chối</span>
+            <strong>{deniedCount}</strong>
+          </article>
+          <article className="history-stat">
+            <span>Ngày công</span>
+            <strong>{workDays}</strong>
+          </article>
+        </div>
+      )}
 
       <div className="table-wrap">
         <table className={isSelfView ? "user-history-table" : undefined}>
