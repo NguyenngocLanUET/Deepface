@@ -1,4 +1,4 @@
-import {
+﻿import {
   BarChart3,
   Building2,
   Camera,
@@ -22,9 +22,10 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api/client";
 import { useCameraGate } from "./hooks/useCameraGate";
+import { useTinyFaceRegister } from "./hooks/useTinyFaceRegister";
 import type {
   AttendanceLog,
   Department,
@@ -64,6 +65,7 @@ type AppSession = {
 
 const SESSION_STORAGE_KEY = "faceaccess-session";
 const AUTO_CAPTURE_COOLDOWN_MS = 3000;
+const NOTICE_AUTO_HIDE_MS = 5000;
 
 const initialStats: SystemStats = {
   employees: 0,
@@ -131,6 +133,10 @@ function toDateInputValue(value: string) {
 function countDistinctDays(items: AttendanceLog[]) {
   return new Set(items.filter((item) => item.status === "SUCCESS").map((item) => toDateInputValue(item.checkin_at)))
     .size;
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 function readStoredSession() {
@@ -427,36 +433,40 @@ function App() {
     if (!session) return;
     if (showLoading) setLoading(true);
 
-    if (session.role === "user") {
-      const [doorResult, historyResult] = await Promise.all([
-        api.getDoors(),
-        api.getAttendanceHistory(1000, session.employeeId),
-      ]);
+    try {
+      if (session.role === "user") {
+        const [doorResult, historyResult] = await Promise.all([
+          api.getDoors(),
+          api.getAttendanceHistory(1000, session.employeeId),
+        ]);
 
-      setStats(initialStats);
-      setEmployees([]);
+        setStats(initialStats);
+        setEmployees([]);
+        setDoors(doorResult);
+        setDepartments([]);
+        setHistory(historyResult);
+        return;
+      }
+
+      const [statsResult, employeeResult, doorResult, departmentResult, historyResult] =
+        await Promise.all([
+          api.getSystemStats(),
+          api.getEmployees(),
+          api.getDoors(),
+          api.getDepartments(),
+          api.getAttendanceHistory(1000),
+        ]);
+
+      setStats(statsResult);
+      setEmployees(employeeResult);
       setDoors(doorResult);
-      setDepartments([]);
+      setDepartments(departmentResult);
       setHistory(historyResult);
+    } catch (error) {
+      setNotice({ type: "error", text: errorMessage(error, "Không thể tải dữ liệu từ backend.") });
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const [statsResult, employeeResult, doorResult, departmentResult, historyResult] =
-      await Promise.all([
-        api.getSystemStats(),
-        api.getEmployees(),
-        api.getDoors(),
-        api.getDepartments(),
-        api.getAttendanceHistory(1000),
-      ]);
-
-    setStats(statsResult);
-    setEmployees(employeeResult);
-    setDoors(doorResult);
-    setDepartments(departmentResult);
-    setHistory(historyResult);
-    setLoading(false);
   }, [session]);
 
   useEffect(() => {
@@ -464,6 +474,12 @@ function App() {
       void refreshCoreData(true);
     }
   }, [refreshCoreData, session]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), NOTICE_AUTO_HIDE_MS);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   const visibleNavItems = useMemo(() => {
     if (!session) return [];
@@ -731,15 +747,23 @@ function KioskPage({
 }) {
   const camera = useCameraGate();
   const [selectedDoor, setSelectedDoor] = useState(doors[0]?.name ?? "");
-  const [autoCapture, setAutoCapture] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<IdentifyResult | null>(null);
-  const lastSubmitAtRef = useRef(0);
   const clearResultTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!selectedDoor && doors[0]) setSelectedDoor(doors[0].name);
   }, [doors, selectedDoor]);
+
+  useEffect(() => {
+    void camera.start().catch((error) => {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể bật camera ra vào.") });
+    });
+
+    return () => {
+      camera.stop();
+    };
+  }, [camera.start, camera.stop, onNotice]);
 
   useEffect(
     () => () => {
@@ -750,58 +774,43 @@ function KioskPage({
     [],
   );
 
-  const submitFrame = useCallback(
-    async (source: "auto" | "manual" = "manual") => {
-      if (submitting) return;
+  const submitFrame = useCallback(async () => {
+    if (submitting) return;
 
-      if (!selectedDoor) {
-        if (source === "manual") {
-          onNotice({ type: "error", text: "Hãy tạo/chọn cửa trước khi nhận diện." });
-        }
-        return;
-      }
+    if (!selectedDoor) {
+      onNotice({ type: "error", text: "Hãy tạo/chọn cửa trước khi nhận diện." });
+      return;
+    }
 
-      if (!camera.canSubmit) {
-        if (source === "manual") {
-          onNotice({ type: "info", text: "Camera chưa thấy khuôn mặt ổn định để gửi backend." });
-        }
-        return;
-      }
+    if (!camera.canSubmit) {
+      onNotice({ type: "info", text: "Camera chưa thấy khuôn mặt ổn định để gửi backend." });
+      return;
+    }
 
-      const now = Date.now();
-      if (source === "auto" && now - lastSubmitAtRef.current < AUTO_CAPTURE_COOLDOWN_MS) {
-        return;
-      }
+    setSubmitting(true);
 
-      lastSubmitAtRef.current = now;
-      setSubmitting(true);
+    const blob = await camera.captureBlob();
+    if (!blob) {
+      setSubmitting(false);
+      onNotice({ type: "error", text: "Không chụp được ảnh từ camera." });
+      return;
+    }
 
-      const blob = await camera.captureBlob();
-      if (!blob) {
-        setSubmitting(false);
-        if (source === "manual") {
-          onNotice({ type: "error", text: "Không chụp được ảnh từ camera." });
-        }
-        return;
-      }
-
+    try {
       const identifyResult = await api.identify(selectedDoor, blob);
       setResult(identifyResult);
-      setSubmitting(false);
       onRefresh();
 
       if (clearResultTimerRef.current) {
         window.clearTimeout(clearResultTimerRef.current);
       }
       clearResultTimerRef.current = window.setTimeout(() => setResult(null), AUTO_CAPTURE_COOLDOWN_MS);
-    },
-    [camera, onNotice, onRefresh, selectedDoor, submitting],
-  );
-
-  useEffect(() => {
-    if (!autoCapture || !camera.canSubmit || submitting) return;
-    void submitFrame("auto");
-  }, [autoCapture, camera.canSubmit, camera.confidence, camera.stableFrames, submitFrame, submitting]);
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể gửi ảnh tới backend.") });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [camera, onNotice, onRefresh, selectedDoor, submitting]);
 
   const cameraFrameClass = [
     "camera-frame",
@@ -812,11 +821,6 @@ function KioskPage({
     .filter(Boolean)
     .join(" ");
 
-  const autoStatus = submitting
-    ? "Đang gửi ảnh cho backend"
-    : autoCapture
-      ? "Tự động gửi khi thấy khuôn mặt ổn định"
-      : "Đã tạm dừng gửi tự động";
   const confidencePercent = Math.round(camera.confidence * 100);
   const faceBoxStyle = camera.faceBox
     ? {
@@ -826,19 +830,6 @@ function KioskPage({
         height: `${camera.faceBox.height * 100}%`,
       }
     : undefined;
-
-  const manualSubmit = () => {
-    if (!selectedDoor) {
-      onNotice({ type: "error", text: "Hãy tạo/chọn cửa trước khi nhận diện." });
-      return;
-    }
-    if (!camera.canSubmit) {
-      onNotice({ type: "info", text: "Camera chưa thấy khuôn mặt ổn định để gửi backend." });
-      return;
-    }
-
-    void submitFrame("manual");
-  };
 
   return (
     <div className="kiosk-layout">
@@ -882,35 +873,17 @@ function KioskPage({
               <p>{result.message}</p>
             </div>
           )}
-          <div className="auto-capture-status">
-            <span className={autoCapture ? "status-dot active" : "status-dot"} />
-            {autoStatus}
-          </div>
         </div>
 
         <div className="camera-controls">
-          <button className="primary-button" onClick={() => void camera.start()} type="button">
-            <Camera size={18} />
-            Bật quét
-          </button>
-          <button className="secondary-button" onClick={camera.stop} type="button">
-            Tắt camera
-          </button>
-          <button
-            className={autoCapture ? "secondary-button active" : "secondary-button"}
-            onClick={() => setAutoCapture((current) => !current)}
-            type="button"
-          >
-            {autoCapture ? "Tự động: Bật" : "Tự động: Tắt"}
-          </button>
           <button
             className="primary-button accent"
             disabled={submitting || !camera.canSubmit}
-            onClick={manualSubmit}
+            onClick={() => void submitFrame()}
             type="button"
           >
             <Upload size={18} />
-            {submitting ? "Đang gửi..." : "Gửi thử"}
+            {submitting ? "Đang gửi..." : "Chụp để chấm công"}
           </button>
         </div>
 
@@ -946,19 +919,31 @@ function EmployeesPage({
 
   const search = async (event: FormEvent) => {
     event.preventDefault();
-    setRows(query.trim() ? await api.searchEmployees(query.trim()) : employees);
+    try {
+      setRows(query.trim() ? await api.searchEmployees(query.trim()) : employees);
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể tìm kiếm nhân viên.") });
+    }
   };
 
   const toggleStatus = async (employee: Employee) => {
-    await api.updateEmployeeStatus(employee.id, !employee.is_active);
-    onNotice({ type: "success", text: "Đã cập nhật trạng thái nhân viên." });
-    onRefresh();
+    try {
+      await api.updateEmployeeStatus(employee.id, !employee.is_active);
+      onNotice({ type: "success", text: "Đã cập nhật trạng thái nhân viên." });
+      onRefresh();
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật trạng thái nhân viên.") });
+    }
   };
 
   const deleteEmployee = async (employee: Employee) => {
-    await api.deleteEmployee(employee.id);
-    onNotice({ type: "success", text: `Đã gửi yêu cầu xóa ${employee.full_name}.` });
-    onRefresh();
+    try {
+      await api.deleteEmployee(employee.id);
+      onNotice({ type: "success", text: `Đã gửi yêu cầu xóa ${employee.full_name}.` });
+      onRefresh();
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể xóa nhân viên.") });
+    }
   };
 
   const departmentName = (id?: number | null) =>
@@ -1035,12 +1020,15 @@ function RegisterPage({
   const [fullName, setFullName] = useState("");
   const [employeeCode, setEmployeeCode] = useState("");
   const [departmentName, setDepartmentName] = useState("");
-  const [files, setFiles] = useState<FileList | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const registerCamera = useTinyFaceRegister();
+
+  const totalFiles = files.length;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!files || files.length < 1 || files.length > 5) {
+    if (totalFiles < 1 || totalFiles > 5) {
       onNotice({ type: "error", text: "Cần chọn từ 1 đến 5 ảnh khuôn mặt." });
       return;
     }
@@ -1049,17 +1037,48 @@ function RegisterPage({
     formData.append("full_name", fullName);
     formData.append("employee_code", employeeCode);
     formData.append("department_name", departmentName);
-    Array.from(files).forEach((file) => formData.append("files", file));
+    files.forEach((file) => formData.append("files", file));
 
     setSubmitting(true);
-    await api.registerEmployee(formData);
-    setSubmitting(false);
-    setFullName("");
-    setEmployeeCode("");
-    setDepartmentName("");
-    setFiles(null);
-    onNotice({ type: "success", text: "Đã gửi đăng ký." });
-    onRefresh();
+    try {
+      await api.registerEmployee(formData);
+      setFullName("");
+      setEmployeeCode("");
+      setDepartmentName("");
+      setFiles([]);
+      registerCamera.stop();
+      onNotice({ type: "success", text: "Đã gửi đăng ký." });
+      onRefresh();
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể đăng ký nhân viên.") });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files ?? []);
+    setFiles((current) => [...current, ...selectedFiles].slice(0, 5));
+    event.target.value = "";
+  };
+
+  const captureFromCamera = async () => {
+    if (files.length >= 5) {
+      onNotice({ type: "info", text: "Tối đa 5 ảnh cho một lần đăng ký." });
+      return;
+    }
+
+    try {
+      const capturedFile = await registerCamera.captureValidatedFace();
+      setFiles((current) => [...current, capturedFile].slice(0, 5));
+      onNotice({ type: "success", text: "Đã chụp ảnh từ camera và xác nhận có khuôn mặt." });
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể chụp ảnh khuôn mặt từ camera.") });
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index));
   };
 
   return (
@@ -1085,14 +1104,48 @@ function RegisterPage({
         </label>
         <label className="field file-field">
           <span>Ảnh khuôn mặt</span>
-          <input
-            accept="image/*"
-            multiple
-            type="file"
-            onChange={(event) => setFiles(event.target.files)}
-          />
-          <small>{files ? `${files.length} tệp đã chọn` : "Chọn 1 đến 5 ảnh rõ mặt"}</small>
+          <input accept="image/*" multiple type="file" onChange={onFileSelect} />
+          <small>{totalFiles ? `${totalFiles} ảnh đã thêm` : "Chọn hoặc chụp từ 1 đến 5 ảnh rõ mặt"}</small>
         </label>
+
+        <section className="register-camera-panel">
+          <div className="register-camera-header">
+            <strong>Chụp từ camera</strong>
+            <small>{registerCamera.message}</small>
+          </div>
+
+          <div className="register-camera-frame">
+            <video ref={registerCamera.videoRef} muted playsInline autoPlay />
+          </div>
+
+          <div className="camera-controls register-camera-controls">
+            <button className="secondary-button" onClick={() => void registerCamera.start()} type="button">
+              <Camera size={18} />
+              Bật camera
+            </button>
+            <button className="primary-button" onClick={() => void captureFromCamera()} type="button">
+              <Camera size={18} />
+              Chụp từ camera
+            </button>
+            <button className="secondary-button" onClick={registerCamera.stop} type="button">
+              Tắt camera
+            </button>
+          </div>
+
+          {files.length > 0 && (
+            <div className="capture-file-list">
+              {files.map((file, index) => (
+                <article className="capture-file-chip" key={`${file.name}-${index}`}>
+                  <span>{file.name}</span>
+                  <button onClick={() => removeFile(index)} type="button">
+                    Xóa
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
         <button className="primary-button" disabled={submitting} type="submit">
           <UserPlus size={18} />
           {submitting ? "Đang gửi..." : "Đăng ký nhân viên"}
@@ -1116,11 +1169,15 @@ function DoorsPage({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    await api.createDoor({ name, description });
-    setName("");
-    setDescription("");
-    onNotice({ type: "success", text: "Đã tạo cửa/khu vực." });
-    onRefresh();
+    try {
+      await api.createDoor({ name, description });
+      setName("");
+      setDescription("");
+      onNotice({ type: "success", text: "Đã tạo cửa/khu vực." });
+      onRefresh();
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể tạo cửa/khu vực.") });
+    }
   };
 
   return (
@@ -1183,10 +1240,14 @@ function DepartmentsPage({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    await api.createDepartment(name);
-    setName("");
-    onNotice({ type: "success", text: "Đã tạo phòng ban." });
-    onRefresh();
+    try {
+      await api.createDepartment(name);
+      setName("");
+      onNotice({ type: "success", text: "Đã tạo phòng ban." });
+      onRefresh();
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể tạo phòng ban.") });
+    }
   };
 
   return (
@@ -1261,13 +1322,17 @@ function PermissionsPage({
     const start = `${to24HourTime(startTime)}:00`;
     const end = `${to24HourTime(endTime)}:00`;
 
-    if (mode === "employee") {
-      await api.setEmployeePermission(employeeId, doorId, start, end);
-    } else {
-      await api.setDepartmentPermission(departmentId, doorId, start, end);
-    }
+    try {
+      if (mode === "employee") {
+        await api.setEmployeePermission(employeeId, doorId, start, end);
+      } else {
+        await api.setDepartmentPermission(departmentId, doorId, start, end);
+      }
 
-    onNotice({ type: "success", text: "Đã cập nhật quyền truy cập." });
+      onNotice({ type: "success", text: "Đã cập nhật quyền truy cập." });
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật quyền truy cập.") });
+    }
   };
 
   return (
@@ -1567,8 +1632,12 @@ function ReportsPage({
 
   const loadStats = async (event: FormEvent) => {
     event.preventDefault();
-    setMonthlyStats(await api.getMonthlyStats(month, year));
-    onNotice({ type: "success", text: "Đã tải báo cáo tháng." });
+    try {
+      setMonthlyStats(await api.getMonthlyStats(month, year));
+      onNotice({ type: "success", text: "Đã tải báo cáo tháng." });
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể tải báo cáo tháng.") });
+    }
   };
 
   return (
@@ -1590,10 +1659,6 @@ function ReportsPage({
 
       {monthlyStats ? (
         <>
-          <div className="report-summary">
-            <strong>{monthlyStats.total_records}</strong>
-            <span>dòng dữ liệu trong tháng {monthlyStats.month}/{monthlyStats.year}</span>
-          </div>
           {monthlyStats.data.length ? (
             <div className="table-wrap report-table-wrap">
               <table className="report-table">
@@ -1635,18 +1700,30 @@ function AdminToolsPage({ onNotice }: { onNotice: (notice: Notice) => void }) {
       onNotice({ type: "error", text: "Hãy chọn file ZIP có metadata.json." });
       return;
     }
-    const result = await api.bulkImport(zipFile);
-    onNotice({ type: "success", text: result.message });
+    try {
+      const result = await api.bulkImport(zipFile);
+      onNotice({ type: "success", text: result.message });
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể nhập dữ liệu hàng loạt.") });
+    }
   };
 
   const resync = async () => {
-    const result = await api.resyncVectors();
-    onNotice({ type: "info", text: result.message });
+    try {
+      const result = await api.resyncVectors();
+      onNotice({ type: "info", text: result.message });
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể đồng bộ lại vector.") });
+    }
   };
 
   const clearLogs = async () => {
-    const result = await api.clearLogs(days);
-    onNotice({ type: "info", text: result.message });
+    try {
+      const result = await api.clearLogs(days);
+      onNotice({ type: "info", text: result.message });
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể xóa lịch sử ra vào.") });
+    }
   };
 
   return (
