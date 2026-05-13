@@ -16,30 +16,13 @@
 
    - **Lưu trữ dữ liệu**: Lưu lịch sử vào PostgreSQL, lưu ảnh khuôn mặt gốc vào MinIO, lưu vector khuôn mặt vào Qdrant.
 
-## 3. Use case
-**Nhiệm vụ**: Hệ thống kiểm soát ra vào cửa và thực hiện chấm công cho nhân viên bằng khuôn mặt trong thời gian thực
-```
-Camera tại cửa chụp ảnh mặt nhân viên realtime 
--> API Backend FastAPI tiếp nhận
--> Trích xuất Embedding khuôn mặt (DeepFace - ArcFace Model)
--> Tìm kiếm khuôn mặt tương tự trong Vector DB (Qdrant) với ngưỡng score > 0.5
--> Nhận diện ID nhân viên 
--> Kiểm tra logic quyền truy cập (PostgreSQL):
-     1. Tài khoản có Active (is_active) không?
-     2. Cấp quyền theo thứ tự ưu tiên: cá nhân -> phòng ban
-     3. Khung giờ: Giờ hiện tại nằm trong [allowed_start_time, allowed_end_time]
--> Trả về kết quả JSON: Kết quả match, employee_name, thông báo open_door và message cụ thể.
--> Lưu lịch sử nhận diện, ảnh snapshot và kết quả kiểm tra vào PostgreSQL (trạng thái SUCCESS/DENIED + lý do).
-```
-Hệ thống nhận diện khuôn mặt nhân viên thông qua webcam realtime. ✨ Chỉnh sửa lại câu này: Dự án được thiết kế theo yêu cầu đồ án: có frontend nhân viên, frontend quản trị viên, backend, database, object storage, vector database, queue, Nginx reverse proxy, Docker Compose, monitoring và tài liệu tái hiện.
-
-## 4. Yêu cầu môi trường
+## 3. Yêu cầu môi trường
 - Docker Desktop
 - Docker Compose
 - Phần cứng ✨
 - Hệ điều hành: đã được thử nghiệm trên Windows
 
-## 5. Tài khoản mặc định✨
+## 4. Tài khoản mặc định✨
 ```
 Admin:
 username: admin
@@ -50,15 +33,15 @@ username: user
 password: user123
 ```
 Các giá trị này nằm trong `.env` và có thể đổi trước khi chạy.
-## 6. Model AI và Dataset
+## 5. Model AI và Dataset
 
-### 6.1. Model AI ✨
+### 5.1. Model AI ✨
 Hệ thống sử dụng thư viện DeepFace với cấu hình tối ưu để đảm bảo độ chính xác:
 - Mô hình Nhận diện: ArcFace (trội hơn về khả năng nhận diện góc nghiêng và ánh sáng phức tạp, vector 512 dims).
 - Mô hình Phát hiện khuôn mặt: retinaface (mạnh nhất để detect và align khuôn mặt).
 - Normalization: "base".
 - Chuẩn hóa Vector: Vector cuối cùng luôn được chuẩn hóa L2 100% trong VisionService.get_embedding
-### 6.2. Dataset
+### 5.2. Dataset
    Dự án này sử dụng bộ dữ liệu ** [SCface (Surveillance Cameras Face Database)](https://scface.org/)** đã chỉnh sửa cho phù hợp dự án để thử nghiệm và đánh giá pipeline nhận diện khuôn mặt.
    
    Cấu trúc dữ liệu sử dụng trong dự án: ✨ % Chỉnh sửa thêm tên của file
@@ -68,7 +51,7 @@ Hệ thống sử dụng thư viện DeepFace với cấu hình tối ưu để 
 ```
 Cấu trúc database
 ```
-## 7. Cách chạy ✨
+## 6. Cách chạy ✨
    1. Kiểm tra file `.env`. Có thể tạo lại từ `.env.example` nếu cần.
    2. Build và chạy toàn bộ stack:
       ```
@@ -94,9 +77,9 @@ Cấu trúc database
    ```
    docker compose down
    ```
-## 8. Các luồng dữ liệu chính
+## 7. Các luồng dữ liệu chính
 
-### 8.1. Luồng xác minh
+### 7.1. Luồng xác minh
 ```
 Quản trị viên gửi ảnh + tên cửa
 -> backend FastAPI tiếp nhận, lưu tạm ảnh
@@ -115,7 +98,7 @@ POST /attendance/identify?door_name=<string>
 Content-Type: multipart/form-data
 file=<image_binary>
 ```
-### 8.2. Luồng đăng ký khuôn mặt nhân viên mới 
+### 7.2. Luồng đăng ký khuôn mặt nhân viên mới 
 
 ```
 Admin nhập thông tin + upload 3 ảnh
@@ -139,7 +122,7 @@ full_name=<string>
 employee_code=<string>
 department_id=<int>
 ```
-### 8.3. Luồng upload ảnh ✨
+### 7.3. Luồng upload ảnh ✨
 
 ```
 User chọn ảnh
@@ -160,7 +143,7 @@ Authorization: Bearer <token>
 Content-Type: multipart/form-data
 file=<image>
 ```
-### 8.4. Luồng webcam realtime ✨
+### 7.4. Luồng webcam realtime ✨
 
 ```
 Trình duyệt lấy webcam
@@ -171,24 +154,7 @@ Trình duyệt lấy webcam
 ```
 Webcam yêu cầu chạy trên `localhost` hoặc HTTPS. URL `http://localhost:8080/user/` đáp ứng điều kiện này.
 
-## 9. Huấn luyện YOLO detector✨
-Dataset detection đã ở format YOLO. File cấu hình nằm tại:
-```
-training/detection_data.yaml
-```
-Chạy train trên máy có đủ Python package hoặc trong môi trường riêng:
-```
-python scripts/train_detector.py
-```
-Sau khi train, copy weight tốt nhất thành:
-```
-models/detector.pt
-```
-Rồi restart inference-service:
-```
-docker compose restart inference-service
-```
-## 10. API chính
+## 8. API chính
 Attendance (Xác minh và điểm danh)
 ```
 POST /attendance/identify
