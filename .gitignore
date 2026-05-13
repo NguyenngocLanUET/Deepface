@@ -1,8 +1,7 @@
-# DVC
-/data
-*.dvc
-.dvc/tmp/
-/dvc.lock
+# Data and model artifacts
+/data/raw/             # Dữ liệu thô lớn, không lưu vào Git
+/data/processed/       # Dữ liệu đã xử lý, không lưu vào Git
+/models/               # Model và artifact lớn, không lưu vào Git
 
 # Python
 __pycache__/
