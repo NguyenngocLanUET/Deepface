@@ -38,15 +38,27 @@ Hệ thống nhận diện khuôn mặt nhân viên thông qua webcam realtime. 
 - Docker Compose
 - Phần cứng ✨
 - Hệ điều hành: đã được thử nghiệm trên Windows
-## 5. Model AI và Dataset
 
-### 5.1. Model AI ✨
+## 5. Tài khoản mặc định✨
+```
+Admin:
+username: admin
+password: admin123
+
+User:
+username: user
+password: user123
+```
+Các giá trị này nằm trong `.env` và có thể đổi trước khi chạy.
+## 6. Model AI và Dataset
+
+### 6.1. Model AI ✨
 Hệ thống sử dụng thư viện DeepFace với cấu hình tối ưu để đảm bảo độ chính xác:
 - Mô hình Nhận diện: ArcFace (trội hơn về khả năng nhận diện góc nghiêng và ánh sáng phức tạp, vector 512 dims).
 - Mô hình Phát hiện khuôn mặt: retinaface (mạnh nhất để detect và align khuôn mặt).
 - Normalization: "base".
 - Chuẩn hóa Vector: Vector cuối cùng luôn được chuẩn hóa L2 100% trong VisionService.get_embedding
-### 5.2. Dataset
+### 6.2. Dataset
    Dự án này sử dụng bộ dữ liệu ** [SCface (Surveillance Cameras Face Database)](https://scface.org/)** đã chỉnh sửa cho phù hợp dự án để thử nghiệm và đánh giá pipeline nhận diện khuôn mặt.
    
    Cấu trúc dữ liệu sử dụng trong dự án: ✨ % Chỉnh sửa thêm tên của file
@@ -56,12 +68,35 @@ Hệ thống sử dụng thư viện DeepFace với cấu hình tối ưu để 
 ```
 Cấu trúc database
 ```
+## 7. Cách chạy ✨
+   1. Kiểm tra file `.env`. Có thể tạo lại từ `.env.example` nếu cần.
+   2. Build và chạy toàn bộ stack:
+      ```
+      docker compose up -d --build
+      ```
+   3. Mở các URL:
+      ```
+      User frontend:  http://localhost:8080/user/
+      Admin frontend: http://localhost:8080/admin/
+      Backend docs:   http://localhost:8002/docs
+      MinIO console:  http://localhost:9003
+      Grafana:        http://localhost:3001
+      Prometheus:     http://localhost:9090
+      Qdrant:         http://localhost:6333/dashboard
+      ```
+   4. Xem log:
+   ```
+   docker compose logs -f backend
+   docker compose logs -f inference-service
+   docker compose logs -f worker
+   ```
+   5. Dừng hệ thống
+   ```
+   docker compose down
+   ```
+## 8. Các luồng dữ liệu chính
 
-## 6. Cách chạy
-
-## 7. Các luồng dữ liệu chính
-
-### 7.1. Luồng xác minh
+### 8.1. Luồng xác minh
 ```
 Quản trị viên gửi ảnh + tên cửa
 -> backend FastAPI tiếp nhận, lưu tạm ảnh
@@ -80,7 +115,7 @@ POST /attendance/identify?door_name=<string>
 Content-Type: multipart/form-data
 file=<image_binary>
 ```
-### 7.2. Luồng đăng ký khuôn mặt nhân viên mới 
+### 8.2. Luồng đăng ký khuôn mặt nhân viên mới 
 
 ```
 Admin nhập thông tin + upload 3 ảnh
@@ -104,7 +139,56 @@ full_name=<string>
 employee_code=<string>
 department_id=<int>
 ```
-## 8. API chính
+### 8.3. Luồng upload ảnh ✨
+
+```
+User chọn ảnh
+-> backend lưu ảnh gốc vào MinIO
+-> inference-service detect biển số
+-> crop từng biển số
+-> OCR và chuẩn hóa định dạng biển số Việt Nam
+-> vẽ bbox + số thứ tự + biển số lên ảnh output
+-> backend lưu ảnh output vào MinIO
+-> backend lưu event vào PostgreSQL
+-> backend upsert embedding vào Qdrant
+-> frontend hiển thị ảnh output và bảng kết quả
+```
+API chính
+```
+POST /api/recognize/image
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+file=<image>
+```
+### 8.4. Luồng webcam realtime ✨
+
+```
+Trình duyệt lấy webcam
+-> gửi frame JPEG qua WebSocket /ws/recognize/live
+-> backend gọi inference-service
+-> lưu snapshot/event nếu có kết quả
+-> frontend hiển thị frame annotated gần nhất
+```
+Webcam yêu cầu chạy trên `localhost` hoặc HTTPS. URL `http://localhost:8080/user/` đáp ứng điều kiện này.
+
+## 9. Huấn luyện YOLO detector✨
+Dataset detection đã ở format YOLO. File cấu hình nằm tại:
+```
+training/detection_data.yaml
+```
+Chạy train trên máy có đủ Python package hoặc trong môi trường riêng:
+```
+python scripts/train_detector.py
+```
+Sau khi train, copy weight tốt nhất thành:
+```
+models/detector.pt
+```
+Rồi restart inference-service:
+```
+docker compose restart inference-service
+```
+## 10. API chính
 Attendance (Xác minh và điểm danh)
 ```
 POST /attendance/identify
@@ -135,8 +219,11 @@ System (Hệ thống)
 ```
 GET /health
 ```
-## 9. Monitoring và Backup
-
-
-
+## 11. Monitoring và Backup
 raw backend: https://graffiti-fit-error.ngrok-free.dev/docs
+## 12. GitHub private repo
+## 13. Ghi chú triển khai CPU
+- Giảm kích thước frame webcam trước khi gửi backend.
+- Sampling webcam mặc định khoảng 1 frame / 1.2 giây.
+- Video batch sample mỗi khoảng 1.5 giây.
+- Khi có model YOLO custom nhỏ như YOLO nano, CPU sẽ ổn định hơn baseline OpenCV/EasyOCR.
