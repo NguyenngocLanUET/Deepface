@@ -1,0 +1,35 @@
+stages:
+  prepare_data:
+    cmd: python scripts/prepare_data.py
+    deps:
+      - data/raw
+      - scripts/prepare_data.py
+    outs:
+      - data/processed:
+          cache: true
+    metrics:
+      - data/metrics.json:
+          cache: false
+
+  train_model:
+    cmd: python scripts/train_model.py
+    deps:
+      - data/processed
+      - scripts/train_model.py
+      - backend/app/services/vision.py
+    outs:
+      - models/face_embedding_model:
+          cache: true
+    metrics:
+      - models/train_metrics.json:
+          cache: false
+
+  validate:
+    cmd: python scripts/validate_model.py
+    deps:
+      - models/face_embedding_model
+      - data/processed
+      - scripts/validate_model.py
+    metrics:
+      - models/validation_metrics.json:
+          cache: false
