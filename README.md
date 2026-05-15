@@ -38,8 +38,9 @@ User --> webcam / image / video
 ## 3. Yêu cầu môi trường
 - Docker Desktop
 - Docker Compose
-- Phần cứng ✨
-- Hệ điều hành: đã được thử nghiệm trên Windows
+- Phần cứng: CPU tối thiểu 4 Cores, ưu tiên CPU có hỗ trợ lệnh AVX2 để tăng tốc độ xử lý, RAM tối thiểu 12GB.
+- Hệ điều hành: đã được thử nghiệm trên Windows.
+- Network: cần có kết nối Internet trong lần đầu tiên chạy.
 
 ## 4. Tài khoản mặc định✨
 ```
@@ -62,13 +63,24 @@ Hệ thống sử dụng thư viện DeepFace với cấu hình tối ưu để 
 - Chuẩn hóa Vector: Vector cuối cùng luôn được chuẩn hóa L2 100% trong VisionService.get_embedding
 ### 5.2. Dataset
    Dự án này sử dụng bộ dữ liệu ** [SCface (Surveillance Cameras Face Database)](https://scface.org/)** đã chỉnh sửa cho phù hợp dự án để thử nghiệm và đánh giá pipeline nhận diện khuôn mặt.
-   
-   Cấu trúc dữ liệu sử dụng trong dự án: ✨ % Chỉnh sửa thêm tên của file
-   - Dữ liệu ảnh upload để làm ảnh gốc ✨ : Chứa ảnh của 130 nhân viên theo ba góc: góc chính diện, góc lệch trái và góc lệch phải
-   - Sử dụng ảnh chụp từ 4 camera giám sát với 3 khoảng cách khác nhau để thực hiện luồng xác minh tại cửa để mô phỏng ảnh chụp realtime từ camera ở cửa.
+   Source: 
+   Cấu trúc dữ liệu sử dụng trong dự án:
+   - Dữ liệu thông tin của nhân viên `employees.json`: bao gồm mã nhân viên, họ và tên, phòng ban, chức vụ, liên hệ, trạng thái làm việc, trạng thái cập nhật ảnh xác minh
+   - Dữ liệu ảnh upload để làm ảnh gốc `mugshot_frontal_cropped_all` : Chứa ảnh của 130 nhân viên theo ba góc: góc chính diện, góc lệch trái và góc lệch phải
+   - `surveillance_cameras_distance_1`, `surveillance_cameras_distance_2`, `surveillance_cameras_distance_3`chứa ảnh chụp từ 3 khoảng cách khác nhau vơi 4 camera giám sát để thực hiện luồng xác minh tại cửa để mô phỏng ảnh chụp realtime từ camera ở cửa.
 
 ```
 Cấu trúc database
+database/
+├── employees.json
+└── Images/
+    ├── Fail/
+    ├── mugshot_frontal_cropped_all/
+    ├── mugshot_rotation_all/
+    ├── surveillance_cameras_distance_1/
+    ├── surveillance_cameras_distance_2/
+    ├── surveillance_cameras_distance_3/
+    └── Readme.txt 
 ```
 ## 6. Cách chạy ✨
    1. Kiểm tra file `.env`. Có thể tạo lại từ `.env.example` nếu cần.
