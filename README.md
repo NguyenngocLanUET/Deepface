@@ -90,13 +90,13 @@ database/
       ```
    3. Mở các URL:
       ```
-  *   **User/Admin Frontend:**
-  *   **Backend API Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
-  *   **Public API (Ngrok):** [https://graffiti-fit-error.ngrok-free.dev/docs](https://graffiti-fit-error.ngrok-free.dev/docs)
-  *   **MinIO Console:** [http://localhost:9001](http://localhost:9001)
-  *   **Grafana Dashboard:** [http://localhost:3000](http://localhost:3000)
-  *   **Prometheus:** [http://localhost:9090](http://localhost:9090)
-  *   **Qdrant Dashboard:** [http://localhost:6333/dashboard](http://localhost:6333/dashboard)
+  User/Admin Frontend:
+  Backend API Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+  Public API (Ngrok): [https://graffiti-fit-error.ngrok-free.dev/docs](https://graffiti-fit-error.ngrok-free.dev/docs)
+  MinIO Console: [http://localhost:9001](http://localhost:9001)
+  Grafana: [http://localhost:3000](http://localhost:3000)
+  Prometheus: [http://localhost:9090](http://localhost:9090)
+  Qdrant Dashboard: [http://localhost:6333/dashboard](http://localhost:6333/dashboard)
       ```
    4. Xem log:
    ```
