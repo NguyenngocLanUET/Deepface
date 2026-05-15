@@ -3,25 +3,24 @@
 
 <img width="7524" height="4932" alt="image" src="https://github.com/user-attachments/assets/88ac4d65-9597-44ec-8e7c-6aa2b1e6eaf9" />
 <pre>
-Developer --> GitHub <--> GitHub Actions --> CI/CD --> Docker Containers --> Ngrok Tunnel --> Nginx Reverse Proxy (:8080)
-                                                                                                      |
-        +---------------------------+---------------------------+--------------------------------------+
-        |                           |                           |
-        v                           v                           v
- frontend-user                frontend-admin                  FastAPI
- (Vite + React)               (Vite + React)                    |
-                                                                +--> DeepFace         (face recognition)
-                                                                +--> PostgreSQL       (users, cameras, events, configs, face_records)
-                                                                +--> Qdrant           (face embeddings, vector search)
-                                                                +--> Redis            (cache, message queue)
-                                                                +--> Worker Queue     (async/video/detection jobs)
-                                                                +--> MinIO            (images, videos, snapshots)
-                                                                +--> Prometheus       (metrics)
-                                                                +--> Grafana          (dashboards)
-
-User --> webcam / image / video
+Trình duyệt / Camera --> GitHub Actions (CI/CD) --> Docker Containers
+                                                          |
+                 +----------------------------------------+------------------------------------------+
+                 |                                                                                   |
+          Frontend (Vite + React)                                                            Ngrok Tunnel (Public URL)
+          (User / Admin Portal)                                                                      |
+                 |                                                                                   |
+                 v                                                                                   v
+          FastAPI (Backend) <------------------------------------------------------------------------+
+                 |
+                 +--> AI Engine (DeepFace/OpenCV)   (Trích xuất đặc trưng khuôn mặt)
+                 +--> PostgreSQL                    (Lưu thông tin NV, Cửa, Lịch sử, Cấu hình)
+                 +--> Qdrant (Vector DB)            (Lưu trữ face embeddings, search similarity)
+                 +--> Redis                         (Cache, Anti-spam Cooldown, Message Broker)
+                 +--> Celery Worker                 (Đăng ký khuôn mặt, Bulk import, tính trung bình vector)
+                 +--> MinIO (S3 Compatible)         (Lưu trữ ảnh gốc, ảnh chụp)
+                 +--> Prometheus & Grafana          (Theo dõi tài nguyên hệ thống, Logs)
 </pre>
-
 ## 2. Chức năng chính
    - **Điểm danh cho nhân viên**: Tiếp nhận ảnh từ camera cửa, nhận diện khuôn mặt, kiểm tra quyền truy cập nhiều lớp (trạng thái tài khoản, quyền cá nhân, quyền phòng ban, khu vực, khung giờ) rồi mới quyết định mở cửa.
 
@@ -42,7 +41,8 @@ User --> webcam / image / video
 - Hệ điều hành: đã được thử nghiệm trên Windows.
 - Network: cần có kết nối Internet trong lần đầu tiên chạy.
 
-## 4. Tài khoản mặc định✨
+## 4. Tài khoản mặc định
+Hệ thống sử dụng JWT Authentication. Các giá trị này nằm trong `.env` và có thể đổi trước khi chạy.
 ```
 Admin:
 username: admin
@@ -55,12 +55,10 @@ password: user123
 Các giá trị này nằm trong `.env` và có thể đổi trước khi chạy.
 ## 5. Model AI và Dataset
 
-### 5.1. Model AI ✨
-Hệ thống sử dụng thư viện DeepFace với cấu hình tối ưu để đảm bảo độ chính xác:
-- Mô hình Nhận diện: ArcFace (trội hơn về khả năng nhận diện góc nghiêng và ánh sáng phức tạp, vector 512 dims).
+### 5.1. Model AI 
+- Mô hình Nhận diện: ArcFace (tối ưu nhất về khả năng nhận diện góc nghiêng và ánh sáng phức tạp, vector 512 dims).
 - Mô hình Phát hiện khuôn mặt: retinaface (mạnh nhất để detect và align khuôn mặt).
-- Normalization: "base".
-- Chuẩn hóa Vector: Vector cuối cùng luôn được chuẩn hóa L2 100% trong VisionService.get_embedding
+- Normalization: L2 trước khi lưu trữ vector vào Qdrant.
 ### 5.2. Dataset
    Dự án này sử dụng bộ dữ liệu ** [SCface (Surveillance Cameras Face Database)](https://scface.org/)** đã chỉnh sửa cho phù hợp dự án để thử nghiệm và đánh giá pipeline nhận diện khuôn mặt.
    Source: 
@@ -91,12 +89,12 @@ database/
    3. Mở các URL:
       ```
       User/Admin Frontend:
-      Backend API Docs: [http://localhost:8000/docs](http://localhost:8000/docs) 
-      Public API (Ngrok): [https://graffiti-fit-error.ngrok-free.dev/docs](https://graffiti-fit-error.ngrok-free.dev/docs) 
-      MinIO Console: [http://localhost:9001](http://localhost:9001) 
-      Grafana: [http://localhost:3000](http://localhost:3000)
-      Prometheus: [http://localhost:9090](http://localhost:9090)
-      Qdrant Dashboard: [http://localhost:6333/dashboard](http://localhost:6333/dashboard)
+      Backend API Docs: http://localhost:8000/docs
+      Public API (Ngrok): https://graffiti-fit-error.ngrok-free.dev/docs
+      MinIO Console: http://localhost:9001
+      Grafana: http://localhost:3000
+      Prometheus: http://localhost:9090
+      Qdrant: http://localhost:6333/dashboard
       ```
    4. Xem log:
    ```
@@ -115,112 +113,164 @@ database/
 Quản trị viên gửi ảnh + tên cửa
 -> backend FastAPI tiếp nhận, lưu tạm ảnh
 -> DeepFace trích xuất vector khuôn mặt
--> Qdrant tìm kiếm vector tương tự (ngưỡng 0.5)
+-> Qdrant tìm kiếm vector tương tự 
 -> Nhận diện được ID nhân viên
 -> Kiểm tra logic Quyền truy cập (db_service.check_access_permission):
-     1. Nhân viên/Cửa có tồn tại không?
-     2. Giờ hiện tại nằm trong khung giờ [allowed_start_time, allowed_end_time]?
--> Trả về kết quả match: True/False, message open_door
--> backend ghi log điểm danh (status: SUCCESS/DENIED, reason)
+     1. Nhân viên có bị khóa không?
+     2. Có quyền qua cửa này không?
+     3. Khung giờ hiện tại hợp lệ không?
+-> FastAPI lưu ảnh sự kiện lên MinIO, ghi Log (SUCCESS/DENIED) vào PostgreSQL
+-> Redis set Cooldown (60s) chống spam
+-> Trả về kết quả đóng/mở cửa.
 ```
 API chính
 ```
-POST /attendance/identify?door_name=<string>
+POST /api/v1/attendance/identify?door_name=<string>
 Content-Type: multipart/form-data
 file=<image_binary>
 ```
 ### 7.2. Luồng đăng ký khuôn mặt nhân viên mới 
 
 ```
-Admin nhập thông tin + upload 3 ảnh
--> backend FastAPI kiểm tra số lượng ảnh 
--> backend tạo hồ sơ nhân viên trong PostgreSQL (department_id)
--> backend upload ảnh gốc lên MinIO (S3 compatible storage)
--> backend gửi task Celery background "process_face_registration"
--> backend trả về thông tin nhân viên mới
--> Celery Worker tải ảnh từ MinIO
--> worker gọi DeepFace KIỂM TRA CHẤT LƯỢNG ảnh (quá sáng, nhòe, đúng 1 mặt)
--> worker trích xuất ArcFace vector, TÍNH AVERAGE VECTOR 
--> worker chuẩn hóa L2 vector cuối cùng
--> worker upsert average vector vào Qdrant (dùng ID nhân viên SQL làm ID point)
+Admin gửi thông tin nhân viên và 1 đến 5 ảnh gốc
+-> FastAPI tạo record trong PostgreSQL
+-> Upload ảnh lên MinIO bucket
+-> Gửi task process_face_registration vào hàng đợi Redis
+-> Celery Worker lấy task từ Redis
+-> Worker tải ảnh từ MinIO
+-> Kiểm tra chất lượng (đủ sáng, không nhòe, duy nhất 1 mặt)
+-> Trích xuất các Vector và tính Average Vector
+-> Lưu Average Vector vào Qdrant
 ```
 API chính
 ```
-POST /employees/register
+POST /api/v1/employees/register
 Content-Type: multipart/form-data
-files=[<image1_binary>, <image2_binary>, ...]
+
 full_name=<string>
 employee_code=<string>
-department_id=<int>
+department_name=<string>
+files=[<image1_binary>, <image2_binary>, ...]
 ```
-### 7.3. Luồng upload ảnh ✨
+### 7.3. Luồng Bulk Import (Dành cho khởi tạo hệ thống)
 
 ```
-User chọn ảnh
--> backend lưu ảnh gốc vào MinIO
--> inference-service detect biển số
--> crop từng biển số
--> OCR và chuẩn hóa định dạng biển số Việt Nam
--> vẽ bbox + số thứ tự + biển số lên ảnh output
--> backend lưu ảnh output vào MinIO
--> backend lưu event vào PostgreSQL
--> backend upsert embedding vào Qdrant
--> frontend hiển thị ảnh output và bảng kết quả
+Admin upload 1 file ZIP (chứa file metadata.json và hàng loạt ảnh)
+-> FastAPI giải nén vào thư mục tạm
+-> Quét file JSON, lặp qua từng nhân viên
+-> Tạo record DB và upload ảnh vào MinIO
+-> Thêm hàng loạt task process_face_registration vào Celery Worker
+-> Worker tuần tự xử lý vector trong nền.
 ```
 API chính
 ```
-POST /api/recognize/image
-Authorization: Bearer <token>
+POST /admin/bulk-import
 Content-Type: multipart/form-data
-file=<image>
-```
-### 7.4. Luồng webcam realtime ✨
 
+zip_file=<zip_file_binary>
 ```
-Trình duyệt lấy webcam
--> gửi frame JPEG qua WebSocket /ws/recognize/live
--> backend gọi inference-service
--> lưu snapshot/event nếu có kết quả
--> frontend hiển thị frame annotated gần nhất
+### 7.. Luồng thiết lập quyền truy cập nhanh
 ```
-Webcam yêu cầu chạy trên `localhost` hoặc HTTPS. URL `http://localhost:8080/user/` đáp ứng điều kiện này.
+Admin chọn 1 phòng ban, chọn nhiều cửa và khung giờ
+-> FastAPI tiếp nhận payload
+-> Lặp qua danh sách các cửa (door_ids)
+-> PostgreSQL lưu bản ghi phân quyền (DeptPermission)
+-> Từ lúc này, mọi nhân viên thuộc phòng ban đó sẽ được ra vào các cửa đã chọn trong khung giờ quy định.
+```
+```
+POST /api/v1/departments/{dept_id}/quick-setup
+Content-Type: application/json
+
+{
+  "door_ids": [1, 2, 3, 4],
+  "start_time": "08:00:00",
+  "end_time": "18:00:00"
+}
+```
 
 ## 8. API chính
-Attendance (Xác minh và điểm danh)
+Authentication (Xác thực)
 ```
-POST /attendance/identify
-GET  /attendance/history
-Tag: Employees (Quản lý Nhân viên)
-code
-Http
-POST   /employees/register
-GET    /employees/
-GET    /employees/search
-PATCH  /employees/{id}/status
-PUT    /employees/{id}/permissions
-DELETE /employees/{id}
+POST /api/v1/auth/login (Đăng nhập)
+POST /api/v1/auth/register (Tạo tài khoản)
+GET  /api/v1/auth/me
 ```
-Departments (Quản lý phòng ban và cửa ra vào)
+Attendance (Chấm công và Điểm danh)
+POST /api/v1/attendance/identify (Nhận diện khuôn mặt)
+GET  /api/v1/attendance/history (Xem lịch sử)
+GET  /api/v1/attendance/stats/monthly (Thống kê tháng)
+GET  /api/v1/attendance/export/excel (Xuất file Excel)
+
+Employees (Quản lý Nhân viên)
 ```
-GET  /departments/
-POST /departments/
-POST /departments/permissions
-POST /departments/{dept_id}/quick-setup
+POST   /api/v1/employees/register (Đăng kí thông tin cho nhân viên)
+GET    /api/v1/employees/ (Lấy danh sách tất cả nhân viên)
+PATCH  /api/v1/employees/{id}/status (Khóa hoặc mở tài khoản)
+PUT    /api/v1/employees/{id}/permissions (Cấp quyền cửa)
+DELETE /api/v1/employees/{id} (Xóa nhân viên)
 ```
-Doors (Quản lý Cửa ra vào)
+Departments & Doors (Quản lý phòng ban và cửa ra vào)
 ```
-GET  /doors/
-POST /doors/
+GET  /api/v1/departments/
+POST /api/v1/departments/permissions
+POST /api/v1/departments/{dept_id}/quick-setup (Phân quyền hàng loạt)
+GET  /api/v1/doors/ (Redis cached)
+```
+Admin Tools (Công cụ quản trị)
+```
+POST /admin/bulk-import (Tải ZIP và đăng kí cho nhiều nhân viên một lúc)
+GET  /admin/system-stats (Dashboard tổng quan)
 ```
 System (Hệ thống)
 ```
 GET /health
+GET /metrics
 ```
+## 9. Quản lý Dữ liệu (Volumes)
+Dữ liệu được bảo toàn qua các Docker Volume định nghĩa sẵn dù có khởi động lại hệ thống:
+*   `postgres_data`: Lưu trữ User, Employee, Attendance Log.
+*   `qdrant_storage`: Cơ sở dữ liệu Vector nhận diện khuôn mặt.
+*   `minio_data`: Kho hình ảnh gốc và ảnh snapshoot điểm danh.
+*   `deepface_models`: Lưu trữ trọng số của mô hình để tránh tải lại khi khởi động lại.
+*   `grafana_data`: Lưu cấu hình các bảng dashboard phân tích hệ thống.
+
 ## 11. Monitoring và Backup
-raw backend: https://graffiti-fit-error.ngrok-free.dev/docs
+## 11.1 Theo dõi hệ thống thông qua Dashboards & Logs:
+Dashboards:
+*   `Grafana Dashboard:` Dùng để theo dõi tài nguyên (CPU, RAM), số lượng Request API, thời gian phản hồi và tỷ lệ lỗi,...
+*   `MinIO Console:` Quản lý dung lượng lưu trữ ảnh tĩnh, kiểm tra file rác.
+*   `Qdrant Dashboard:` Trực quan hóa các Collection, số lượng Vector khuôn mặt hiện có và theo dõi hiệu suất bộ nhớ.
+Theo dõi hệ thống thông qua Logs:
+*   **Logs:** Theo dõi hoạt động của hệ thống qua:
+    ```bash
+    docker compose logs -f backend 
+    docker compose logs -f worker   
+    ```
+## 11.2 Hướng dẫn Backup & Restore dữ liệu
+Thực hiện sao lưu thủ công thông qua các lệnh:
+
+**1. Backup PostgreSQL (Dữ liệu quan hệ):**
+Xuất toàn bộ dữ liệu ra file `.sql`:
+```bash
+docker exec -t <tên_container_db> pg_dump -U admin attendance > db_backup_$(date +%F).sql
+```
+*(Khôi phục: `cat db_backup.sql | docker exec -i <tên_container_db> psql -U admin -d attendance`)*
+
+**2. Backup Vector Qdrant:**
+```bash
+curl -X POST 'http://localhost:6333/collections/face_embeddings/snapshots'
+```
+File snapshot sẽ được lưu tự động bên trong volume `qdrant_storage/snapshots/`.
+
+**3. Backup Hình ảnh (MinIO):**
+```bash
+# Stop MinIO tạm thời để tránh mất mát data đang ghi
+docker compose stop minio
+tar -czvf minio_backup_$(date +%F).tar.gz /var/lib/docker/volumes/tên_project_minio_data/_data
+docker compose start minio
+```
 ## 12. GitHub private repo
 ## 13. Ghi chú triển khai CPU
-- Giảm kích thước frame webcam trước khi gửi backend.
-- Sampling webcam mặc định khoảng 1 frame / 1.2 giây.
-- Video batch sample mỗi khoảng 1.5 giây.
-- Khi có model YOLO custom nhỏ như YOLO nano, CPU sẽ ổn định hơn baseline OpenCV/EasyOCR.
+- Nếu chạy trên hệ thống không có GPU (chỉ có CPU), hàm detection OpenCV được khuyên dùng để tránh quá tải RAM thay vì RetinaFace.
+- Worker được cấu hình tách biệt với API chính, giúp hệ thống không bị nghẽn khi đăng ký quá nhiều nhân viên cùng lúc.
+- Ngrok cung cấp kết nối HTTPS SSL tự động để WebRTC/Webcam phía Frontend có thể xin quyền truy cập Camera từ trình duyệt.
