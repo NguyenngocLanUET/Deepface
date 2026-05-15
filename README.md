@@ -2,7 +2,7 @@
 ## 1. Kiến trúc
 
 <img width="7524" height="4932" alt="image" src="https://github.com/user-attachments/assets/88ac4d65-9597-44ec-8e7c-6aa2b1e6eaf9" />
-
+<pre>
 Developer
     ↓
 GitHub ↔ GitHub Actions
@@ -55,6 +55,7 @@ Nginx reverse proxy :8080
 
 User
     └── webcam / image / video
+</pre>
 
 ## 2. Chức năng chính
    - **Điểm danh cho nhân viên**: Tiếp nhận ảnh từ camera cửa, nhận diện khuôn mặt, kiểm tra quyền truy cập nhiều lớp (trạng thái tài khoản, quyền cá nhân, quyền phòng ban, khu vực, khung giờ) rồi mới quyết định mở cửa.
