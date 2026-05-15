@@ -236,18 +236,20 @@ Dữ liệu được bảo toàn qua các Docker Volume định nghĩa sẵn dù
 *   `grafana_data`: Lưu cấu hình các bảng dashboard phân tích hệ thống.
 
 ## 11. Monitoring và Backup
-## 11.1 Theo dõi hệ thống thông qua Dashboards & Logs:
+**11.1 Theo dõi hệ thống thông qua Dashboards & Logs:**
+
 **Dashboards:**
 *   `Grafana Dashboard:` Dùng để theo dõi tài nguyên (CPU, RAM), số lượng Request API, thời gian phản hồi và tỷ lệ lỗi,...
 *   `MinIO Console:` Quản lý dung lượng lưu trữ ảnh tĩnh, kiểm tra file rác.
 *   `Qdrant Dashboard:` Trực quan hóa các Collection, số lượng Vector khuôn mặt hiện có và theo dõi hiệu suất bộ nhớ.
 Theo dõi hệ thống thông qua Logs:
+
 **Logs:**
     ```bash
     docker compose logs -f backend 
     docker compose logs -f worker   
     ```
-## 11.2 Hướng dẫn Backup & Restore dữ liệu
+**11.2 Hướng dẫn Backup & Restore dữ liệu**
 Thực hiện sao lưu thủ công thông qua các lệnh:
 
 **1. Backup PostgreSQL (Dữ liệu quan hệ):**
