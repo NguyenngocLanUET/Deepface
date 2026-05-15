@@ -3,69 +3,23 @@
 
 <img width="7524" height="4932" alt="image" src="https://github.com/user-attachments/assets/88ac4d65-9597-44ec-8e7c-6aa2b1e6eaf9" />
 <pre>
-Developer
-    |
-    v
-GitHub <------------------> GitHub Actions
-    |                             |
-    |                             v
-    |                        CI/CD Pipeline
-    |
-    v
-Docker Containers
-    |
-    v
-Ngrok Tunnel
-    |
-    v
-Nginx Reverse Proxy (:8080)
-    |
-    +--> frontend-user (Vite + React)
-    |
-    +--> frontend-admin (Vite + React)
-    |
-    +--> Backend (FastAPI)
-             |
-             +--> DeepFace
-             |      - Face recognition
-             |
-             +--> PostgreSQL
-             |      - users
-             |      - cameras
-             |      - events
-             |      - configs
-             |      - face_records
-             |
-             +--> Qdrant
-             |      - face embeddings
-             |      - vector search
-             |
-             +--> Redis
-             |      - cache
-             |      - message queue
-             |
-             +--> Message Queue / Worker
-             |      - asynchronous processing
-             |      - video processing
-             |      - detection jobs
-             |
-             +--> MinIO
-             |      - raw images
-             |      - processed images
-             |      - videos
-             |      - snapshots
-             |
-             +--> Prometheus
-             |      - metrics monitoring
-             |
-             +--> Grafana
-                    - dashboards
-                    - visualization
+Developer --> GitHub <--> GitHub Actions --> CI/CD --> Docker Containers --> Ngrok Tunnel --> Nginx Reverse Proxy (:8080)
+                                                                                                      |
+        +---------------------------+---------------------------+--------------------------------------+
+        |                           |                           |
+        v                           v                           v
+ frontend-user                frontend-admin                  FastAPI
+ (Vite + React)               (Vite + React)                    |
+                                                                +--> DeepFace         (face recognition)
+                                                                +--> PostgreSQL       (users, cameras, events, configs, face_records)
+                                                                +--> Qdrant           (face embeddings, vector search)
+                                                                +--> Redis            (cache, message queue)
+                                                                +--> Worker Queue     (async/video/detection jobs)
+                                                                +--> MinIO            (images, videos, snapshots)
+                                                                +--> Prometheus       (metrics)
+                                                                +--> Grafana          (dashboards)
 
-
-User
-    |
-    +--> webcam / image / video
+User --> webcam / image / video
 </pre>
 
 ## 2. Chức năng chính
