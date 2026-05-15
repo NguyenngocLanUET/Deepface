@@ -67,7 +67,7 @@ Hệ thống sử dụng thư viện DeepFace với cấu hình tối ưu để 
    Cấu trúc dữ liệu sử dụng trong dự án:
    - Dữ liệu thông tin của nhân viên `employees.json`: bao gồm mã nhân viên, họ và tên, phòng ban, chức vụ, liên hệ, trạng thái làm việc, trạng thái cập nhật ảnh xác minh
    - Dữ liệu ảnh upload để làm ảnh gốc `mugshot_frontal_cropped_all` : Chứa ảnh của 130 nhân viên theo ba góc: góc chính diện, góc lệch trái và góc lệch phải
-   - `surveillance_cameras_distance_1`, `surveillance_cameras_distance_2`, `surveillance_cameras_distance_3`chứa ảnh chụp từ 3 khoảng cách khác nhau vơi 4 camera giám sát để thực hiện luồng xác minh tại cửa để mô phỏng ảnh chụp realtime từ camera ở cửa.
+   - `surveillance_cameras_distance_1`, `surveillance_cameras_distance_2`, `surveillance_cameras_distance_3`chứa ảnh chụp từ 3 khoảng cách khác nhau với 4 camera giám sát để thực hiện luồng xác minh tại cửa để mô phỏng ảnh chụp realtime từ camera ở cửa.
 
 ```
 Cấu trúc database
