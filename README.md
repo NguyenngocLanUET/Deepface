@@ -2,70 +2,59 @@
 ## 1. Kiến trúc
 
 <img width="7524" height="4932" alt="image" src="https://github.com/user-attachments/assets/88ac4d65-9597-44ec-8e7c-6aa2b1e6eaf9" />
-```text
+
 Developer
-    |
-    v
-GitHub <------------------> GitHub Actions
-    |                             |
-    |                             v
-    |                        CI/CD Pipeline
-    |
-    v
-Docker Containers
-    |
-    v
-Ngrok Tunnel
-    |
-    v
-Nginx Reverse Proxy (:8080)
-    |
-    +--> frontend-user (Vite + React)
-    |
-    +--> frontend-admin (Vite + React)
-    |
-    +--> Backend (FastAPI)
-             |
-             +--> DeepFace
-             |      - Face recognition
-             |
-             +--> PostgreSQL
-             |      - users
-             |      - cameras
-             |      - events
-             |      - configs
-             |      - face_records
-             |
-             +--> Qdrant
-             |      - face embeddings
-             |      - vector search
-             |
-             +--> Redis
-             |      - cache
-             |      - message queue
-             |
-             +--> Message Queue / Worker
-             |      - asynchronous processing
-             |      - video processing
-             |      - detection jobs
-             |
-             +--> MinIO
-             |      - raw images
-             |      - processed images
-             |      - videos
-             |      - snapshots
-             |
-             +--> Prometheus
-             |      - metrics monitoring
-             |
-             +--> Grafana
-                    - dashboards
-                    - visualization
+    ↓
+GitHub ↔ GitHub Actions
+    ↓
+Pull code / CI-CD
+    ↓
+Docker containers
+    ↓
+Ngrok tunnel
+    ↓
+Nginx reverse proxy :8080
+    ├── frontend-user (Vite + React)
+    ├── frontend-admin (Vite + React)
+    └── backend FastAPI
+        ├── DeepFace
+        │   └── nhận diện khuôn mặt
+        │
+        ├── PostgreSQL
+        │   ├── users
+        │   ├── cameras
+        │   ├── events
+        │   ├── configs
+        │   └── face_records
+        │
+        ├── Qdrant
+        │   ├── face embeddings
+        │   └── vector search
+        │
+        ├── Redis
+        │   ├── cache
+        │   └── message queue
+        │
+        ├── Message Queue / Worker
+        │   ├── xử lý bất đồng bộ
+        │   ├── video processing
+        │   └── detection jobs
+        │
+        ├── MinIO
+        │   ├── raw images
+        │   ├── processed images
+        │   ├── videos
+        │   └── snapshots
+        │
+        ├── Prometheus
+        │   └── metrics monitoring
+        │
+        └── Grafana
+            ├── dashboards
+            └── visualization
 
 User
-    |
-    +--> webcam / image / video
-```
+    └── webcam / image / video
 
 ## 2. Chức năng chính
    - **Điểm danh cho nhân viên**: Tiếp nhận ảnh từ camera cửa, nhận diện khuôn mặt, kiểm tra quyền truy cập nhiều lớp (trạng thái tài khoản, quyền cá nhân, quyền phòng ban, khu vực, khung giờ) rồi mới quyết định mở cửa.
