@@ -3,24 +3,25 @@
 
 <img width="7524" height="4932" alt="image" src="https://github.com/user-attachments/assets/88ac4d65-9597-44ec-8e7c-6aa2b1e6eaf9" />
 <pre>
-Trình duyệt / Camera --> GitHub Actions (CI/CD) --> Docker Containers
-                                                          |
-                 +----------------------------------------+------------------------------------------+
-                 |                                                                                   |
+             Trình duyệt / Camera ---> GitHub Actions (CI/CD) ---> Docker Containers
+                                                                           |
+                     +-----------------------------------------------------+-----------------------------+
+                     |                                                                                   |
           Frontend (Vite + React)                                                            Ngrok Tunnel (Public URL)
-          (User / Admin Portal)                                                                      |
-                 |                                                                                   |
-                 v                                                                                   v
-          FastAPI (Backend) <------------------------------------------------------------------------+
-                 |
-                 +--> AI Engine (DeepFace/OpenCV)   (Trích xuất đặc trưng khuôn mặt)
-                 +--> PostgreSQL                    (Lưu thông tin NV, Cửa, Lịch sử, Cấu hình)
-                 +--> Qdrant (Vector DB)            (Lưu trữ face embeddings, search similarity)
-                 +--> Redis                         (Cache, Anti-spam Cooldown, Message Broker)
-                 +--> Celery Worker                 (Đăng ký khuôn mặt, Bulk import, tính trung bình vector)
-                 +--> MinIO (S3 Compatible)         (Lưu trữ ảnh gốc, ảnh chụp)
-                 +--> Prometheus & Grafana          (Theo dõi tài nguyên hệ thống, Logs)
+           (User / Admin Portal)                                                                         |
+                     |                                                                                   |
+                     v                                                                                   v
+             FastAPI (Backend) <-------------------------------------------------------------------------+
+                     |
+                     +--> AI Engine (DeepFace/OpenCV)   (Trích xuất đặc trưng khuôn mặt)
+                     +--> PostgreSQL                    (Lưu thông tin NV, Cửa, Lịch sử, Cấu hình)
+                     +--> Qdrant (Vector DB)            (Lưu trữ face embeddings, search similarity)
+                     +--> Redis                         (Cache, Anti-spam Cooldown, Message Broker)
+                     +--> Celery Worker                 (Đăng ký khuôn mặt, Bulk import, tính trung bình)
+                     +--> MinIO (S3 Compatible)         (Lưu trữ ảnh gốc, ảnh chụp sự kiện)
+                     +--> Prometheus & Grafana          (Theo dõi tài nguyên hệ thống, Logs)
 </pre>
+
 ## 2. Chức năng chính
    - **Điểm danh cho nhân viên**: Tiếp nhận ảnh từ camera cửa, nhận diện khuôn mặt, kiểm tra quyền truy cập nhiều lớp (trạng thái tài khoản, quyền cá nhân, quyền phòng ban, khu vực, khung giờ) rồi mới quyết định mở cửa.
 
@@ -42,7 +43,6 @@ Trình duyệt / Camera --> GitHub Actions (CI/CD) --> Docker Containers
 - Network: cần có kết nối Internet trong lần đầu tiên chạy.
 
 ## 4. Tài khoản mặc định
-Hệ thống sử dụng JWT Authentication. Các giá trị này nằm trong `.env` và có thể đổi trước khi chạy.
 ```
 Admin:
 username: admin
@@ -80,7 +80,7 @@ database/
     ├── surveillance_cameras_distance_3/
     └── Readme.txt 
 ```
-## 6. Cách chạy ✨
+## 6. Cách chạy 
    1. Kiểm tra file `.env`. Có thể tạo lại từ `.env.example` nếu cần.
    2. Build và chạy toàn bộ stack:
       ```
@@ -99,7 +99,6 @@ database/
    4. Xem log:
    ```
    docker compose logs -f backend
-   docker compose logs -f inference-service
    docker compose logs -f worker
    ```
    5. Dừng hệ thống
@@ -169,7 +168,8 @@ Content-Type: multipart/form-data
 
 zip_file=<zip_file_binary>
 ```
-### 7.. Luồng thiết lập quyền truy cập nhanh
+
+### 7.4. Luồng thiết lập quyền truy cập nhanh
 ```
 Admin chọn 1 phòng ban, chọn nhiều cửa và khung giờ
 -> FastAPI tiếp nhận payload
@@ -196,11 +196,12 @@ POST /api/v1/auth/register (Tạo tài khoản)
 GET  /api/v1/auth/me
 ```
 Attendance (Chấm công và Điểm danh)
+```
 POST /api/v1/attendance/identify (Nhận diện khuôn mặt)
 GET  /api/v1/attendance/history (Xem lịch sử)
 GET  /api/v1/attendance/stats/monthly (Thống kê tháng)
 GET  /api/v1/attendance/export/excel (Xuất file Excel)
-
+```
 Employees (Quản lý Nhân viên)
 ```
 POST   /api/v1/employees/register (Đăng kí thông tin cho nhân viên)
@@ -236,12 +237,12 @@ Dữ liệu được bảo toàn qua các Docker Volume định nghĩa sẵn dù
 
 ## 11. Monitoring và Backup
 ## 11.1 Theo dõi hệ thống thông qua Dashboards & Logs:
-Dashboards:
+**Dashboards:**
 *   `Grafana Dashboard:` Dùng để theo dõi tài nguyên (CPU, RAM), số lượng Request API, thời gian phản hồi và tỷ lệ lỗi,...
 *   `MinIO Console:` Quản lý dung lượng lưu trữ ảnh tĩnh, kiểm tra file rác.
 *   `Qdrant Dashboard:` Trực quan hóa các Collection, số lượng Vector khuôn mặt hiện có và theo dõi hiệu suất bộ nhớ.
 Theo dõi hệ thống thông qua Logs:
-*   **Logs:** Theo dõi hoạt động của hệ thống qua:
+**Logs:**
     ```bash
     docker compose logs -f backend 
     docker compose logs -f worker   
