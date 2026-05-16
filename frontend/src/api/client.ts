@@ -10,6 +10,7 @@ import type {
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "https://graffiti-fit-error.ngrok-free.dev/api/v1";
+const NGROK_SKIP_WARNING_HEADER = "ngrok-skip-browser-warning";
 
 export type ApiMode = "live" | "offline";
 
@@ -32,9 +33,18 @@ async function readErrorMessage(response: Response) {
   }
 }
 
+function withDefaultHeaders(init?: RequestInit): RequestInit {
+  const headers = new Headers(init?.headers);
+  if (API_BASE_URL.includes("ngrok-free.dev")) {
+    headers.set(NGROK_SKIP_WARNING_HEADER, "true");
+  }
+
+  return { ...init, headers };
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, init);
+    const response = await fetch(`${API_BASE_URL}${path}`, withDefaultHeaders(init));
     if (!response.ok) {
       throw new Error(await readErrorMessage(response));
     }
@@ -58,7 +68,7 @@ export const api = {
   health: async () => {
     const rootUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
     try {
-      const response = await fetch(`${rootUrl}/health`);
+      const response = await fetch(`${rootUrl}/health`, withDefaultHeaders());
       if (!response.ok) {
         throw new Error(await readErrorMessage(response));
       }

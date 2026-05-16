@@ -18,7 +18,7 @@ async def lifespan(app: FastAPI):
     VectorDBService().init_collection(collection_name=settings.COLLECTION_NAME, vector_size=512)
     
     redis_url = f"redis://{settings.REDIS_HOST}:6379/1"
-    redis = aioredis.from_url(redis_url, encoding="utf8", decode_responses=True)
+    redis = aioredis.from_url(redis_url)
     FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
     
     yield
