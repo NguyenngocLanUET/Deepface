@@ -1,5 +1,5 @@
 services:
-  db:
+  postgres:
     image: postgres:15-alpine
     environment:
       - POSTGRES_USER=admin
@@ -44,7 +44,7 @@ services:
       - temp_faces:/tmp
       - deepface_models:/root/.deepface/weights
     depends_on:
-      - db
+      - postgres
       - redis
       - qdrant
       - minio
@@ -54,7 +54,7 @@ services:
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=password123
-      - DATABASE_URL=postgresql://admin:123@db:5432/attendance
+      - DATABASE_URL=postgresql://admin:123@postgres:5432/attendance
 
   worker:
     build: ./backend

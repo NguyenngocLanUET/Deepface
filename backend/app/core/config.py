@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "FaceAccess AI System"
-
+2
     # --- Postgres Database ---
     DATABASE_URL: str = os.getenv("DATABASE_URL")
 

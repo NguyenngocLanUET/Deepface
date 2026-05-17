@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:123@db:5432/attendance")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:123@postgres:5432/attendance")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
