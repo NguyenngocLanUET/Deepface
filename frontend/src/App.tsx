@@ -143,6 +143,112 @@ function errorMessage(error: unknown, fallback: string) {
 async function analyzeImageQuality(file: File): Promise<{ isGood: boolean; issues: string[] }> {
   return new Promise((resolve) => {
     const reader = new FileReader();
+    
+    reader.onerror = () => {
+      console.error("FileReader error:", reader.error);
+      resolve({ isGood: false, issues: ["Lỗi đọc file"] });
+    };
+
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onerror = () => {
+        console.error("Image load error");
+        resolve({ isGood: false, issues: ["Không thể tải ảnh"] });
+      };
+      
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve({ isGood: false, issues: ["Không thể xử lý ảnh"] });
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          const issues: string[] = [];
+
+          // Kiểm tra độ sáng trung bình
+          let brightness = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            brightness += (data[i] + data[i + 1] + data[i + 2]) / 3;
+          }
+          brightness /= data.length / 4;
+
+          console.log("Brightness:", Math.round(brightness));
+
+          if (brightness < 50) {
+            issues.push("Ảnh quá tối");
+          } else if (brightness > 210) {
+            issues.push("Ảnh quá sáng");
+          }
+
+          // Kiểm tra Laplacian để phát hiện blur (độ sắc nét)
+          const grayscale: number[] = [];
+          for (let i = 0; i < data.length; i += 4) {
+            grayscale.push(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+          }
+
+          let laplacian = 0;
+          const w = canvas.width;
+          const h = canvas.height;
+          let validPixels = 0;
+
+          for (let y = 1; y < h - 1; y++) {
+            for (let x = 1; x < w - 1; x++) {
+              const i = y * w + x;
+              const val =
+                -grayscale[i] * 8 +
+                grayscale[i - 1] +
+                grayscale[i + 1] +
+                grayscale[i - w] +
+                grayscale[i + w] +
+                grayscale[i - w - 1] +
+                grayscale[i - w + 1] +
+                grayscale[i + w - 1] +
+                grayscale[i + w + 1];
+              laplacian += val * val;
+              validPixels++;
+            }
+          }
+          laplacian = validPixels > 0 ? Math.sqrt(laplacian / validPixels) : 0;
+
+          console.log("Laplacian (sharpness):", Math.round(laplacian));
+
+          if (laplacian < 50) {
+            issues.push("Ảnh quá mờ/nhòe");
+          }
+
+          const isGood = issues.length === 0;
+          console.log("Image quality check:", { isGood, issues, brightness: Math.round(brightness), laplacian: Math.round(laplacian) });
+          resolve({ isGood, issues });
+        } catch (error) {
+          console.error("Analysis error:", error);
+          resolve({ isGood: false, issues: ["Lỗi kiểm tra chất lượng"] });
+        }
+      };
+
+      const dataUrl = event.target?.result as string;
+      img.src = dataUrl;
+    };
+
+    try {
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Read error:", error);
+      resolve({ isGood: false, issues: ["Lỗi đọc ảnh"] });
+    }
+  });
+}
+
+// Tiền xử lý ảnh: adjust brightness, contrast, sharpen
+async function preprocessImage(file: File): Promise<File> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
@@ -151,63 +257,93 @@ async function analyzeImageQuality(file: File): Promise<{ isGood: boolean; issue
         canvas.height = img.height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
-          resolve({ isGood: false, issues: ["Không thể xử lý ảnh"] });
+          resolve(file); // Lỗi, trả về file gốc
           return;
         }
 
         ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
-        const issues: string[] = [];
 
-        // Kiểm tra độ sáng trung bình
+        // 1. Tính brightness hiện tại
         let brightness = 0;
         for (let i = 0; i < data.length; i += 4) {
           brightness += (data[i] + data[i + 1] + data[i + 2]) / 3;
         }
         brightness /= data.length / 4;
 
-        if (brightness < 60) {
-          issues.push("Ảnh quá tối");
-        } else if (brightness > 200) {
-          issues.push("Ảnh quá sáng");
-        }
+        // 2. Adjust brightness & contrast
+        const targetBrightness = 128;
+        const brightnessDiff = targetBrightness - brightness;
+        const contrastFactor = 1.1; // Tăng contrast 10%
 
-        // Kiểm tra Laplacian để phát hiện blur (độ sắc nét)
-        const grayscale: number[] = [];
         for (let i = 0; i < data.length; i += 4) {
-          grayscale.push(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+          let r = data[i];
+          let g = data[i + 1];
+          let b = data[i + 2];
+
+          // Adjust brightness
+          r = Math.min(255, Math.max(0, r + brightnessDiff * 0.3));
+          g = Math.min(255, Math.max(0, g + brightnessDiff * 0.3));
+          b = Math.min(255, Math.max(0, b + brightnessDiff * 0.3));
+
+          // Adjust contrast
+          r = Math.min(255, Math.max(0, 128 + (r - 128) * contrastFactor));
+          g = Math.min(255, Math.max(0, 128 + (g - 128) * contrastFactor));
+          b = Math.min(255, Math.max(0, 128 + (b - 128) * contrastFactor));
+
+          data[i] = Math.round(r);
+          data[i + 1] = Math.round(g);
+          data[i + 2] = Math.round(b);
         }
 
-        let laplacian = 0;
-        const w = canvas.width;
-        for (let i = w + 1; i < grayscale.length - w - 1; i++) {
-          if ((i + 1) % w === 0 || i % w === 0) continue;
-          const val =
-            -grayscale[i] * 8 +
-            grayscale[i - 1] +
-            grayscale[i + 1] +
-            grayscale[i - w] +
-            grayscale[i + w] +
-            grayscale[i - w - 1] +
-            grayscale[i - w + 1] +
-            grayscale[i + w - 1] +
-            grayscale[i + w + 1];
-          laplacian += val * val;
-        }
-        laplacian = Math.sqrt(laplacian / (grayscale.length - w * 2 - 2));
+        ctx.putImageData(imageData, 0, 0);
 
-        if (laplacian < 100) {
-          issues.push("Ảnh quá mờ/nhòe");
+        // 3. Unsharp mask (sharpen) - đơn giản
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        const tempCtx = tempCanvas.getContext("2d");
+        if (tempCtx) {
+          tempCtx.drawImage(canvas, 0, 0);
+          const blurredData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
+          const blurredPixels = blurredData.data;
+
+          // Tạo version mờ
+          for (let i = 0; i < blurredPixels.length; i += 4) {
+            blurredPixels[i] = Math.round(blurredPixels[i] * 0.8);
+            blurredPixels[i + 1] = Math.round(blurredPixels[i + 1] * 0.8);
+            blurredPixels[i + 2] = Math.round(blurredPixels[i + 2] * 0.8);
+          }
+
+          // Sharpening: Original + (Original - Blurred) * 0.5
+          imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          for (let i = 0; i < imageData.data.length; i += 4) {
+            imageData.data[i] = Math.min(255, Math.max(0, imageData.data[i] + (imageData.data[i] - blurredPixels[i]) * 0.3));
+            imageData.data[i + 1] = Math.min(255, Math.max(0, imageData.data[i + 1] + (imageData.data[i + 1] - blurredPixels[i + 1]) * 0.3));
+            imageData.data[i + 2] = Math.min(255, Math.max(0, imageData.data[i + 2] + (imageData.data[i + 2] - blurredPixels[i + 2]) * 0.3));
+          }
+          ctx.putImageData(imageData, 0, 0);
         }
 
-        const isGood = issues.length === 0;
-        resolve({ isGood, issues });
+        // 4. Convert canvas về File
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const processedFile = new File([blob], `processed-${Date.now()}.jpg`, { type: "image/jpeg" });
+              console.log("Image preprocessed:", processedFile.name);
+              resolve(processedFile);
+            } else {
+              resolve(file);
+            }
+          },
+          "image/jpeg",
+          0.92
+        );
       };
-      img.onerror = () => {
-        resolve({ isGood: false, issues: ["Không thể tải ảnh"] });
-      };
+      img.onerror = () => resolve(file);
     };
+    reader.onerror = () => resolve(file);
     reader.readAsDataURL(file);
   });
 }
@@ -1153,34 +1289,49 @@ function RegisterPage({
           setCaptureAttempts((prev) => prev + 1);
           const capturedFile = await registerCamera.captureValidatedFace();
           if (!cancelled) {
-            // Kiểm tra chất lượng ảnh
-            const quality = await analyzeImageQuality(capturedFile);
-            if (quality.isGood) {
-              setFiles((current) => [...current, capturedFile].slice(0, 5));
-              setLastQualityIssues([]);
-              onNotice({ type: "success", text: "✓ Ảnh tốt! Đã lưu. Bấm 'Chụp ảnh tiếp' để chụp thêm." });
-              setIsAutoCaptureActive(false); // Dừng tự động chụp
-              setCaptureAttempts(0);
-            } else {
-              setLastQualityIssues(quality.issues);
-              if (captureAttempts < 20) {
-                // Thử lại lần tiếp theo
-                await new Promise((resolve) => setTimeout(resolve, 1000));
-                if (!cancelled) {
-                  autoCapture();
-                }
+            console.log("Captured file:", capturedFile.name, capturedFile.size);
+            
+            // Kiểm tra chất lượng ảnh lần 1
+            let quality = await analyzeImageQuality(capturedFile);
+            console.log("Initial quality:", quality);
+            
+            let finalFile = capturedFile;
+            
+            if (!quality.isGood) {
+              // Tiền xử lý ảnh
+              console.log("Processing image...");
+              setLastQualityIssues([`Ảnh xấu (${quality.issues.join(", ")}). Đang tiền xử lý...`]);
+              const processedFile = await preprocessImage(capturedFile);
+              
+              // Kiểm tra chất lượng ảnh lần 2
+              quality = await analyzeImageQuality(processedFile);
+              console.log("Quality after preprocessing:", quality);
+              
+              if (quality.isGood) {
+                finalFile = processedFile;
               } else {
-                onNotice({
-                  type: "error",
-                  text: `Không thể chụp ảnh tốt: ${quality.issues.join(", ")}. Bấm nút chụp lại.`,
-                });
+                setLastQualityIssues([`Vẫn xấu sau tiền xử lý: ${quality.issues.join(", ")}. Thử chụp lại.`]);
+                onNotice({ type: "error", text: `❌ Ảnh không tốt: ${quality.issues.join(", ")}. Bấm 'Chụp ảnh tiếp' để thử lại.` });
                 setIsAutoCaptureActive(false);
                 setCaptureAttempts(0);
+                return;
               }
             }
+            
+            // Lưu ảnh
+            setFiles((current) => {
+              const newFiles = [...current, finalFile].slice(0, 5);
+              console.log("Files updated:", newFiles.length);
+              return newFiles;
+            });
+            setLastQualityIssues([]);
+            onNotice({ type: "success", text: "✓ Ảnh đã lưu! Bấm 'Chụp ảnh tiếp' để chụp thêm." });
+            setIsAutoCaptureActive(false); // Dừng tự động chụp
+            setCaptureAttempts(0);
           }
         } catch (error) {
-          // Không thông báo lỗi liên tục
+          console.error("Auto capture error:", error);
+          setLastQualityIssues([errorMessage(error, "Lỗi khi chụp ảnh")]);
         }
       }
     };
