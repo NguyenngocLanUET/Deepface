@@ -181,9 +181,9 @@ async function analyzeImageQuality(file: File): Promise<{ isGood: boolean; issue
 
           console.log("Brightness:", Math.round(brightness));
 
-          if (brightness < 50) {
+          if (brightness < 30) {
             issues.push("Ảnh quá tối");
-          } else if (brightness > 210) {
+          } else if (brightness > 230) {
             issues.push("Ảnh quá sáng");
           }
 
@@ -219,7 +219,7 @@ async function analyzeImageQuality(file: File): Promise<{ isGood: boolean; issue
 
           console.log("Laplacian (sharpness):", Math.round(laplacian));
 
-          if (laplacian < 50) {
+          if (laplacian < 25) {
             issues.push("Ảnh quá mờ/nhòe");
           }
 
