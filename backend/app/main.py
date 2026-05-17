@@ -39,22 +39,22 @@ app.add_middleware(
 # ĐĂNG KÝ ROUTER SONG SONG ĐỂ CHỐNG LỖI 404 TỪ FRONTEND
 # ====================================================================
 
-
-# 1. API chuẩn RESTful mới
+# 0. Authentication router (PHẢI đặt trước các router khác)
 app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
-app.include_router(employees.router, prefix="/api/v1", tags=["Employees_V1"])
-app.include_router(attendance.router, prefix="/api/v1", tags=["Attendance_V1"])
-app.include_router(doors.router, prefix="/api/v1", tags=["Doors_V1"])
-app.include_router(departments.router, prefix="/api/v1", tags=["Departments_V1"])
-app.include_router(admin.router, prefix="/api/v1", tags=["Admin_V1"])
 
-# 2. API gốc hỗ trợ Frontend hiện tại (KHÔNG CÓ /api/v1)
-app.include_router(auth.router, tags=["Authentication_Legacy"])
-app.include_router(employees.router, tags=["Employees_Legacy"])
-app.include_router(attendance.router, tags=["Attendance_Legacy"])
-app.include_router(doors.router, tags=["Doors_Legacy"])
-app.include_router(departments.router, tags=["Departments_Legacy"])
-app.include_router(admin.router, tags=["Admin_Legacy"])
+# 1. Cấu hình nguyên bản của bạn (Giữ nguyên để không vỡ các API cũ)
+app.include_router(employees.router, prefix="/api/v1/employees", tags=["Employees_V1"])
+app.include_router(attendance.router, prefix="/api/v1/attendance", tags=["Attendance_V1"])
+app.include_router(doors.router, prefix="/api/v1/doors", tags=["Doors_V1"])
+app.include_router(departments.router, prefix="/api/v1/departments", tags=["Departments_V1"])
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin_V1"])
+
+# 2. Cấu hình hứng chính xác URL đang bị lỗi (GET /admin/system-stats)
+app.include_router(employees.router, tags=["Employees_Direct"])
+app.include_router(attendance.router, tags=["Attendance_Direct"])
+app.include_router(doors.router, tags=["Doors_Direct"])
+app.include_router(departments.router, tags=["Departments_Direct"])
+app.include_router(admin.router, tags=["Admin_Direct"])
 
 @app.get("/health")
 def health():
