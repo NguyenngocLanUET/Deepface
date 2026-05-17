@@ -193,10 +193,12 @@ function detectorLabel(value: string) {
   return labels[value] ?? value;
 }
 
-function NoticeBar({ notice }: { notice: Notice | null }) {
+function NoticeBar({ notice, onClose }: { notice: Notice | null; onClose: () => void }) {
   if (!notice) return null;
   return (
-    <div className={`notice ${notice.type}`}>{notice.text}</div>
+    <button className={`notice ${notice.type}`} onClick={onClose} type="button">
+      {notice.text}
+    </button>
   );
 }
 
@@ -574,7 +576,7 @@ function App() {
           </div>
         </header>
 
-        <NoticeBar notice={notice} />
+        <NoticeBar notice={notice} onClose={() => setNotice(null)} />
 
         {loading ? (
           <div className="loading-panel">Đang tải dữ liệu hệ thống...</div>
@@ -772,7 +774,6 @@ function KioskPage({
     [],
   );
 
-
   const submitFrame = useCallback(async () => {
     if (submitting) return;
 
@@ -782,6 +783,7 @@ function KioskPage({
     }
 
     if (!camera.canSubmit) {
+      onNotice({ type: "info", text: "Camera chưa thấy khuôn mặt ổn định để gửi backend." });
       return;
     }
 
@@ -809,14 +811,6 @@ function KioskPage({
       setSubmitting(false);
     }
   }, [camera, onNotice, onRefresh, selectedDoor, submitting]);
-
-  // Tự động chấm công khi phát hiện khuôn mặt ổn định
-  useEffect(() => {
-    if (camera.canSubmit && !submitting && !result) {
-      submitFrame();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [camera.canSubmit]);
 
   const cameraFrameClass = [
     "camera-frame",
@@ -884,11 +878,12 @@ function KioskPage({
         <div className="camera-controls">
           <button
             className="primary-button accent"
-            disabled
+            disabled={submitting || !camera.canSubmit}
+            onClick={() => void submitFrame()}
             type="button"
           >
             <Upload size={18} />
-            {submitting ? "Đang gửi..." : "Đang tự động chấm công..."}
+            {submitting ? "Đang gửi..." : "Chụp để chấm công"}
           </button>
         </div>
 
@@ -1067,31 +1062,20 @@ function RegisterPage({
     event.target.value = "";
   };
 
-
-  // Tự động chụp ảnh khi phát hiện khuôn mặt
-  useEffect(() => {
-    let cancelled = false;
-    const autoCapture = async () => {
-      if (registerCamera.cameraOn && files.length < 5) {
-        try {
-          const capturedFile = await registerCamera.captureValidatedFace();
-          if (!cancelled) {
-            setFiles((current) => [...current, capturedFile].slice(0, 5));
-            onNotice({ type: "success", text: "Đã chụp ảnh từ camera và xác nhận có khuôn mặt." });
-          }
-        } catch (error) {
-          // Không thông báo lỗi liên tục khi chưa có khuôn mặt
-        }
-      }
-    };
-    if (registerCamera.cameraOn && files.length < 5) {
-      autoCapture();
+  const captureFromCamera = async () => {
+    if (files.length >= 5) {
+      onNotice({ type: "info", text: "Tối đa 5 ảnh cho một lần đăng ký." });
+      return;
     }
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registerCamera.cameraOn, files.length]);
+
+    try {
+      const capturedFile = await registerCamera.captureValidatedFace();
+      setFiles((current) => [...current, capturedFile].slice(0, 5));
+      onNotice({ type: "success", text: "Đã chụp ảnh từ camera và xác nhận có khuôn mặt." });
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể chụp ảnh khuôn mặt từ camera.") });
+    }
+  };
 
   const removeFile = (index: number) => {
     setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index));
@@ -1138,6 +1122,10 @@ function RegisterPage({
             <button className="secondary-button" onClick={() => void registerCamera.start()} type="button">
               <Camera size={18} />
               Bật camera
+            </button>
+            <button className="primary-button" onClick={() => void captureFromCamera()} type="button">
+              <Camera size={18} />
+              Chụp từ camera
             </button>
             <button className="secondary-button" onClick={registerCamera.stop} type="button">
               Tắt camera
