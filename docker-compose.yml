@@ -55,8 +55,6 @@ services:
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=password123
       - DATABASE_URL=postgresql://admin:123@db:5432/attendance
-      - CUDA_VISIBLE_DEVICES=-1
-      - TF_CPP_MIN_LOG_LEVEL=3
 
   worker:
     build: ./backend
@@ -77,8 +75,6 @@ services:
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=password123
       - DATABASE_URL=postgresql://admin:123@db:5432/attendance
-      - CUDA_VISIBLE_DEVICES=-1
-      - TF_CPP_MIN_LOG_LEVEL=3
 
   prometheus:
     image: prom/prometheus:latest
