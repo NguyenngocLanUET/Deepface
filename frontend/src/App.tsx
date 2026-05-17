@@ -1291,47 +1291,43 @@ function RegisterPage({
           if (!cancelled) {
             console.log("Captured file:", capturedFile.name, capturedFile.size);
             
-            // Kiểm tra chất lượng ảnh lần 1
-            let quality = await analyzeImageQuality(capturedFile);
-            console.log("Initial quality:", quality);
+            // Kiểm tra chất lượng ảnh (nhanh, chỉ check brightness)
+            const quality = await analyzeImageQuality(capturedFile);
+            console.log("Quality check:", quality);
             
-            let finalFile = capturedFile;
-            
-            if (!quality.isGood) {
-              // Tiền xử lý ảnh
-              console.log("Processing image...");
-              setLastQualityIssues([`Ảnh xấu (${quality.issues.join(", ")}). Đang tiền xử lý...`]);
-              const processedFile = await preprocessImage(capturedFile);
-              
-              // Kiểm tra chất lượng ảnh lần 2
-              quality = await analyzeImageQuality(processedFile);
-              console.log("Quality after preprocessing:", quality);
-              
-              if (quality.isGood) {
-                finalFile = processedFile;
+            if (quality.isGood) {
+              // Lưu ảnh ngay
+              setFiles((current) => {
+                const newFiles = [...current, capturedFile].slice(0, 5);
+                console.log("Files updated:", newFiles.length);
+                return newFiles;
+              });
+              setLastQualityIssues([]);
+              onNotice({ type: "success", text: "✓ Ảnh tốt! Bấm 'Chụp ảnh tiếp' để chụp thêm." });
+              setIsAutoCaptureActive(false);
+              setCaptureAttempts(0);
+            } else {
+              // Ảnh xấu, thử lại tối đa 5 lần
+              setLastQualityIssues(quality.issues);
+              if (captureAttempts < 5) {
+                await new Promise((resolve) => setTimeout(resolve, 500));
+                if (!cancelled) {
+                  autoCapture();
+                }
               } else {
-                setLastQualityIssues([`Vẫn xấu sau tiền xử lý: ${quality.issues.join(", ")}. Thử chụp lại.`]);
-                onNotice({ type: "error", text: `❌ Ảnh không tốt: ${quality.issues.join(", ")}. Bấm 'Chụp ảnh tiếp' để thử lại.` });
+                onNotice({
+                  type: "error",
+                  text: `❌ Ảnh xấu: ${quality.issues.join(", ")}. Bấm 'Chụp ảnh tiếp' để thử lại.`,
+                });
                 setIsAutoCaptureActive(false);
                 setCaptureAttempts(0);
-                return;
               }
             }
-            
-            // Lưu ảnh
-            setFiles((current) => {
-              const newFiles = [...current, finalFile].slice(0, 5);
-              console.log("Files updated:", newFiles.length);
-              return newFiles;
-            });
-            setLastQualityIssues([]);
-            onNotice({ type: "success", text: "✓ Ảnh đã lưu! Bấm 'Chụp ảnh tiếp' để chụp thêm." });
-            setIsAutoCaptureActive(false); // Dừng tự động chụp
-            setCaptureAttempts(0);
           }
         } catch (error) {
           console.error("Auto capture error:", error);
           setLastQualityIssues([errorMessage(error, "Lỗi khi chụp ảnh")]);
+          setIsAutoCaptureActive(false);
         }
       }
     };
