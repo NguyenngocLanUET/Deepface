@@ -227,7 +227,7 @@ DELETE /api/v1/employees/{id}             (Xóa nhân viên)
 GET  /api/v1/departments/
 POST /api/v1/departments/permissions
 POST /api/v1/departments/{dept_id}/quick-setup (Phân quyền hàng loạt)
-GET  /api/v1/doors/                            (Redis cached)
+GET  /api/v1/doors/
 ```
 
 **Admin Tools (Công cụ quản trị)**

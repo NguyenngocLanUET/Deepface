@@ -42,17 +42,31 @@ function withDefaultHeaders(init?: RequestInit): RequestInit {
   return { ...init, headers };
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(pathOrPaths: string | string[], init?: RequestInit): Promise<T> {
+  const paths = Array.isArray(pathOrPaths) ? pathOrPaths : [pathOrPaths];
+  const firstPath = paths[0];
+  let lastHttpError = "";
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, withDefaultHeaders(init));
-    if (!response.ok) {
-      throw new Error(await readErrorMessage(response));
+    for (let index = 0; index < paths.length; index += 1) {
+      const path = paths[index];
+      const response = await fetch(`${API_BASE_URL}${path}`, withDefaultHeaders(init));
+      if (!response.ok) {
+        lastHttpError = await readErrorMessage(response);
+        if ((response.status === 404 || response.status === 405) && index < paths.length - 1) {
+          continue;
+        }
+
+        throw new Error(lastHttpError);
+      }
+
+      currentMode = "live";
+      return (await response.json()) as T;
     }
-    currentMode = "live";
-    return (await response.json()) as T;
+
+    throw new Error(lastHttpError || `Không thể kết nối backend: ${paths[0]}`);
   } catch (error) {
     currentMode = "offline";
-    throw error instanceof Error ? error : new Error(`Không thể kết nối backend: ${path}`);
+    throw error instanceof Error ? error : new Error(`Không thể kết nối backend: ${firstPath}`);
   }
 }
 
@@ -80,24 +94,30 @@ export const api = {
     }
   },
 
-  getSystemStats: () => request<SystemStats>("/admin/admin/system-stats"),
+  getSystemStats: () => request<SystemStats>(["/admin/system-stats", "/admin/admin/system-stats"]),
 
-  getEmployees: () => request<Employee[]>("/employees/employees/"),
+  getEmployees: () => request<Employee[]>(["/employees/", "/employees/employees/"]),
   searchEmployees: (query: string) =>
-    request<Employee[]>(`/employees/employees/search?query=${encodeURIComponent(query)}`),
+    request<Employee[]>([
+      `/employees/search?query=${encodeURIComponent(query)}`,
+      `/employees/employees/search?query=${encodeURIComponent(query)}`,
+    ]),
   registerEmployee: (formData: FormData) =>
-    request<Employee>("/employees/employees/register", {
+    request<Employee>(["/employees/register", "/employees/employees/register"], {
       method: "POST",
       body: formData,
     }),
   updateEmployeeStatus: (id: number, isActive: boolean) =>
     request<Employee | null>(
-      `/employees/employees/${id}/status?is_active=${isActive}`,
+      [
+        `/employees/${id}/status?is_active=${isActive}`,
+        `/employees/employees/${id}/status?is_active=${isActive}`,
+      ],
       jsonRequest("PATCH"),
     ),
   deleteEmployee: (id: number) =>
     request<{ status: string; message: string }>(
-      `/employees/employees/${id}`,
+      [`/employees/${id}`, `/employees/employees/${id}`],
       jsonRequest("DELETE"),
     ),
   setEmployeePermission: (
@@ -107,7 +127,7 @@ export const api = {
     allowedEndTime?: string,
   ) =>
     request<{ status: string }>(
-      `/employees/employees/${employeeId}/permissions`,
+      [`/employees/${employeeId}/permissions`, `/employees/employees/${employeeId}/permissions`],
       jsonRequest("PUT", {
         door_id: doorId,
         allowed_start_time: allowedStartTime || null,
@@ -115,21 +135,21 @@ export const api = {
       }),
     ),
 
-  getDoors: () => request<Door[]>('/doors/doors/'),
+  getDoors: () => request<Door[]>(["/doors/", "/doors/doors/"]),
   createDoor: (payload: Pick<Door, "name" | "description">) =>
-    request<Door>("/doors/doors/", jsonRequest("POST", payload)),
+    request<Door>(["/doors/", "/doors/doors/"], jsonRequest("POST", payload)),
   deleteDoor: (doorId: number) =>
     request<{ status: string; message: string }>(
-      `/doors/doors/${doorId}`,
+      [`/doors/${doorId}`, `/doors/doors/${doorId}`],
       jsonRequest("DELETE"),
     ),
 
-  getDepartments: () => request<Department[]>('/departments/departments/'),
+  getDepartments: () => request<Department[]>(["/departments/", "/departments/departments/"]),
   createDepartment: (name: string) =>
-    request<Department>("/departments/departments/", jsonRequest("POST", { name })),
+    request<Department>(["/departments/", "/departments/departments/"], jsonRequest("POST", { name })),
   deleteDepartment: (departmentId: number) =>
     request<{ status: string; message: string }>(
-      `/departments/departments/${departmentId}`,
+      [`/departments/${departmentId}`, `/departments/departments/${departmentId}`],
       jsonRequest("DELETE"),
     ),
   setDepartmentPermission: (
@@ -139,7 +159,7 @@ export const api = {
     allowedEndTime?: string,
   ) =>
     request<{ id: number }>(
-      "/departments/departments/permissions",
+      ["/departments/permissions", "/departments/departments/permissions"],
       jsonRequest("POST", {
         department_id: departmentId,
         door_id: doorId,
@@ -152,7 +172,10 @@ export const api = {
     const formData = new FormData();
     formData.append("file", image, "capture.jpg");
     return request<IdentifyResult>(
-      `/attendance/attendance/identify?door_name=${encodeURIComponent(doorName)}`,
+      [
+        `/attendance/identify?door_name=${encodeURIComponent(doorName)}`,
+        `/attendance/attendance/identify?door_name=${encodeURIComponent(doorName)}`,
+      ],
       {
         method: "POST",
         body: formData,
@@ -162,29 +185,35 @@ export const api = {
   getAttendanceHistory: (limit = 100, employeeId?: number) => {
     const params = new URLSearchParams({ limit: String(limit) });
     if (employeeId) params.set("employee_id", String(employeeId));
-    return request<AttendanceLog[]>(`/attendance/attendance/history?${params.toString()}`);
+    return request<AttendanceLog[]>([
+      `/attendance/history?${params.toString()}`,
+      `/attendance/attendance/history?${params.toString()}`,
+    ]);
   },
   getMonthlyStats: (month: number, year: number) =>
-    request<MonthlyStats>(`/attendance/attendance/stats/monthly?month=${month}&year=${year}`),
+    request<MonthlyStats>([
+      `/attendance/stats/monthly?month=${month}&year=${year}`,
+      `/attendance/attendance/stats/monthly?month=${month}&year=${year}`,
+    ]),
   getExcelExportUrl: (month: number, year: number) =>
-    `${API_BASE_URL}/attendance/attendance/export/excel?month=${month}&year=${year}`,
+    `${API_BASE_URL}/attendance/export/excel?month=${month}&year=${year}`,
 
   bulkImport: (zipFile: File) => {
     const formData = new FormData();
     formData.append("zip_file", zipFile);
     return request<{ message: string; details?: unknown[] }>(
-      "/admin/admin/bulk-import",
+      ["/admin/bulk-import", "/admin/admin/bulk-import"],
       { method: "POST", body: formData },
     );
   },
   resyncVectors: () =>
     request<{ message: string }>(
-      "/admin/admin/re-sync-all-vectors",
+      ["/admin/re-sync-all-vectors", "/admin/admin/re-sync-all-vectors"],
       jsonRequest("POST"),
     ),
   clearLogs: (days: number) =>
     request<{ message: string }>(
-      `/admin/admin/clear-logs?days=${days}`,
+      [`/admin/clear-logs?days=${days}`, `/admin/admin/clear-logs?days=${days}`],
       jsonRequest("DELETE"),
     ),
 };

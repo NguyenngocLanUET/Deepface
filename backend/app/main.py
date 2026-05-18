@@ -35,26 +35,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ====================================================================
-# ĐĂNG KÝ ROUTER SONG SONG ĐỂ CHỐNG LỖI 404 TỪ FRONTEND
-# ====================================================================
+API_V1_PREFIX = "/api/v1"
 
-# 0. Authentication router (PHẢI đặt trước các router khác)
-app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
+# Canonical API paths, e.g. /api/v1/doors/{id}.
+app.include_router(auth.router, prefix=API_V1_PREFIX, tags=["Authentication"])
+app.include_router(employees.router, prefix=API_V1_PREFIX, tags=["Employees_V1"])
+app.include_router(attendance.router, prefix=API_V1_PREFIX, tags=["Attendance_V1"])
+app.include_router(doors.router, prefix=API_V1_PREFIX, tags=["Doors_V1"])
+app.include_router(departments.router, prefix=API_V1_PREFIX, tags=["Departments_V1"])
+app.include_router(admin.router, prefix=API_V1_PREFIX, tags=["Admin_V1"])
 
-# 1. Cấu hình nguyên bản của bạn (Giữ nguyên để không vỡ các API cũ)
-app.include_router(employees.router, prefix="/api/v1/employees", tags=["Employees_V1"])
-app.include_router(attendance.router, prefix="/api/v1/attendance", tags=["Attendance_V1"])
-app.include_router(doors.router, prefix="/api/v1/doors", tags=["Doors_V1"])
-app.include_router(departments.router, prefix="/api/v1/departments", tags=["Departments_V1"])
-app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin_V1"])
+# Legacy double-prefix paths kept for older frontend builds.
+app.include_router(employees.router, prefix=f"{API_V1_PREFIX}/employees", tags=["Employees_Legacy"], include_in_schema=False)
+app.include_router(attendance.router, prefix=f"{API_V1_PREFIX}/attendance", tags=["Attendance_Legacy"], include_in_schema=False)
+app.include_router(doors.router, prefix=f"{API_V1_PREFIX}/doors", tags=["Doors_Legacy"], include_in_schema=False)
+app.include_router(departments.router, prefix=f"{API_V1_PREFIX}/departments", tags=["Departments_Legacy"], include_in_schema=False)
+app.include_router(admin.router, prefix=f"{API_V1_PREFIX}/admin", tags=["Admin_Legacy"], include_in_schema=False)
 
-# 2. Cấu hình hứng chính xác URL đang bị lỗi (GET /admin/system-stats)
-app.include_router(employees.router, tags=["Employees_Direct"])
-app.include_router(attendance.router, tags=["Attendance_Direct"])
-app.include_router(doors.router, tags=["Doors_Direct"])
-app.include_router(departments.router, tags=["Departments_Direct"])
-app.include_router(admin.router, tags=["Admin_Direct"])
+# Direct shortcuts kept for local/static pages that call /doors, /departments, ...
+app.include_router(employees.router, tags=["Employees_Direct"], include_in_schema=False)
+app.include_router(attendance.router, tags=["Attendance_Direct"], include_in_schema=False)
+app.include_router(doors.router, tags=["Doors_Direct"], include_in_schema=False)
+app.include_router(departments.router, tags=["Departments_Direct"], include_in_schema=False)
+app.include_router(admin.router, tags=["Admin_Direct"], include_in_schema=False)
 
 @app.get("/health")
 def health():
