@@ -115,13 +115,23 @@ export const api = {
       }),
     ),
 
-  getDoors: () => request<Door[]>("/doors/doors/"),
+  getDoors: () => request<Door[]>('/doors/doors/'),
   createDoor: (payload: Pick<Door, "name" | "description">) =>
     request<Door>("/doors/doors/", jsonRequest("POST", payload)),
+  deleteDoor: (doorId: number) =>
+    request<{ status: string; message: string }>(
+      `/doors/doors/${doorId}`,
+      jsonRequest("DELETE"),
+    ),
 
-  getDepartments: () => request<Department[]>("/departments/departments/"),
+  getDepartments: () => request<Department[]>('/departments/departments/'),
   createDepartment: (name: string) =>
     request<Department>("/departments/departments/", jsonRequest("POST", { name })),
+  deleteDepartment: (departmentId: number) =>
+    request<{ status: string; message: string }>(
+      `/departments/departments/${departmentId}`,
+      jsonRequest("DELETE"),
+    ),
   setDepartmentPermission: (
     departmentId: number,
     doorId: number,

@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi_cache.decorator import cache
 from app.services.database import DBService
 from app.schemas.schemas import DoorOut, DoorBase
@@ -15,3 +15,10 @@ async def get_doors():
 @router.post("/", response_model=DoorOut)
 async def create_door(door: DoorBase):
     return db_service.create_door(door.name, door.description)
+
+@router.delete("/{door_id}")
+async def delete_door(door_id: int):
+    deleted = db_service.delete_door(door_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Cửa/Khu vực không tồn tại.")
+    return {"status": "success", "message": "Đã xóa cửa/khu vực."}

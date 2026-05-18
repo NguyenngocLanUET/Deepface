@@ -101,6 +101,22 @@ class DBService:
         finally:
             db.close()
 
+    def delete_department(self, department_id: int):
+        db = SessionLocal()
+        try:
+            department = db.query(Department).filter(Department.id == department_id).first()
+            if not department:
+                return False
+            employee_count = db.query(Employee).filter(Employee.department_id == department_id).count()
+            if employee_count > 0:
+                raise ValueError("Không thể xóa phòng ban đang có nhân viên.")
+            db.query(DepartmentPermission).filter_by(department_id=department_id).delete()
+            db.delete(department)
+            db.commit()
+            return True
+        finally:
+            db.close()
+
     def search_employees(self, query: str):
         db = SessionLocal()
         try:
@@ -160,6 +176,21 @@ class DBService:
             db.commit()
             db.refresh(door)
             return door
+        finally:
+            db.close()
+
+    def delete_door(self, door_id: int):
+        db = SessionLocal()
+        try:
+            door = db.query(Door).filter(Door.id == door_id).first()
+            if not door:
+                return False
+            db.query(AccessPermission).filter_by(door_id=door_id).delete()
+            db.query(DepartmentPermission).filter_by(door_id=door_id).delete()
+            db.query(AttendanceLog).filter_by(door_id=door_id).delete()
+            db.delete(door)
+            db.commit()
+            return True
         finally:
             db.close()
 

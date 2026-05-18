@@ -808,7 +808,11 @@ function App() {
               />
             )}
             {activePage === "register" && (
-              <RegisterPage onNotice={setNotice} onRefresh={() => void refreshCoreData()} />
+              <RegisterPage
+                departments={departments}
+                onNotice={setNotice}
+                onRefresh={() => void refreshCoreData()}
+              />
             )}
             {activePage === "doors" && (
               <DoorsPage doors={doors} onNotice={setNotice} onRefresh={() => void refreshCoreData()} />
@@ -1237,9 +1241,11 @@ function EmployeesPage({
 }
 
 function RegisterPage({
+  departments,
   onNotice,
   onRefresh,
 }: {
+  departments: Department[];
   onNotice: (notice: Notice) => void;
   onRefresh: () => void;
 }) {
@@ -1391,7 +1397,17 @@ function RegisterPage({
         </label>
         <label className="field">
           <span>Phòng ban</span>
-          <input value={departmentName} onChange={(event) => setDepartmentName(event.target.value)} required />
+          <input
+            list="department-suggestions"
+            value={departmentName}
+            onChange={(event) => setDepartmentName(event.target.value)}
+            required
+          />
+          <datalist id="department-suggestions">
+            {departments.map((department) => (
+              <option key={department.id} value={department.name} />
+            ))}
+          </datalist>
         </label>
         <label className="field file-field">
           <span>Ảnh khuôn mặt</span>
@@ -1479,6 +1495,17 @@ function DoorsPage({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
+  const deleteDoor = async (door: Door) => {
+    if (!window.confirm(`Xác nhận xóa cửa "${door.name}"?`)) return;
+    try {
+      await api.deleteDoor(door.id);
+      onNotice({ type: "success", text: "Đã xóa cửa/khu vực." });
+      onRefresh();
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể xóa cửa/khu vực.") });
+    }
+  };
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     try {
@@ -1531,6 +1558,15 @@ function DoorsPage({
                 <strong>{door.name}</strong>
                 <span>{door.description || "Không có mô tả"}</span>
               </div>
+              <div className="list-card-actions">
+                <button
+                  className="small-button danger"
+                  type="button"
+                  onClick={() => void deleteDoor(door)}
+                >
+                  Xóa
+                </button>
+              </div>
             </article>
           ))}
         </div>
@@ -1549,6 +1585,17 @@ function DepartmentsPage({
   onRefresh: () => void;
 }) {
   const [name, setName] = useState("");
+
+  const deleteDepartment = async (department: Department) => {
+    if (!window.confirm(`Xác nhận xóa phòng ban "${department.name}"?`)) return;
+    try {
+      await api.deleteDepartment(department.id);
+      onNotice({ type: "success", text: "Đã xóa phòng ban." });
+      onRefresh();
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể xóa phòng ban.") });
+    }
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -1596,6 +1643,15 @@ function DepartmentsPage({
               <div>
                 <strong>{department.name}</strong>
                 <span>ID #{department.id}</span>
+              </div>
+              <div className="list-card-actions">
+                <button
+                  className="small-button danger"
+                  type="button"
+                  onClick={() => void deleteDepartment(department)}
+                >
+                  Xóa
+                </button>
               </div>
             </article>
           ))}
@@ -1735,6 +1791,8 @@ function HistoryPage({
   const [employeeFilter, setEmployeeFilter] = useState(
     isSelfView && session.employeeId ? String(session.employeeId) : "ALL",
   );
+
+  const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null);
 
   const scopedHistory = history.filter((item) => {
     if (isSelfView && session.employeeId) {
@@ -1889,7 +1947,7 @@ function HistoryPage({
           </thead>
           <tbody>
             {filteredHistory.map((item) => (
-              <tr key={item.id}>
+              <tr key={item.id} onClick={() => setSelectedLog(item)}>
                 <td>{formatDateTime(item.checkin_at)}</td>
                 <td>{doorName(item.door_id)}</td>
                 <td>
@@ -1897,7 +1955,7 @@ function HistoryPage({
                 </td>
                 <td>{item.reason ?? "-"}</td>
                 {!isSelfView && <td>{employeeName(item.employee_id)}</td>}
-                {!isSelfView && <td>{item.image_snapshot ?? "-"}</td>}
+                {!isSelfView && <td>{item.image_snapshot ? "Có ảnh" : "-"}</td>}
               </tr>
             ))}
           </tbody>
@@ -1906,6 +1964,36 @@ function HistoryPage({
           <EmptyState text={isSelfView ? "Chưa có lịch sử chấm công của bạn." : "Không tìm thấy bản ghi nào."} />
         )}
       </div>
+
+      {selectedLog && (
+        <div className="modal-backdrop" onClick={() => setSelectedLog(null)}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Ảnh chấm công</h3>
+              <button className="icon-button" onClick={() => setSelectedLog(null)} type="button">
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              {selectedLog.image_snapshot ? (
+                <img
+                  src={selectedLog.image_snapshot}
+                  alt="Snapshot chấm công"
+                  style={{ maxWidth: "100%", borderRadius: 8 }}
+                />
+              ) : (
+                <p>Không có ảnh snapshot cho bản ghi này.</p>
+              )}
+              <div className="log-details">
+                <p><strong>Thời gian:</strong> {formatDateTime(selectedLog.checkin_at)}</p>
+                <p><strong>Cửa:</strong> {doorName(selectedLog.door_id)}</p>
+                <p><strong>Trạng thái:</strong> {selectedLog.status}</p>
+                {!isSelfView && <p><strong>Nhân viên:</strong> {employeeName(selectedLog.employee_id)}</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

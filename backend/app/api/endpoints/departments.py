@@ -48,3 +48,15 @@ async def quick_setup(dept_id: int, door_ids: List[int], start_time: time, end_t
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi thiết lập quyền nhanh: {str(e)}")
+
+@router.delete("/{dept_id}")
+async def delete_department(dept_id: int):
+    try:
+        deleted = db_service.delete_department(dept_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Phòng ban không tồn tại.")
+        return {"status": "success", "message": "Đã xóa phòng ban."}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Không thể xóa phòng ban: {str(e)}")
