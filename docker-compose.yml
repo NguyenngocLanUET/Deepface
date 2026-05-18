@@ -1,5 +1,5 @@
 services:
-  postgres:
+  db:
     image: postgres:15-alpine
     environment:
       - POSTGRES_USER=admin
@@ -37,6 +37,8 @@ services:
   backend:
     build: ./backend
     restart: always
+    tty: true            # Thêm dòng này
+    stdin_open: true     # Thêm dòng này
     ports:
       - "8000:8000"
     volumes:
@@ -44,7 +46,7 @@ services:
       - temp_faces:/tmp
       - deepface_models:/root/.deepface/weights
     depends_on:
-      - postgres
+      - db
       - redis
       - qdrant
       - minio
@@ -54,12 +56,18 @@ services:
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=password123
-      - DATABASE_URL=postgresql://admin:123@postgres:5432/attendance
+      - DATABASE_URL=postgresql://admin:123@db:5432/attendance
+      # SỬA LỖI CUDA TẠI ĐÂY
+      - CUDA_VISIBLE_DEVICES=-1
+      - TF_CPP_MIN_LOG_LEVEL=3
+      - TF_FORCE_GPU_ALLOW_GROWTH=false
 
   worker:
     build: ./backend
     command: celery -A app.worker.celery_app worker --loglevel=info    
     restart: always
+    tty: true            # Thêm dòng này
+    stdin_open: true     # Thêm dòng này
     volumes:
       - ./backend:/app
       - temp_faces:/tmp
@@ -75,7 +83,9 @@ services:
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=password123
       - DATABASE_URL=postgresql://admin:123@db:5432/attendance
-
+      # SỬA LỖI CUDA TẠI ĐÂY
+      - CUDA_VISIBLE_DEVICES=-1
+      - TF_CPP_MIN_LOG_LEVEL=3
   prometheus:
     image: prom/prometheus:latest
     volumes:

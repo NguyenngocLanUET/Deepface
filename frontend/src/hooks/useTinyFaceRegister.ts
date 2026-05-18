@@ -112,6 +112,14 @@ export function useTinyFaceRegister() {
     }
   }, [ensureFaceApi]);
 
+  const getDetectionInfo = useCallback(async () => {
+    if (!videoRef.current || !cameraOn) return null;
+    const faceApi = await ensureFaceApi();
+    const video = videoRef.current;
+    const detection = await faceApi.detectSingleFace(video, new faceApi.TinyFaceDetectorOptions());
+    return detection;
+  }, [cameraOn, ensureFaceApi]);
+
   const captureValidatedFace = useCallback(async () => {
     if (!videoRef.current || !cameraOn) {
       throw new Error("Camera chưa bật.");
@@ -122,7 +130,7 @@ export function useTinyFaceRegister() {
     const detection = await faceApi.detectSingleFace(video, new faceApi.TinyFaceDetectorOptions());
 
     if (!detection) {
-      setMessage("Không phát hiện khuôn mặt. Hãy nhìn thẳng vào camera rồi chụp lại.");
+      setMessage("Tìm khuôn mặt... Hãy nhìn camera");
       throw new Error("Không phát hiện khuôn mặt.");
     }
 
@@ -140,7 +148,6 @@ export function useTinyFaceRegister() {
       throw new Error("Không thể chụp ảnh từ camera.");
     }
 
-    setMessage("Đã phát hiện khuôn mặt và lưu ảnh chụp.");
     return new File([blob], `camera-${Date.now()}.jpg`, { type: "image/jpeg" });
   }, [cameraOn, ensureFaceApi]);
 
@@ -152,5 +159,6 @@ export function useTinyFaceRegister() {
     start,
     stop,
     captureValidatedFace,
+    getDetectionInfo,
   };
 }

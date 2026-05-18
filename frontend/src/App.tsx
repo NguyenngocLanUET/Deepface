@@ -139,6 +139,215 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
+// Kiểm tra chất lượng ảnh để detect blur, độ sáng, kích thước khuôn mặt
+async function analyzeImageQuality(file: File): Promise<{ isGood: boolean; issues: string[] }> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    
+    reader.onerror = () => {
+      console.error("FileReader error:", reader.error);
+      resolve({ isGood: false, issues: ["Lỗi đọc file"] });
+    };
+
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onerror = () => {
+        console.error("Image load error");
+        resolve({ isGood: false, issues: ["Không thể tải ảnh"] });
+      };
+      
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve({ isGood: false, issues: ["Không thể xử lý ảnh"] });
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          const issues: string[] = [];
+
+          // Kiểm tra độ sáng trung bình
+          let brightness = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            brightness += (data[i] + data[i + 1] + data[i + 2]) / 3;
+          }
+          brightness /= data.length / 4;
+
+          console.log("Brightness:", Math.round(brightness));
+
+          if (brightness < 30) {
+            issues.push("Ảnh quá tối");
+          } else if (brightness > 230) {
+            issues.push("Ảnh quá sáng");
+          }
+
+          // Kiểm tra Laplacian để phát hiện blur (độ sắc nét)
+          const grayscale: number[] = [];
+          for (let i = 0; i < data.length; i += 4) {
+            grayscale.push(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+          }
+
+          let laplacian = 0;
+          const w = canvas.width;
+          const h = canvas.height;
+          let validPixels = 0;
+
+          for (let y = 1; y < h - 1; y++) {
+            for (let x = 1; x < w - 1; x++) {
+              const i = y * w + x;
+              const val =
+                -grayscale[i] * 8 +
+                grayscale[i - 1] +
+                grayscale[i + 1] +
+                grayscale[i - w] +
+                grayscale[i + w] +
+                grayscale[i - w - 1] +
+                grayscale[i - w + 1] +
+                grayscale[i + w - 1] +
+                grayscale[i + w + 1];
+              laplacian += val * val;
+              validPixels++;
+            }
+          }
+          laplacian = validPixels > 0 ? Math.sqrt(laplacian / validPixels) : 0;
+
+          console.log("Laplacian (sharpness):", Math.round(laplacian));
+
+          if (laplacian < 25) {
+            issues.push("Ảnh quá mờ/nhòe");
+          }
+
+          const isGood = issues.length === 0;
+          console.log("Image quality check:", { isGood, issues, brightness: Math.round(brightness), laplacian: Math.round(laplacian) });
+          resolve({ isGood, issues });
+        } catch (error) {
+          console.error("Analysis error:", error);
+          resolve({ isGood: false, issues: ["Lỗi kiểm tra chất lượng"] });
+        }
+      };
+
+      const dataUrl = event.target?.result as string;
+      img.src = dataUrl;
+    };
+
+    try {
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Read error:", error);
+      resolve({ isGood: false, issues: ["Lỗi đọc ảnh"] });
+    }
+  });
+}
+
+// Tiền xử lý ảnh: adjust brightness, contrast, sharpen
+async function preprocessImage(file: File): Promise<File> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(file); // Lỗi, trả về file gốc
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0);
+        let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        // 1. Tính brightness hiện tại
+        let brightness = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          brightness += (data[i] + data[i + 1] + data[i + 2]) / 3;
+        }
+        brightness /= data.length / 4;
+
+        // 2. Adjust brightness & contrast
+        const targetBrightness = 128;
+        const brightnessDiff = targetBrightness - brightness;
+        const contrastFactor = 1.1; // Tăng contrast 10%
+
+        for (let i = 0; i < data.length; i += 4) {
+          let r = data[i];
+          let g = data[i + 1];
+          let b = data[i + 2];
+
+          // Adjust brightness
+          r = Math.min(255, Math.max(0, r + brightnessDiff * 0.3));
+          g = Math.min(255, Math.max(0, g + brightnessDiff * 0.3));
+          b = Math.min(255, Math.max(0, b + brightnessDiff * 0.3));
+
+          // Adjust contrast
+          r = Math.min(255, Math.max(0, 128 + (r - 128) * contrastFactor));
+          g = Math.min(255, Math.max(0, 128 + (g - 128) * contrastFactor));
+          b = Math.min(255, Math.max(0, 128 + (b - 128) * contrastFactor));
+
+          data[i] = Math.round(r);
+          data[i + 1] = Math.round(g);
+          data[i + 2] = Math.round(b);
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+
+        // 3. Unsharp mask (sharpen) - đơn giản
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        const tempCtx = tempCanvas.getContext("2d");
+        if (tempCtx) {
+          tempCtx.drawImage(canvas, 0, 0);
+          const blurredData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
+          const blurredPixels = blurredData.data;
+
+          // Tạo version mờ
+          for (let i = 0; i < blurredPixels.length; i += 4) {
+            blurredPixels[i] = Math.round(blurredPixels[i] * 0.8);
+            blurredPixels[i + 1] = Math.round(blurredPixels[i + 1] * 0.8);
+            blurredPixels[i + 2] = Math.round(blurredPixels[i + 2] * 0.8);
+          }
+
+          // Sharpening: Original + (Original - Blurred) * 0.5
+          imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          for (let i = 0; i < imageData.data.length; i += 4) {
+            imageData.data[i] = Math.min(255, Math.max(0, imageData.data[i] + (imageData.data[i] - blurredPixels[i]) * 0.3));
+            imageData.data[i + 1] = Math.min(255, Math.max(0, imageData.data[i + 1] + (imageData.data[i + 1] - blurredPixels[i + 1]) * 0.3));
+            imageData.data[i + 2] = Math.min(255, Math.max(0, imageData.data[i + 2] + (imageData.data[i + 2] - blurredPixels[i + 2]) * 0.3));
+          }
+          ctx.putImageData(imageData, 0, 0);
+        }
+
+        // 4. Convert canvas về File
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const processedFile = new File([blob], `processed-${Date.now()}.jpg`, { type: "image/jpeg" });
+              console.log("Image preprocessed:", processedFile.name);
+              resolve(processedFile);
+            } else {
+              resolve(file);
+            }
+          },
+          "image/jpeg",
+          0.92
+        );
+      };
+      img.onerror = () => resolve(file);
+    };
+    reader.onerror = () => resolve(file);
+    reader.readAsDataURL(file);
+  });
+}
+
 function readStoredSession() {
   try {
     const rawSession = window.localStorage.getItem(SESSION_STORAGE_KEY);
@@ -748,6 +957,8 @@ function KioskPage({
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<IdentifyResult | null>(null);
   const clearResultTimerRef = useRef<number | null>(null);
+  const lastSubmitTimeRef = useRef<number>(0);
+  const DETECTION_THROTTLE_MS = 500; // Ngăn submit quá nhanh
 
   useEffect(() => {
     if (!selectedDoor && doors[0]) setSelectedDoor(doors[0].name);
@@ -785,6 +996,13 @@ function KioskPage({
       return;
     }
 
+    // Kiểm tra throttle để ngăn submit quá nhanh
+    const now = Date.now();
+    if (now - lastSubmitTimeRef.current < DETECTION_THROTTLE_MS) {
+      return;
+    }
+    lastSubmitTimeRef.current = now;
+
     setSubmitting(true);
 
     const blob = await camera.captureBlob();
@@ -799,6 +1017,9 @@ function KioskPage({
       setResult(identifyResult);
       onRefresh();
 
+      // Reset detection để detection có thể chạy liên tục
+      camera.resetDetection();
+
       if (clearResultTimerRef.current) {
         window.clearTimeout(clearResultTimerRef.current);
       }
@@ -810,9 +1031,9 @@ function KioskPage({
     }
   }, [camera, onNotice, onRefresh, selectedDoor, submitting]);
 
-  // Tự động chấm công khi phát hiện khuôn mặt ổn định
+  // Tự động chấm công khi phát hiện khuôn mặt ổn định (không cần chờ result clear)
   useEffect(() => {
-    if (camera.canSubmit && !submitting && !result) {
+    if (camera.canSubmit && !submitting) {
       submitFrame();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1028,6 +1249,9 @@ function RegisterPage({
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const registerCamera = useTinyFaceRegister();
+  const [isAutoCaptureActive, setIsAutoCaptureActive] = useState(false);
+  const [captureAttempts, setCaptureAttempts] = useState(0);
+  const [lastQualityIssues, setLastQualityIssues] = useState<string[]>([]);
 
   const totalFiles = files.length;
 
@@ -1052,6 +1276,7 @@ function RegisterPage({
       setDepartmentName("");
       setFiles([]);
       registerCamera.stop();
+      setIsAutoCaptureActive(false);
       onNotice({ type: "success", text: "Đã gửi đăng ký." });
       onRefresh();
     } catch (error) {
@@ -1067,34 +1292,84 @@ function RegisterPage({
     event.target.value = "";
   };
 
-
-  // Tự động chụp ảnh khi phát hiện khuôn mặt
+  // Auto capture liên tục - không cần bấm "Chụp ảnh tiếp"
   useEffect(() => {
     let cancelled = false;
     const autoCapture = async () => {
-      if (registerCamera.cameraOn && files.length < 5) {
+      if (registerCamera.cameraOn && files.length < 5 && isAutoCaptureActive) {
         try {
+          setCaptureAttempts((prev) => prev + 1);
           const capturedFile = await registerCamera.captureValidatedFace();
           if (!cancelled) {
-            setFiles((current) => [...current, capturedFile].slice(0, 5));
-            onNotice({ type: "success", text: "Đã chụp ảnh từ camera và xác nhận có khuôn mặt." });
+            // Bớt quality check - chỉ check brightness basic
+            const quality = await analyzeImageQuality(capturedFile);
+            
+            if (quality.isGood || captureAttempts <= 1) {
+              setFiles((current) => {
+                const newFiles = [...current, capturedFile].slice(0, 5);
+                return newFiles;
+              });
+              setLastQualityIssues([]);
+              setCaptureAttempts(0);
+              onNotice({ type: "success", text: `✓ Ảnh ${files.length + 1}/5 tốt!` });
+              // Tiếp tục capture sau 300ms
+              if (files.length + 1 < 5) {
+                setTimeout(() => {
+                  if (!cancelled && registerCamera.cameraOn) {
+                    autoCapture();
+                  }
+                }, 300);
+              }
+            } else {
+              // Retry nhanh hơn - chỉ 2 lần
+              setLastQualityIssues(quality.issues);
+              if (captureAttempts < 2) {
+                await new Promise((resolve) => setTimeout(resolve, 200));
+                if (!cancelled) {
+                  autoCapture();
+                }
+              } else {
+                onNotice({
+                  type: "error",
+                  text: `Ảnh chưa tốt. Thử lại...`,
+                });
+                setCaptureAttempts(0);
+                await new Promise((resolve) => setTimeout(resolve, 500));
+                if (!cancelled) {
+                  autoCapture();
+                }
+              }
+            }
           }
         } catch (error) {
-          // Không thông báo lỗi liên tục khi chưa có khuôn mặt
+          console.error("Auto capture error:", error);
+          // Lỗi detection, retry nhanh
+          if (!cancelled && registerCamera.cameraOn && isAutoCaptureActive) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            autoCapture();
+          }
         }
       }
     };
-    if (registerCamera.cameraOn && files.length < 5) {
+
+    if (isAutoCaptureActive && registerCamera.cameraOn && files.length < 5) {
       autoCapture();
     }
+
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registerCamera.cameraOn, files.length]);
+  }, [isAutoCaptureActive, registerCamera.cameraOn, files.length]);
 
   const removeFile = (index: number) => {
     setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index));
+  };
+
+  const handleCaptureMore = () => {
+    setCaptureAttempts(0);
+    setLastQualityIssues([]);
+    setIsAutoCaptureActive(true); // Bắt đầu auto-capture liên tục
   };
 
   return (
@@ -1128,6 +1403,16 @@ function RegisterPage({
           <div className="register-camera-header">
             <strong>Chụp từ camera</strong>
             <small>{registerCamera.message}</small>
+            {lastQualityIssues.length > 0 && (
+              <small style={{ color: "#ff6b6b", marginTop: "4px", display: "block" }}>
+                ⚠️ {lastQualityIssues.join(", ")} - Đang thử lại...
+              </small>
+            )}
+            {isAutoCaptureActive && (
+              <small style={{ color: "#4dabf7", marginTop: "4px", display: "block" }}>
+                🔄 Đang chụp (lần {captureAttempts})...
+              </small>
+            )}
           </div>
 
           <div className="register-camera-frame">
@@ -1142,6 +1427,21 @@ function RegisterPage({
             <button className="secondary-button" onClick={registerCamera.stop} type="button">
               Tắt camera
             </button>
+            {registerCamera.cameraOn && !isAutoCaptureActive && (
+              <button className="primary-button" onClick={handleCaptureMore} type="button">
+                <Camera size={18} />
+                {totalFiles > 0 ? `Chụp tiếp (${totalFiles}/5)` : "Bắt đầu chụp"}
+              </button>
+            )}
+            {isAutoCaptureActive && (
+              <button
+                className="secondary-button"
+                onClick={() => setIsAutoCaptureActive(false)}
+                type="button"
+              >
+                Dừng ({totalFiles}/5)
+              </button>
+            )}
           </div>
 
           {files.length > 0 && (

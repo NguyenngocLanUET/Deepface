@@ -2,19 +2,20 @@ import boto3
 import os
 from botocore.client import Config
 import time
+from app.core.config import settings  # Import settings từ config.py
 
 class StorageService:
     def __init__(self):
-        # Thêm một chút retry logic để đợi MinIO khởi động
+        # Sử dụng thông tin từ settings thay vì gọi os.getenv bị sai tên
         self.s3 = boto3.client(
             's3',
-            endpoint_url=os.getenv("MINIO_URL", "http://minio:9000"),
-            aws_access_key_id=os.getenv("MINIO_ROOT_USER"),
-            aws_secret_access_key=os.getenv("MINIO_ROOT_PASSWORD"),
+            endpoint_url=settings.MINIO_ENDPOINT,
+            aws_access_key_id=settings.MINIO_ACCESS_KEY,
+            aws_secret_access_key=settings.MINIO_SECRET_KEY,
             config=Config(signature_version='s3v4'),
             region_name='us-east-1'
         )
-        self.bucket_name = "attendance-bucket"
+        self.bucket_name = settings.MINIO_BUCKET_NAME
         # Không gọi _ensure ở đây để tránh crash khi vừa start, 
         # sẽ gọi từ main lifespan sau.
 

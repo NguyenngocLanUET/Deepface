@@ -5,7 +5,7 @@ from deepface import DeepFace
 class VisionService:
     def __init__(self):
         self.model_name = "ArcFace"  
-        self.default_detector = "retinaface"  
+        self.default_detector = "opencv"  
 
     def check_image_quality(self, image_path: str):
         img = cv2.imread(image_path)
