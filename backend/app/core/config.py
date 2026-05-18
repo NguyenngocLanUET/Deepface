@@ -29,7 +29,7 @@ class Settings(BaseSettings):
 
     # --- DeepFace & Vision ---
     FACE_MODEL: str = "ArcFace" 
-    DETECTOR_BACKEND: str = "RetinaFace" # hoặc 'retinaface' để chính xác hơn
+    DETECTOR_BACKEND: str = "retinaface" # hoặc 'retinaface' để chính xác hơn
 
     class Config:
         case_sensitive = True
