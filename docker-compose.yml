@@ -55,7 +55,8 @@ services:
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=password123
       - DATABASE_URL=postgresql://admin:123@db:5432/attendance
-
+      - CUDA_VISIBLE_DEVICES=-1
+      - TF_CPP_MIN_LOG_LEVEL=2
   worker:
     build: ./backend
     command: celery -A app.worker.celery_app worker --loglevel=info    
@@ -75,7 +76,8 @@ services:
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=password123
       - DATABASE_URL=postgresql://admin:123@db:5432/attendance
-
+      - CUDA_VISIBLE_DEVICES=-1
+      - TF_CPP_MIN_LOG_LEVEL=2
   prometheus:
     image: prom/prometheus:latest
     volumes:
