@@ -1292,7 +1292,7 @@ function RegisterPage({
     event.target.value = "";
   };
 
-  // Tự động chụp ảnh khi phát hiện khuôn mặt (chỉ 1 lần cho đến khi bấm "Chụp ảnh tiếp")
+  // Auto capture liên tục - không cần bấm "Chụp ảnh tiếp"
   useEffect(() => {
     let cancelled = false;
     const autoCapture = async () => {
@@ -1301,45 +1301,53 @@ function RegisterPage({
           setCaptureAttempts((prev) => prev + 1);
           const capturedFile = await registerCamera.captureValidatedFace();
           if (!cancelled) {
-            console.log("Captured file:", capturedFile.name, capturedFile.size);
-            
-            // Kiểm tra chất lượng ảnh (nhanh, chỉ check brightness)
+            // Bớt quality check - chỉ check brightness basic
             const quality = await analyzeImageQuality(capturedFile);
-            console.log("Quality check:", quality);
             
-            if (quality.isGood) {
-              // Lưu ảnh ngay
+            if (quality.isGood || captureAttempts <= 1) {
               setFiles((current) => {
                 const newFiles = [...current, capturedFile].slice(0, 5);
-                console.log("Files updated:", newFiles.length);
                 return newFiles;
               });
               setLastQualityIssues([]);
-              onNotice({ type: "success", text: "✓ Ảnh tốt! Bấm 'Chụp ảnh tiếp' để chụp thêm." });
-              setIsAutoCaptureActive(false);
               setCaptureAttempts(0);
+              onNotice({ type: "success", text: `✓ Ảnh ${files.length + 1}/5 tốt!` });
+              // Tiếp tục capture sau 300ms
+              if (files.length + 1 < 5) {
+                setTimeout(() => {
+                  if (!cancelled && registerCamera.cameraOn) {
+                    autoCapture();
+                  }
+                }, 300);
+              }
             } else {
-              // Ảnh xấu, thử lại tối đa 5 lần
+              // Retry nhanh hơn - chỉ 2 lần
               setLastQualityIssues(quality.issues);
-              if (captureAttempts < 5) {
-                await new Promise((resolve) => setTimeout(resolve, 500));
+              if (captureAttempts < 2) {
+                await new Promise((resolve) => setTimeout(resolve, 200));
                 if (!cancelled) {
                   autoCapture();
                 }
               } else {
                 onNotice({
                   type: "error",
-                  text: `❌ Ảnh xấu: ${quality.issues.join(", ")}. Bấm 'Chụp ảnh tiếp' để thử lại.`,
+                  text: `Ảnh chưa tốt. Thử lại...`,
                 });
-                setIsAutoCaptureActive(false);
                 setCaptureAttempts(0);
+                await new Promise((resolve) => setTimeout(resolve, 500));
+                if (!cancelled) {
+                  autoCapture();
+                }
               }
             }
           }
         } catch (error) {
           console.error("Auto capture error:", error);
-          setLastQualityIssues([errorMessage(error, "Lỗi khi chụp ảnh")]);
-          setIsAutoCaptureActive(false);
+          // Lỗi detection, retry nhanh
+          if (!cancelled && registerCamera.cameraOn && isAutoCaptureActive) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            autoCapture();
+          }
         }
       }
     };
@@ -1361,7 +1369,7 @@ function RegisterPage({
   const handleCaptureMore = () => {
     setCaptureAttempts(0);
     setLastQualityIssues([]);
-    setIsAutoCaptureActive(true);
+    setIsAutoCaptureActive(true); // Bắt đầu auto-capture liên tục
   };
 
   return (
@@ -1422,7 +1430,7 @@ function RegisterPage({
             {registerCamera.cameraOn && !isAutoCaptureActive && (
               <button className="primary-button" onClick={handleCaptureMore} type="button">
                 <Camera size={18} />
-                {totalFiles > 0 ? "Chụp ảnh tiếp" : "Bắt đầu chụp"}
+                {totalFiles > 0 ? `Chụp tiếp (${totalFiles}/5)` : "Bắt đầu chụp"}
               </button>
             )}
             {isAutoCaptureActive && (
@@ -1431,7 +1439,7 @@ function RegisterPage({
                 onClick={() => setIsAutoCaptureActive(false)}
                 type="button"
               >
-                Dừng chụp
+                Dừng ({totalFiles}/5)
               </button>
             )}
           </div>
