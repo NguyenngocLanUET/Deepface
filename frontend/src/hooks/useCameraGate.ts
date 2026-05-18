@@ -240,6 +240,12 @@ export function useCameraGate() {
     });
   }, []);
 
+  const resetDetection = useCallback(() => {
+    setStableFrames(0);
+    setConfidence(0);
+    setFaceBox(null);
+  }, []);
+
   useEffect(() => stop, [stop]);
 
   return {
@@ -255,5 +261,6 @@ export function useCameraGate() {
     start,
     stop,
     captureBlob,
+    resetDetection,
   };
 }

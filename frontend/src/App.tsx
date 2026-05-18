@@ -957,6 +957,8 @@ function KioskPage({
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<IdentifyResult | null>(null);
   const clearResultTimerRef = useRef<number | null>(null);
+  const lastSubmitTimeRef = useRef<number>(0);
+  const DETECTION_THROTTLE_MS = 500; // Ngăn submit quá nhanh
 
   useEffect(() => {
     if (!selectedDoor && doors[0]) setSelectedDoor(doors[0].name);
@@ -994,6 +996,13 @@ function KioskPage({
       return;
     }
 
+    // Kiểm tra throttle để ngăn submit quá nhanh
+    const now = Date.now();
+    if (now - lastSubmitTimeRef.current < DETECTION_THROTTLE_MS) {
+      return;
+    }
+    lastSubmitTimeRef.current = now;
+
     setSubmitting(true);
 
     const blob = await camera.captureBlob();
@@ -1008,6 +1017,9 @@ function KioskPage({
       setResult(identifyResult);
       onRefresh();
 
+      // Reset detection để detection có thể chạy liên tục
+      camera.resetDetection();
+
       if (clearResultTimerRef.current) {
         window.clearTimeout(clearResultTimerRef.current);
       }
@@ -1019,9 +1031,9 @@ function KioskPage({
     }
   }, [camera, onNotice, onRefresh, selectedDoor, submitting]);
 
-  // Tự động chấm công khi phát hiện khuôn mặt ổn định
+  // Tự động chấm công khi phát hiện khuôn mặt ổn định (không cần chờ result clear)
   useEffect(() => {
-    if (camera.canSubmit && !submitting && !result) {
+    if (camera.canSubmit && !submitting) {
       submitFrame();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
