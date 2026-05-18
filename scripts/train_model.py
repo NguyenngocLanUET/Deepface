@@ -30,7 +30,7 @@ def train_model():
     # Create model metadata
     model_info = {
         "model_name": "ArcFace",
-        "detector_backend": "retinaface",
+        "detector_backend": "opencv",
         "vector_size": 512,
         "training_samples": len(training_images),
         "status": "trained"
