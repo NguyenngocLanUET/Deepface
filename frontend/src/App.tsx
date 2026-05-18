@@ -64,7 +64,7 @@ type AppSession = {
 };
 
 const SESSION_STORAGE_KEY = "faceaccess-session";
-const AUTO_CAPTURE_COOLDOWN_MS = 3000;
+const AUTO_CAPTURE_COOLDOWN_MS = 7000;
 const NOTICE_AUTO_HIDE_MS = 5000;
 
 const initialStats: SystemStats = {
