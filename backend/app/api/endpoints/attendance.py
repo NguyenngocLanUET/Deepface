@@ -54,7 +54,7 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail=f"Lỗi tải file: {str(e)}")
         
         try:
-            embedding = vision_service.get_embedding(temp_path, detector='retinaface')
+            embedding = vision_service.get_embedding(temp_path, detector='opencv')
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Lỗi trích xuất khuôn mặt: {str(e)}")
         
