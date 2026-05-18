@@ -1318,7 +1318,7 @@ function RegisterPage({
                   if (!cancelled && registerCamera.cameraOn) {
                     autoCapture();
                   }
-                }, 300);
+                }, 1000);
               }
             } else {
               // Retry nhanh hơn - chỉ 2 lần
@@ -1334,7 +1334,7 @@ function RegisterPage({
                   text: `Ảnh chưa tốt. Thử lại...`,
                 });
                 setCaptureAttempts(0);
-                await new Promise((resolve) => setTimeout(resolve, 500));
+                await new Promise((resolve) => setTimeout(resolve, 1000));
                 if (!cancelled) {
                   autoCapture();
                 }
