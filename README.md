@@ -93,6 +93,7 @@ database/
       ```
    3. Mở các URL:
       ```http
+      Frontend API: https://faceaccess.vercel.app
       Backend API Docs: http://localhost:8000/docs
       Public API (Ngrok): https://graffiti-fit-error.ngrok-free.dev/docs
       MinIO Console: http://localhost:9001
