@@ -1,12 +1,12 @@
 from fastapi import APIRouter, File, UploadFile, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi_cache import FastAPICache
-import shutil, uuid, os, io
+import shutil, uuid, os, io, tempfile
 from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 import pandas as pd
 
-from app.services.vision import VisionService
+from app.services.vision import FaceDetectionError, VisionService
 from app.services.vector_db import VectorDBService
 from app.services.database import DBService
 from app.services.storage import StorageService
@@ -43,18 +43,25 @@ def build_attendance_message(checkin_time: time, is_allowed: bool, default_msg: 
 @router.post("/identify")
 async def identify(door_name: str, file: UploadFile = File(...)):
     temp_id = str(uuid.uuid4())
-    temp_path = f"/tmp/{temp_id}.jpg"
+    temp_path = None
     
     try:
         # Ghi file tạm
         try:
-            with open(temp_path, "wb") as buffer:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as buffer:
+                temp_path = buffer.name
                 shutil.copyfileobj(file.file, buffer)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Lỗi tải file: {str(e)}")
         
         try:
-            embedding = vision_service.get_embedding(temp_path, detector='opencv')
+            embedding = vision_service.get_embedding(temp_path)
+        except FaceDetectionError as e:
+            try:
+                db_service.log_attendance(None, door_name, "UNKNOWN", str(e))
+            except Exception as log_error:
+                print(f"Loi log attendance khi khong detect duoc mat: {str(log_error)}")
+            return {"match": False, "message": str(e), "open_door": False}
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Lỗi trích xuất khuôn mặt: {str(e)}")
         
@@ -160,7 +167,7 @@ async def identify(door_name: str, file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi không xác định: {str(e)}")
     finally:
-        if os.path.exists(temp_path): 
+        if temp_path and os.path.exists(temp_path):
             try:
                 os.remove(temp_path)
             except Exception as e:
