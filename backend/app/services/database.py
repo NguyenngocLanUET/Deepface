@@ -264,6 +264,13 @@ class DBService:
         try:
             door = db.query(Door).filter(Door.name == door_name).first()
             door_id = door.id if door else None
+            
+            print(f"\n[LOG_ATTENDANCE] Ghi log chấm công:")
+            print(f"  - Employee ID: {employee_id}")
+            print(f"  - Door: {door_name} (ID: {door_id})")
+            print(f"  - Status: {status}")
+            print(f"  - Reason: {reason}")
+            print(f"  - Image: {image_path}")
 
             new_log = AttendanceLog(
                 employee_id=employee_id,
@@ -274,9 +281,14 @@ class DBService:
             )
             db.add(new_log)
             db.commit()
+            db.refresh(new_log)
+            
+            print(f"✅ [LOG_ATTENDANCE] Ghi log thành công - ID: {new_log.id}")
             return new_log
         except Exception as e:
-            print(f"Lỗi log_attendance: {str(e)}")
+            print(f"\n❌ [LOG_ATTENDANCE] LỖI: {type(e).__name__}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             db.rollback()
             return None
         finally:

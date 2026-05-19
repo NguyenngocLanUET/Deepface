@@ -74,7 +74,7 @@ class AttendanceLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     employee_id = Column(Integer, ForeignKey("employees.id"), nullable=True) # Null nếu không nhận diện được
-    door_id = Column(Integer, ForeignKey("doors.id"))
+    door_id = Column(Integer, ForeignKey("doors.id"), nullable=True) # Cho phép NULL nếu cửa không tìm thấy
     
     checkin_at = Column(DateTime, default=datetime.utcnow)
     

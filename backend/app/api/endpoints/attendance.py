@@ -143,9 +143,15 @@ async def identify(door_name: str, file: UploadFile = File(...)):
 
         # Log attendance
         try:
-            db_service.log_attendance(emp_id, door_name, "SUCCESS" if is_allowed else "DENIED", attendance_message, snapshot_name)
+            log_result = db_service.log_attendance(emp_id, door_name, "SUCCESS" if is_allowed else "DENIED", attendance_message, snapshot_name)
+            if log_result:
+                print(f"✅ Chấm công được ghi vào lịch sử: {log_result.id}")
+            else:
+                print(f"⚠️ CẢNH BÁO: Ghi log attendance thất bại!")
         except Exception as e:
-            print(f"Lỗi log attendance: {str(e)}")
+            print(f"❌ Lỗi ghi log attendance: {str(e)}")
+            import traceback
+            traceback.print_exc()
         
         # Lưu cooldown vào Redis
         try:
