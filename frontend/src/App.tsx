@@ -1496,7 +1496,7 @@ function DoorsPage({
   const [description, setDescription] = useState("");
 
   const deleteDoor = async (door: Door) => {
-    if (!window.confirm(`Xác nhận xóa cửa "${door.name}"?`)) return;
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa cửa "${door.name}"?`)) return;
     try {
       await api.deleteDoor(door.id);
       onNotice({ type: "success", text: "Đã xóa cửa/khu vực." });
@@ -1587,7 +1587,7 @@ function DepartmentsPage({
   const [name, setName] = useState("");
 
   const deleteDepartment = async (department: Department) => {
-    if (!window.confirm(`Xác nhận xóa phòng ban "${department.name}"?`)) return;
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa phòng ban "${department.name}"?`)) return;
     try {
       await api.deleteDepartment(department.id);
       onNotice({ type: "success", text: "Đã xóa phòng ban." });
@@ -1793,6 +1793,9 @@ function HistoryPage({
   );
 
   const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null);
+  const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [snapshotError, setSnapshotError] = useState<string | null>(null);
 
   const scopedHistory = history.filter((item) => {
     if (isSelfView && session.employeeId) {
@@ -1831,6 +1834,41 @@ function HistoryPage({
     setDoorFilter("ALL");
     setEmployeeFilter(isSelfView && session.employeeId ? String(session.employeeId) : "ALL");
   };
+
+  useEffect(() => {
+    if (!selectedLog?.image_snapshot) {
+      setSnapshotUrl(null);
+      setSnapshotLoading(false);
+      setSnapshotError(null);
+      return;
+    }
+
+    let cancelled = false;
+    let nextUrl: string | null = null;
+
+    setSnapshotUrl(null);
+    setSnapshotLoading(true);
+    setSnapshotError(null);
+
+    api.getAttendanceSnapshot(selectedLog.image_snapshot)
+      .then((blob) => {
+        if (cancelled) return;
+        nextUrl = window.URL.createObjectURL(blob);
+        setSnapshotUrl(nextUrl);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setSnapshotError(errorMessage(error, "Không thể tải ảnh chấm công."));
+      })
+      .finally(() => {
+        if (!cancelled) setSnapshotLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      if (nextUrl) window.URL.revokeObjectURL(nextUrl);
+    };
+  }, [selectedLog?.id, selectedLog?.image_snapshot]);
 
   return (
     <section className="panel full">
@@ -1942,12 +1980,12 @@ function HistoryPage({
               <th>Trạng thái</th>
               <th>Lý do</th>
               {!isSelfView && <th>Nhân viên</th>}
-              {!isSelfView && <th>Snapshot</th>}
+              <th>Ảnh</th>
             </tr>
           </thead>
           <tbody>
             {filteredHistory.map((item) => (
-              <tr key={item.id} onClick={() => setSelectedLog(item)}>
+              <tr className="history-row" key={item.id} onClick={() => setSelectedLog(item)}>
                 <td>{formatDateTime(item.checkin_at)}</td>
                 <td>{doorName(item.door_id)}</td>
                 <td>
@@ -1955,7 +1993,22 @@ function HistoryPage({
                 </td>
                 <td>{item.reason ?? "-"}</td>
                 {!isSelfView && <td>{employeeName(item.employee_id)}</td>}
-                {!isSelfView && <td>{item.image_snapshot ? "Có ảnh" : "-"}</td>}
+                <td>
+                  {item.image_snapshot ? (
+                    <button
+                      className="small-button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setSelectedLog(item);
+                      }}
+                      type="button"
+                    >
+                      Xem ảnh
+                    </button>
+                  ) : (
+                    "-"
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -1975,15 +2028,23 @@ function HistoryPage({
               </button>
             </div>
             <div className="modal-body">
-              {selectedLog.image_snapshot ? (
-                <img
-                  src={selectedLog.image_snapshot}
-                  alt="Snapshot chấm công"
-                  style={{ maxWidth: "100%", borderRadius: 8 }}
-                />
-              ) : (
-                <p>Không có ảnh snapshot cho bản ghi này.</p>
-              )}
+              <div className="snapshot-frame">
+                {selectedLog.image_snapshot ? (
+                  <>
+                    {snapshotLoading && <p className="snapshot-empty">Đang tải ảnh chấm công...</p>}
+                    {snapshotError && <p className="inline-error">{snapshotError}</p>}
+                    {snapshotUrl && (
+                      <img
+                        className="snapshot-image"
+                        src={snapshotUrl}
+                        alt="Ảnh chấm công"
+                      />
+                    )}
+                  </>
+                ) : (
+                  <p className="snapshot-empty">Không có ảnh snapshot cho bản ghi này.</p>
+                )}
+              </div>
               <div className="log-details">
                 <p><strong>Thời gian:</strong> {formatDateTime(selectedLog.checkin_at)}</p>
                 <p><strong>Cửa:</strong> {doorName(selectedLog.door_id)}</p>

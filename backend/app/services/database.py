@@ -107,13 +107,17 @@ class DBService:
             department = db.query(Department).filter(Department.id == department_id).first()
             if not department:
                 return False
-            employee_count = db.query(Employee).filter(Employee.department_id == department_id).count()
-            if employee_count > 0:
-                raise ValueError("Không thể xóa phòng ban đang có nhân viên.")
             db.query(DepartmentPermission).filter_by(department_id=department_id).delete()
+            db.query(Employee).filter(Employee.department_id == department_id).update(
+                {Employee.department_id: None},
+                synchronize_session=False,
+            )
             db.delete(department)
             db.commit()
             return True
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
 
@@ -191,6 +195,9 @@ class DBService:
             db.delete(door)
             db.commit()
             return True
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
 

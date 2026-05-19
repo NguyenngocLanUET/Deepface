@@ -173,6 +173,23 @@ async def get_history(limit: int = 100, employee_id: Optional[int] = None):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi lấy lịch sử: {str(e)}")
 
+@router.get("/snapshot")
+async def get_snapshot(path: str):
+    snapshot_path = path.strip().lstrip("/")
+    if not snapshot_path.startswith("snapshots/") or ".." in snapshot_path.split("/"):
+        raise HTTPException(status_code=400, detail="Duong dan anh snapshot khong hop le")
+
+    try:
+        snapshot = storage_service.get_file_object(snapshot_path)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Khong tim thay anh snapshot")
+
+    return StreamingResponse(
+        snapshot["Body"],
+        media_type=snapshot.get("ContentType") or "image/jpeg",
+        headers={"Cache-Control": "private, max-age=300"},
+    )
+
 @router.get("/stats/monthly")
 async def get_monthly_stats(month: int, year: int):
     try:

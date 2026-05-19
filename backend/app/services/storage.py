@@ -35,3 +35,6 @@ class StorageService:
     def download_file(self, object_name, local_path):
         self.s3.download_file(self.bucket_name, object_name, local_path)
         return local_path
+
+    def get_file_object(self, object_name):
+        return self.s3.get_object(Bucket=self.bucket_name, Key=object_name)

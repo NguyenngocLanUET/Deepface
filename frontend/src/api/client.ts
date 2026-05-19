@@ -70,6 +70,34 @@ async function request<T>(pathOrPaths: string | string[], init?: RequestInit): P
   }
 }
 
+async function requestBlob(pathOrPaths: string | string[], init?: RequestInit): Promise<Blob> {
+  const paths = Array.isArray(pathOrPaths) ? pathOrPaths : [pathOrPaths];
+  const firstPath = paths[0];
+  let lastHttpError = "";
+  try {
+    for (let index = 0; index < paths.length; index += 1) {
+      const path = paths[index];
+      const response = await fetch(`${API_BASE_URL}${path}`, withDefaultHeaders(init));
+      if (!response.ok) {
+        lastHttpError = await readErrorMessage(response);
+        if ((response.status === 404 || response.status === 405) && index < paths.length - 1) {
+          continue;
+        }
+
+        throw new Error(lastHttpError);
+      }
+
+      currentMode = "live";
+      return await response.blob();
+    }
+
+    throw new Error(lastHttpError || `Khong the ket noi backend: ${paths[0]}`);
+  } catch (error) {
+    currentMode = "offline";
+    throw error instanceof Error ? error : new Error(`Khong the ket noi backend: ${firstPath}`);
+  }
+}
+
 function jsonRequest(method: "POST" | "PUT" | "PATCH" | "DELETE", body?: unknown): RequestInit {
   return {
     method,
@@ -188,6 +216,13 @@ export const api = {
     return request<AttendanceLog[]>([
       `/attendance/history?${params.toString()}`,
       `/attendance/attendance/history?${params.toString()}`,
+    ]);
+  },
+  getAttendanceSnapshot: (snapshotPath: string) => {
+    const params = new URLSearchParams({ path: snapshotPath });
+    return requestBlob([
+      `/attendance/snapshot?${params.toString()}`,
+      `/attendance/attendance/snapshot?${params.toString()}`,
     ]);
   },
   getMonthlyStats: (month: number, year: number) =>
