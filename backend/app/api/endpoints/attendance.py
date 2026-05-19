@@ -141,9 +141,17 @@ async def identify(door_name: str, file: UploadFile = File(...)):
         checkin_time = get_vn_now().time()
         attendance_message = build_attendance_message(checkin_time, is_allowed, msg)
 
-        # Log attendance
+        # Log attendance - GHI "SUCCESS" LUÔN nếu nhân viên được nhận diện thành công
         try:
-            log_result = db_service.log_attendance(emp_id, door_name, "SUCCESS" if is_allowed else "DENIED", attendance_message, snapshot_name)
+            # Status = SUCCESS luôn (vì đã nhận diện được mặt)
+            # Nếu không có quyền thì message sẽ chứa lý do
+            log_result = db_service.log_attendance(
+                emp_id, 
+                door_name, 
+                "SUCCESS",  # Luôn SUCCESS nếu match=true
+                attendance_message,  # Message chứa lý do (muộn, ngoài giờ, v.v.)
+                snapshot_name
+            )
             if log_result:
                 print(f"✅ Chấm công được ghi vào lịch sử: {log_result.id}")
             else:
