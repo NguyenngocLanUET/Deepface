@@ -1032,44 +1032,42 @@ function KioskPage({
     let finalResult = null;
 
     try {
-      // Thử tối đa IDENTIFY_ATTEMPTS lần (mặc định là 3)
+      let finalResult = null; // Biến tạm để lưu kết quả tốt nhất
+
       for (let attempt = 0; attempt < IDENTIFY_ATTEMPTS; attempt += 1) {
         const blob = await camera.captureBlob();
-        if (!blob) throw new Error("Không chụp được ảnh từ camera.");
+        if (!blob) continue;
 
-        // Gọi API nhận diện
         const identifyResult = await api.identify(selectedDoor, blob);
 
-        // LOGIC MỚI: Chỉ cần 1 lần match (nhận ra nhân viên) là dừng lại và mở cửa ngay
+        // KIỂM TRA: Nếu lần chụp này trả về MATCH = TRUE
         if (identifyResult && identifyResult.match === true) {
-          finalResult = identifyResult;
-          console.log("✅ Đã nhận diện đúng nhân viên, dừng vòng lặp.");
-          break; 
+          finalResult = identifyResult; // Lưu kết quả thành công
+          console.log("✅ Khớp nhân viên ở lần thử:", attempt + 1);
+          break; // THOÁT VÒNG LẶP NGAY LẬP TỨC, không cho lần chụp sau ghi đè
         }
 
-        // Nếu chưa match, lưu lại kết quả này (để nếu hết vòng lặp vẫn không thấy ai thì hiện "Người lạ")
+        // Nếu chưa match, lưu kết quả này lại để hiển thị nếu sau 3 lần vẫn thất bại
         finalResult = identifyResult;
 
-        // Nếu chưa tìm thấy và vẫn còn lượt thử, đợi một chút rồi chụp tiếp
         if (attempt < IDENTIFY_ATTEMPTS - 1) {
           await new Promise((resolve) => window.setTimeout(resolve, IDENTIFY_INTERVAL_MS));
         }
       }
 
-      // Hiển thị kết quả cuối cùng thu được
+      // Sau khi thoát vòng lặp, hiển thị kết quả tốt nhất tìm được lên màn hình
       if (finalResult) {
         setResult(finalResult);
       }
       
-      onRefresh(); // Cập nhật lại danh sách lịch sử ở dưới
+      onRefresh(); // Làm mới bảng lịch sử ở dưới
       camera.resetDetection();
 
-      // Hẹn giờ tự động ẩn thông báo kết quả (AUTO_CAPTURE_COOLDOWN_MS)
+      // Xóa kết quả trên màn hình sau một khoảng thời gian
       if (clearResultTimerRef.current) {
         window.clearTimeout(clearResultTimerRef.current);
       }
       clearResultTimerRef.current = window.setTimeout(() => setResult(null), AUTO_CAPTURE_COOLDOWN_MS);
-
     } catch (error) {
       onNotice({ type: "error", text: errorMessage(error, "Lỗi kết nối server.") });
     } finally {
