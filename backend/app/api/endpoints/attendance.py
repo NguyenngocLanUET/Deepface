@@ -213,6 +213,10 @@ async def identify(door_name: str, file: UploadFile = File(...)):
         except Exception as e:
             print(f"Cảnh báo: Không lưu cooldown vào Redis - {str(e)}")
 
+        # Chỉ in thông báo khi phán quyết cuối cùng là người lạ
+        if not is_allowed:
+            print(f"⚠️ Người lạ: Không được phép truy cập tại cửa {door_name}")
+
         return {
             "match": True,
             "employee_name": user_info["full_name"],

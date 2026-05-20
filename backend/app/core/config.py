@@ -6,6 +6,15 @@ class Settings(BaseSettings):
     
     # --- Postgres Database ---
     # Thay đổi user/pass/db cho đúng với docker-compose của bạn
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "admin")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "123")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "attendance")
+    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "db")
+    POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", 5432))
+
+    SQLALCHEMY_DATABASE_URL: str = (
+        f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    )
     
     # --- Qdrant (Vector DB) ---
     QDRANT_HOST: str = os.getenv("QDRANT_HOST", "qdrant")

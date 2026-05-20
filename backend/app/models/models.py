@@ -48,7 +48,7 @@ class Door(Base):
     __tablename__ = "doors"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(50), unique=True) # Ví dụ: Cửa chính, Phòng Server
+    name = Column(String(255), nullable=False, unique=True)  # Tên cửa
     description = Column(String(200))
     
     permissions = relationship("AccessPermission", back_populates="door")
