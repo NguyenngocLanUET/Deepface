@@ -117,9 +117,21 @@ async def bulk_import(zip_file: UploadFile = File(...)):
                 print(f"Lỗi xử lý nhân viên {emp_code}: {str(e)}")
                 results.append({"code": emp.get("employee_code", "unknown"), "status": "error", "message": str(e)})
 
+        # Tổng hợp kết quả
+        success_count = sum(1 for r in results if r['status'] == 'processing')
+        error_count = sum(1 for r in results if r['status'] == 'error')
+        no_images_count = sum(1 for r in results if r['status'] == 'no_images_found')
+
+        print(f"✅ Import hoàn tất: {success_count} thành công, {error_count} lỗi, {no_images_count} không có ảnh.")
+
         return {
             "message": f"Đã nhận lệnh import {len(employees_data)} nhân viên",
-            "details": results
+            "details": results,
+            "summary": {
+                "success": success_count,
+                "errors": error_count,
+                "no_images": no_images_count
+            }
         }
 
     except HTTPException:
