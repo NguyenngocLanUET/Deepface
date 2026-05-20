@@ -123,6 +123,7 @@ function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("vi-VN", {
     dateStyle: "short",
     timeStyle: "medium",
+    timeZone: "Asia/Ho_Chi_Minh",
   }).format(new Date(value));
 }
 
@@ -2406,7 +2407,7 @@ function AdminToolsPage({ onNotice }: { onNotice: (notice: Notice) => void }) {
     try {
       const result = await api.resyncVectors();
       onNotice({ type: "info", text: result.message });
-    } catch (error) {
+    } catch (error) => {
       onNotice({ type: "error", text: errorMessage(error, "Không thể đồng bộ lại vector.") });
     }
   };

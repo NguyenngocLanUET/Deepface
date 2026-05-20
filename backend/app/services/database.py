@@ -314,13 +314,12 @@ class DBService:
             db.close()
 
     # --- NHÓM ĐIỂM DANH & LOG & THỐNG KÊ ---
-
+            
     def log_attendance(self, employee_id: int, door_name: str, status: str, reason: str = None, image_path: str = None):
         db = SessionLocal()
         try:
             door = db.query(Door).filter(Door.name == door_name).first()
             door_id = door.id if door else None
-            
             print(f"\n[LOG_ATTENDANCE] Ghi log chấm công:")
             print(f"  - Employee ID: {employee_id}")
             print(f"  - Door: {door_name} (ID: {door_id})")
@@ -328,18 +327,20 @@ class DBService:
             print(f"  - Reason: {reason}")
             print(f"  - Image: {image_path}")
 
+            # Lấy thời gian VN hiện tại dưới dạng naive datetime để lưu vào DB
+            current_vn_time = datetime.now(VN_TZ).replace(tzinfo=None)
+
             new_log = AttendanceLog(
                 employee_id=employee_id,
                 door_id=door_id,
                 status=status,
                 reason=reason,
-                image_snapshot=image_path
+                image_snapshot=image_path,
+                checkin_at=current_vn_time  # Gán thủ công giờ Việt Nam
             )
             db.add(new_log)
             db.commit()
             db.refresh(new_log)
-            
-            print(f"✅ [LOG_ATTENDANCE] Ghi log thành công - ID: {new_log.id}")
             return new_log
         except Exception as e:
             print(f"\n❌ [LOG_ATTENDANCE] LỖI: {type(e).__name__}: {str(e)}")
@@ -373,7 +374,7 @@ class DBService:
                 return []
             
             # Tính thời gian bắt đầu (N giây trước) - dùng Vietnam timezone
-            start_time = datetime.now(VN_TZ) - timedelta(seconds=seconds)
+            start_time = (datetime.now(VN_TZ) - timedelta(seconds=seconds)).replace(tzinfo=None)
             
             # Truy vấn log gần đây
             logs = db.query(AttendanceLog)\
@@ -405,7 +406,7 @@ class DBService:
 
             from datetime import datetime, timedelta
             # Dùng Vietnam timezone
-            start_time = datetime.now(VN_TZ) - timedelta(seconds=seconds)
+            start_time = (datetime.now(VN_TZ) - timedelta(seconds=seconds)).replace(tzinfo=None)
 
             log = db.query(AttendanceLog)\
                 .filter(AttendanceLog.door_id == door.id)\
@@ -423,8 +424,6 @@ class DBService:
     def get_monthly_report_data(self, month: int, year: int):
         db = SessionLocal()
         try:
-            from app.core.config import utc_to_vn
-            
             stats = db.query(
                 AttendanceLog.employee_id,
                 Employee.full_name,
@@ -438,20 +437,17 @@ class DBService:
              .group_by(AttendanceLog.employee_id, Employee.full_name, Employee.employee_code, "date")\
              .all()
             
-            # Convert SQLAlchemy objects to dict với formatting
             result = []
             for s in stats:
                 row = dict(s._mapping)
-                # Convert datetime objects to ISO strings (for consistency)
-                # Also convert to Vietnam timezone
                 if row.get('date'):
                     row['date'] = str(row['date'])
+                
+                # Do DB đã lưu đúng giờ Việt Nam, chỉ cần định dạng trực tiếp ra chuỗi ISO
                 if row.get('first_in'):
-                    vn_time = utc_to_vn(row['first_in'])
-                    row['first_in'] = vn_time.isoformat()
+                    row['first_in'] = row['first_in'].isoformat()
                 if row.get('last_out'):
-                    vn_time = utc_to_vn(row['last_out'])
-                    row['last_out'] = vn_time.isoformat()
+                    row['last_out'] = row['last_out'].isoformat()
                 result.append(row)
             
             return result
@@ -462,7 +458,7 @@ class DBService:
         """Xóa các bản ghi chấm công cũ hơn N ngày"""
         db = SessionLocal()
         try:
-            cutoff_date = datetime.now(VN_TZ) - timedelta(days=days)
+            cutoff_date = (datetime.now(VN_TZ) - timedelta(days=days)).replace(tzinfo=None)
             
             # Xóa các bản ghi AttendanceLog cũ hơn cutoff_date
             deleted_count = db.query(AttendanceLog)\
