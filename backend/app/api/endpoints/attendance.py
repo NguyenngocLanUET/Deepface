@@ -45,7 +45,7 @@ async def identify(door_name: str, file: UploadFile = File(...)):
     temp_path = None
     
     try:
-        # Ghi file tạm
+        # 1. Ghi file ảnh tạm thời
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as buffer:
                 temp_path = buffer.name
@@ -53,13 +53,14 @@ async def identify(door_name: str, file: UploadFile = File(...)):
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Lỗi tải file: {str(e)}")
         
+        # 2. Trích xuất khuôn mặt lấy Embedding
         try:
             embedding = vision_service.get_embedding(temp_path)
         except FaceDetectionError as e:
             try:
                 db_service.log_attendance(None, door_name, "UNKNOWN", str(e))
             except Exception as log_error:
-                print(f"Loi log attendance khi khong detect duoc mat: {str(log_error)}")
+                print(f"Lỗi log attendance khi không detect được mặt: {str(log_error)}")
             return {"match": False, "message": str(e), "open_door": False}
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Lỗi trích xuất khuôn mặt: {str(e)}")
@@ -67,17 +68,18 @@ async def identify(door_name: str, file: UploadFile = File(...)):
         if not embedding:
             return {"match": False, "message": "Không hợp lệ", "open_door": False}
 
+        # 3. Tìm kiếm Vector DB
         try:
             results = vector_db.search(embedding, collection_name=settings.COLLECTION_NAME)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Lỗi tìm kiếm Vector DB: {str(e)}")
         
+        # 4. XỬ LÝ TRƯỜNG HỢP: NGƯỜI LẠ (Không khớp hoặc score quá thấp)
         if not results or results[0].score < 0.45:
-            # Nếu không tìm thấy kết quả rõ ràng, kiểm tra log SUCCESS gần đây trên cùng cửa
+            # Kiểm tra xem có ai vừa check-in thành công trước đó 5 giây trên cùng cửa không (Fallback)
             try:
                 recent_success = db_service.get_recent_success_on_door(door_name, seconds=5)
                 if recent_success and recent_success.get("employee_id"):
-                    # Trả về thông tin nhân viên đã được ghi nhận gần đây
                     recent_emp = db_service.get_employee_by_id(recent_success.get("employee_id"))
                     if recent_emp:
                         return {
@@ -90,7 +92,7 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             except Exception as e:
                 print(f"Cảnh báo: Lỗi khi kiểm tra log SUCCESS gần đây - {str(e)}")
 
-            # Chụp snapshot cho người lạ
+            # Tải ảnh người lạ lên Storage làm bằng chứng (Snapshot)
             snapshot_name = None
             try:
                 snapshot_name = f"snapshots/{date.today()}/{temp_id}.jpg"
@@ -100,22 +102,33 @@ async def identify(door_name: str, file: UploadFile = File(...)):
                 print(f"Cảnh báo: Không tải ảnh lên Storage cho người lạ - {str(e)}")
                 snapshot_name = None
             
+            # GHI LOG "DENIED" - Áp dụng chống spam log Người lạ liên tục trong 5 giây
             try:
-                db_service.log_attendance(None, door_name, "DENIED", "Người lạ", snapshot_name)
+                if not db_service.has_recent_denied_stranger(door_name, seconds=5):
+                    db_service.log_attendance(None, door_name, "DENIED", "Người lạ", snapshot_name)
+                else:
+                    print("Bỏ qua ghi trùng log Người lạ (cooldown)")
             except Exception as e:
                 print(f"Lỗi log attendance: {str(e)}")
-            return {"match": False, "message": "Người lạ", "open_door": False, "score": results[0].score if results else 0}
 
+            return {
+                "match": False, 
+                "message": "Người lạ", 
+                "open_door": False, 
+                "score": results[0].score if results else 0
+            }
+
+        # 5. XỬ LÝ TRƯỜNG HỢP: KHỚP VỚI NHÂN VIÊN
         emp_id = int(results[0].id)
         
-        # Lấy thông tin nhân viên
+        # Lấy thông tin nhân viên từ Database
         try:
             user_info = db_service.get_employee_by_id(emp_id)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Lỗi truy vấn DB: {str(e)}")
         
+        # Nhân viên có trong VectorDB nhưng không tồn tại trong Database SQL
         if not user_info:
-            # Chụp snapshot cho nhân viên không tồn tại
             snapshot_name = None
             try:
                 snapshot_name = f"snapshots/{date.today()}/{temp_id}.jpg"
@@ -131,7 +144,7 @@ async def identify(door_name: str, file: UploadFile = File(...)):
                 print(f"Lỗi log attendance: {str(e)}")
             return {"match": False, "message": "Nhân viên không tồn tại", "open_door": False}
         
-        # COOLDOWN REDIS - Bảo vệ bằng try-catch
+        # 6. KIỂM TRA COOLDOWN TRÁNH ĐIỂM DANH TRÙNG LẶP (REDIS)
         cache_key = f"cooldown_{emp_id}_{door_name}"
         is_cooldown = False
         
@@ -143,7 +156,7 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             print(f"Cảnh báo: Redis không khả dụng - {str(e)}")
         
         if is_cooldown:
-            # Nếu đang trong cooldown, kiểm tra log gần đây để xác nhận
+            # Nếu đang trong cooldown, kiểm tra xem vừa ghi nhận thành công chưa để duy trì mở cửa
             try:
                 recent_logs = db_service.get_recent_attendance_logs(emp_id, door_name, seconds=5)
                 for log in recent_logs:
@@ -158,16 +171,14 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             except Exception as e:
                 print(f"Cảnh báo: Không thể kiểm tra log gần đây - {str(e)}")
             
-            # Nếu không có log hợp lệ gần đây, bỏ qua cooldown
             return {
                 "match": False,
                 "message": "Vui lòng chờ trước khi thử lại",
                 "open_door": False
             }
 
-        # Kiểm tra tài khoản hoạt động
+        # 7. KIỂM TRA TÀI KHOẢN CÒN HOẠT ĐỘNG KHÔNG
         if not user_info.get("is_active", False):
-            # Chụp snapshot cho tài khoản bị khóa
             snapshot_name = None
             try:
                 snapshot_name = f"snapshots/{date.today()}/{temp_id}.jpg"
@@ -183,13 +194,13 @@ async def identify(door_name: str, file: UploadFile = File(...)):
                 print(f"Lỗi log attendance: {str(e)}")
             return {"match": False, "message": "Tài khoản bị khóa", "open_door": False}
 
-        # Kiểm tra quyền truy cập
+        # 8. KIỂM TRA QUYỀN TRUY CẬP CỦA NHÂN VIÊN (Thời gian & Khu vực)
         try:
             is_allowed, msg = db_service.check_access_permission(emp_id, door_name)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Lỗi kiểm tra quyền: {str(e)}")
         
-        # Upload ảnh snapshot
+        # 9. TẢI ẢNH SNAPSHOT LÊN STORAGE
         snapshot_name = f"snapshots/{date.today()}/{temp_id}.jpg"
         try:
             with open(temp_path, "rb") as f:
@@ -198,30 +209,37 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             print(f"Cảnh báo: Không tải ảnh lên Storage - {str(e)}")
             snapshot_name = None
 
+        # Thiết lập thông điệp và trạng thái dựa theo kết quả check quyền
         checkin_time = get_vn_now().time()
         attendance_message = build_attendance_message(checkin_time, is_allowed, msg)
+        status = "SUCCESS" if is_allowed else "DENIED"
 
-        # Log attendance - GHI "SUCCESS" LUÔN nếu nhân viên được nhận diện thành công
+        # 10. GHI NHẬN LỊCH SỬ VÀO DATABASE
         try:
-            # Status = SUCCESS luôn (vì đã nhận diện được mặt)
-            # Nếu không có quyền thì message sẽ chứa lý do
             log_result = db_service.log_attendance(
                 emp_id, 
                 door_name, 
-                "SUCCESS",  # Luôn SUCCESS nếu match=true
-                attendance_message,  # Message chứa lý do (muộn, ngoài giờ, v.v.)
+                status,  # Ghi đúng thực tế (SUCCESS/DENIED) thay vì luôn ghi SUCCESS
+                attendance_message,
                 snapshot_name
             )
             if log_result:
-                print(f"✅ Chấm công được ghi vào lịch sử: {log_result.id}")
+                print(f"✅ Đã ghi nhận lịch sử chấm công: ID {log_result.id} ({status})")
             else:
-                print(f"⚠️ CẢNH BÁO: Ghi log attendance thất bại!")
+                print(f"⚠️ Cảnh báo: Không thể lưu log chấm công.")
         except Exception as e:
             print(f"❌ Lỗi ghi log attendance: {str(e)}")
-            import traceback
-            traceback.print_exc()
-        
-        # Lưu cooldown vào Redis
+
+        # 11. DỌN DẸP LOG RÁC & CẬP NHẬT COOLDOWN
+        if is_allowed:
+            # Chỉ khi nhân viên được xác nhận thành công và được phép mở cửa,
+            # hệ thống mới dọn dẹp các log "Người lạ" tạm thời tạo sai trước đó 5 giây.
+            try:
+                db_service.delete_recent_denied_strangers(door_name, seconds=5)
+            except Exception as e:
+                print(f"Cảnh báo: Không thể dọn dẹp các log rác trước đó: {str(e)}")
+
+        # Lưu thông tin Cooldown tránh spam request vào Redis
         try:
             redis_cache = FastAPICache.get_backend()
             if redis_cache:
@@ -229,9 +247,8 @@ async def identify(door_name: str, file: UploadFile = File(...)):
         except Exception as e:
             print(f"Cảnh báo: Không lưu cooldown vào Redis - {str(e)}")
 
-        # Chỉ in thông báo khi phán quyết cuối cùng là người lạ
         if not is_allowed:
-            print(f"⚠️ Người lạ: Không được phép truy cập tại cửa {door_name}")
+            print(f"⚠️ Từ chối truy cập: {attendance_message} tại cửa {door_name}")
 
         return {
             "match": True,
@@ -240,17 +257,18 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             "open_door": is_allowed,
             "message": attendance_message
         }
+        
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi không xác định: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Lỗi hệ thống không xác định: {str(e)}")
     finally:
+        # Đảm bảo file ảnh tạm thời luôn được giải phóng và xóa khỏi hệ thống
         if temp_path and os.path.exists(temp_path):
             try:
                 os.remove(temp_path)
             except Exception as e:
                 print(f"Cảnh báo: Không xóa file tạm - {str(e)}")
-
 @router.get("/history", response_model=List[AttendanceLogOut])
 async def get_history(limit: int = 100, employee_id: Optional[int] = None):
     try:

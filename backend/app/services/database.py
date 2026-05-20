@@ -481,3 +481,43 @@ class DBService:
             return 0
         finally:
             db.close()
+def has_recent_denied_stranger(self, door_name: str, seconds: int = 5) -> bool:
+        """Kiểm tra xem gần đây có log DENIED (Người lạ) nào trên cửa này chưa"""
+        db = SessionLocal()
+        try:
+            door = db.query(Door).filter(Door.name == door_name).first()
+            if not door:
+                return False
+            start_time = (datetime.now(VN_TZ) - timedelta(seconds=seconds)).replace(tzinfo=None)
+            
+            exists = db.query(AttendanceLog)\
+                .filter(AttendanceLog.door_id == door.id)\
+                .filter(AttendanceLog.status == "DENIED")\
+                .filter(AttendanceLog.reason == "Người lạ")\
+                .filter(AttendanceLog.checkin_at >= start_time)\
+                .first()
+            return exists is not None
+        finally:
+            db.close()
+
+    def delete_recent_denied_strangers(self, door_name: str, seconds: int = 5):
+        """Xóa các log DENIED (Người lạ) tạm thời trên cửa này trong N giây qua"""
+        db = SessionLocal()
+        try:
+            door = db.query(Door).filter(Door.name == door_name).first()
+            if not door:
+                return
+            start_time = (datetime.now(VN_TZ) - timedelta(seconds=seconds)).replace(tzinfo=None)
+            
+            db.query(AttendanceLog)\
+                .filter(AttendanceLog.door_id == door.id)\
+                .filter(AttendanceLog.status == "DENIED")\
+                .filter(AttendanceLog.reason == "Người lạ")\
+                .filter(AttendanceLog.checkin_at >= start_time)\
+                .delete(synchronize_session=False)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"Cảnh báo: Không thể dọn dẹp log DENIED gần đây: {str(e)}")
+        finally:
+            db.close()

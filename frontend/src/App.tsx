@@ -120,14 +120,29 @@ const loginAccounts: Array<AppSession & { password: string }> = [
 ];
 
 function formatDateTime(value: string) {
+  // Nếu chuỗi thời gian không có ký tự múi giờ 'Z' hoặc dấu '+' (giờ UTC thô), 
+  // chúng ta chủ động thêm 'Z' để JS hiểu đây là giờ UTC và tự động +7 tiếng sang giờ Việt Nam.
+  const utcValue = value.endsWith("Z") || value.includes("+") ? value : `${value}Z`;
+  
   return new Intl.DateTimeFormat("vi-VN", {
     dateStyle: "short",
     timeStyle: "medium",
-  }).format(new Date(value));
+    timeZone: "Asia/Ho_Chi_Minh", // Ép buộc hiển thị theo giờ Việt Nam
+  }).format(new Date(utcValue));
 }
 
 function toDateInputValue(value: string) {
-  return new Date(value).toISOString().slice(0, 10);
+  const utcValue = value.endsWith("Z") || value.includes("+") ? value : `${value}Z`;
+  const date = new Date(utcValue);
+  
+  // Trả về định dạng YYYY-MM-DD theo đúng ngày thực tế tại Việt Nam 
+  // (tránh việc lệch múi giờ làm ngày bị lùi hoặc tiến 1 ngày)
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 }
 
 function countDistinctDays(items: AttendanceLog[]) {
