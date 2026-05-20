@@ -307,17 +307,22 @@ class DBService:
     def get_recent_attendance_logs(self, employee_id: int, door_name: str, seconds: int = 5):
         """Lấy log chấm công gần đây trong N giây để kiểm tra xác nhận"""
         from datetime import datetime, timedelta
-        from app.models.models import AttendanceLog
+        from app.models.models import AttendanceLog, Door
         
         db = SessionLocal()
         try:
+            # Tìm door_id từ door_name
+            door = db.query(Door).filter(Door.name == door_name).first()
+            if not door:
+                return []
+            
             # Tính thời gian bắt đầu (N giây trước)
             start_time = datetime.now() - timedelta(seconds=seconds)
             
             # Truy vấn log gần đây
             logs = db.query(AttendanceLog)\
                 .filter(AttendanceLog.employee_id == employee_id)\
-                .filter(AttendanceLog.door_name == door_name)\
+                .filter(AttendanceLog.door_id == door.id)\
                 .filter(AttendanceLog.checkin_at >= start_time)\
                 .order_by(AttendanceLog.checkin_at.desc())\
                 .all()
@@ -325,9 +330,9 @@ class DBService:
             # Chuyển đổi sang dict
             return [dict(
                 status=log.status,
-                message=log.message,
+                message=log.reason,
                 checkin_at=log.checkin_at,
-                is_allowed=log.status == "SUCCESS"  # Log SUCCESS nghĩa là nhân viên được phép
+                is_allowed=log.status == "SUCCESS"
             ) for log in logs]
         finally:
             db.close()

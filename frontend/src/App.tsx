@@ -64,7 +64,7 @@ type AppSession = {
 };
 
 const SESSION_STORAGE_KEY = "faceaccess-session";
-const AUTO_CAPTURE_COOLDOWN_MS = 7000;
+const AUTO_CAPTURE_COOLDOWN_MS = 2000;
 const NOTICE_AUTO_HIDE_MS = 5000;
 
 const initialStats: SystemStats = {
@@ -988,12 +988,12 @@ function KioskPage({
   useEffect(() => {
     if (camera.faceBox && !faceDetectedAt) {
       setFaceDetectedAt(Date.now());
-      setCountdownSeconds(5);
+      setCountdownSeconds(2);
     }
 
     if (faceDetectedAt && camera.faceBox) {
       const elapsed = Math.floor((Date.now() - faceDetectedAt) / 1000);
-      const remaining = Math.max(0, 5 - elapsed);
+      const remaining = Math.max(0, 2 - elapsed);
       setCountdownSeconds(remaining);
     } else if (!camera.faceBox) {
       setFaceDetectedAt(null);
@@ -1013,35 +1013,6 @@ function KioskPage({
     [],
   );
 
-
-  const pickMajorityResult = useCallback((results: IdentifyResult[]) => {
-    if (results.length === 0) return null;
-
-    const countMap = new Map<string, { count: number; result: IdentifyResult }>();
-
-    for (const value of results) {
-      const key = value.employee_code ?? (value.match ? "KNOWN" : "UNKNOWN");
-      const current = countMap.get(key);
-      if (!current) {
-        countMap.set(key, { count: 1, result: value });
-      } else {
-        current.count += 1;
-        if ((value.score ?? 0) > (current.result.score ?? 0)) {
-          current.result = value;
-        }
-      }
-    }
-
-    let best: { count: number; result: IdentifyResult } | null = null;
-    for (const entry of countMap.values()) {
-      if (!best || entry.count > best.count) {
-        best = entry;
-      }
-    }
-
-    return best?.result ?? results[0];
-  }, []);
-
   const submitFrame = useCallback(async () => {
     if (submitting) return;
 
@@ -1050,54 +1021,145 @@ function KioskPage({
       return;
     }
 
-    if (!camera.canSubmit) {
-      return;
-    }
+    if (!camera.canSubmit) return;
 
-    // Kiểm tra throttle để ngăn submit quá nhanh
+    // Ngăn submit quá nhanh
     const now = Date.now();
-    if (now - lastSubmitTimeRef.current < DETECTION_THROTTLE_MS) {
-      return;
-    }
+    if (now - lastSubmitTimeRef.current < DETECTION_THROTTLE_MS) return;
     lastSubmitTimeRef.current = now;
 
     setSubmitting(true);
-    const results: IdentifyResult[] = [];
+    let finalResult = null;
 
     try {
+      // Thử tối đa IDENTIFY_ATTEMPTS lần (mặc định là 3)
       for (let attempt = 0; attempt < IDENTIFY_ATTEMPTS; attempt += 1) {
         const blob = await camera.captureBlob();
-        if (!blob) {
-          throw new Error("Không chụp được ảnh từ camera.");
+        if (!blob) throw new Error("Không chụp được ảnh từ camera.");
+
+        // Gọi API nhận diện
+        const identifyResult = await api.identify(selectedDoor, blob);
+
+        // LOGIC MỚI: Chỉ cần 1 lần match (nhận ra nhân viên) là dừng lại và mở cửa ngay
+        if (identifyResult && identifyResult.match === true) {
+          finalResult = identifyResult;
+          console.log("✅ Đã nhận diện đúng nhân viên, dừng vòng lặp.");
+          break; 
         }
 
-        const identifyResult = await api.identify(selectedDoor, blob);
-        results.push(identifyResult);
+        // Nếu chưa match, lưu lại kết quả này (để nếu hết vòng lặp vẫn không thấy ai thì hiện "Người lạ")
+        finalResult = identifyResult;
 
+        // Nếu chưa tìm thấy và vẫn còn lượt thử, đợi một chút rồi chụp tiếp
         if (attempt < IDENTIFY_ATTEMPTS - 1) {
           await new Promise((resolve) => window.setTimeout(resolve, IDENTIFY_INTERVAL_MS));
         }
       }
 
-      const bestResult = pickMajorityResult(results);
-      if (bestResult) {
-        setResult(bestResult);
+      // Hiển thị kết quả cuối cùng thu được
+      if (finalResult) {
+        setResult(finalResult);
       }
-      onRefresh();
-
-      // Reset detection để detection có thể chạy liên tục
+      
+      onRefresh(); // Cập nhật lại danh sách lịch sử ở dưới
       camera.resetDetection();
 
+      // Hẹn giờ tự động ẩn thông báo kết quả (AUTO_CAPTURE_COOLDOWN_MS)
       if (clearResultTimerRef.current) {
         window.clearTimeout(clearResultTimerRef.current);
       }
       clearResultTimerRef.current = window.setTimeout(() => setResult(null), AUTO_CAPTURE_COOLDOWN_MS);
+
     } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể gửi ảnh tới backend.") });
+      onNotice({ type: "error", text: errorMessage(error, "Lỗi kết nối server.") });
     } finally {
       setSubmitting(false);
     }
-  }, [camera, clearResultTimerRef, errorMessage, IDENTIFY_ATTEMPTS, IDENTIFY_INTERVAL_MS, onNotice, onRefresh, pickMajorityResult, selectedDoor, submitting]);
+  }, [camera, selectedDoor, submitting, onNotice, onRefresh, IDENTIFY_ATTEMPTS, IDENTIFY_INTERVAL_MS, AUTO_CAPTURE_COOLDOWN_MS]);
+  // const pickMajorityResult = useCallback((results: IdentifyResult[]) => {
+  //   if (results.length === 0) return null;
+
+  //   const countMap = new Map<string, { count: number; result: IdentifyResult }>();
+
+  //   for (const value of results) {
+  //     const key = value.employee_code ?? (value.match ? "KNOWN" : "UNKNOWN");
+  //     const current = countMap.get(key);
+  //     if (!current) {
+  //       countMap.set(key, { count: 1, result: value });
+  //     } else {
+  //       current.count += 1;
+  //       if ((value.score ?? 0) > (current.result.score ?? 0)) {
+  //         current.result = value;
+  //       }
+  //     }
+  //   }
+
+  //   let best: { count: number; result: IdentifyResult } | null = null;
+  //   for (const entry of countMap.values()) {
+  //     if (!best || entry.count > best.count) {
+  //       best = entry;
+  //     }
+  //   }
+
+  //   return best?.result ?? results[0];
+  // }, []);
+
+  // const submitFrame = useCallback(async () => {
+  //   if (submitting) return;
+
+  //   if (!selectedDoor) {
+  //     onNotice({ type: "error", text: "Hãy tạo/chọn cửa trước khi nhận diện." });
+  //     return;
+  //   }
+
+  //   if (!camera.canSubmit) {
+  //     return;
+  //   }
+
+  //   // Kiểm tra throttle để ngăn submit quá nhanh
+  //   const now = Date.now();
+  //   if (now - lastSubmitTimeRef.current < DETECTION_THROTTLE_MS) {
+  //     return;
+  //   }
+  //   lastSubmitTimeRef.current = now;
+
+  //   setSubmitting(true);
+  //   const results: IdentifyResult[] = [];
+
+  //   try {
+  //     for (let attempt = 0; attempt < IDENTIFY_ATTEMPTS; attempt += 1) {
+  //       const blob = await camera.captureBlob();
+  //       if (!blob) {
+  //         throw new Error("Không chụp được ảnh từ camera.");
+  //       }
+
+  //       const identifyResult = await api.identify(selectedDoor, blob);
+  //       results.push(identifyResult);
+
+  //       if (attempt < IDENTIFY_ATTEMPTS - 1) {
+  //         await new Promise((resolve) => window.setTimeout(resolve, IDENTIFY_INTERVAL_MS));
+  //       }
+  //     }
+
+  //     const bestResult = pickMajorityResult(results);
+  //     if (bestResult) {
+  //       setResult(bestResult);
+  //     }
+  //     onRefresh();
+
+  //     // Reset detection để detection có thể chạy liên tục
+  //     camera.resetDetection();
+
+  //     if (clearResultTimerRef.current) {
+  //       window.clearTimeout(clearResultTimerRef.current);
+  //     }
+  //     clearResultTimerRef.current = window.setTimeout(() => setResult(null), AUTO_CAPTURE_COOLDOWN_MS);
+  //   } catch (error) {
+  //     onNotice({ type: "error", text: errorMessage(error, "Không thể gửi ảnh tới backend.") });
+  //   } finally {
+  //     setSubmitting(false);
+  //   }
+  // }, [camera, clearResultTimerRef, errorMessage, IDENTIFY_ATTEMPTS, IDENTIFY_INTERVAL_MS, onNotice, onRefresh, pickMajorityResult, selectedDoor, submitting]);
 
   // Tự động chấm công khi phát hiện khuôn mặt ổn định (không cần chờ result clear)
   useEffect(() => {
