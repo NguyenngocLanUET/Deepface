@@ -2,12 +2,14 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy import create_engine, func, cast, Date
 from app.models.models import Base, Employee, AttendanceLog, AccessPermission, Door, DepartmentPermission, Department
 import os
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
+from app.core.config import settings
 
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:123@postgres:5432/attendance")
+# Use DATABASE_URL env if provided, otherwise use settings from config
+DATABASE_URL = os.getenv("DATABASE_URL", settings.SQLALCHEMY_DATABASE_URL)
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -334,6 +336,32 @@ class DBService:
                 checkin_at=log.checkin_at,
                 is_allowed=log.status == "SUCCESS"
             ) for log in logs]
+        finally:
+            db.close()
+
+    def get_recent_success_on_door(self, door_name: str, seconds: int = 5):
+        """Return the most recent SUCCESS attendance log on a door within `seconds`.
+        Returns dict with employee_id and checkin_at or None.
+        """
+        db = SessionLocal()
+        try:
+            door = db.query(Door).filter(Door.name == door_name).first()
+            if not door:
+                return None
+
+            from datetime import datetime, timedelta
+            start_time = datetime.now() - timedelta(seconds=seconds)
+
+            log = db.query(AttendanceLog)\
+                .filter(AttendanceLog.door_id == door.id)\
+                .filter(AttendanceLog.status == 'SUCCESS')\
+                .filter(AttendanceLog.checkin_at >= start_time)\
+                .order_by(AttendanceLog.checkin_at.desc())\
+                .first()
+
+            if not log:
+                return None
+            return {"employee_id": log.employee_id, "checkin_at": log.checkin_at}
         finally:
             db.close()
 

@@ -74,6 +74,23 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             raise HTTPException(status_code=500, detail=f"Lỗi tìm kiếm Vector DB: {str(e)}")
         
         if not results or results[0].score < 0.45:
+            # Nếu không tìm thấy kết quả rõ ràng, kiểm tra log SUCCESS gần đây trên cùng cửa
+            try:
+                recent_success = db_service.get_recent_success_on_door(door_name, seconds=5)
+                if recent_success and recent_success.get("employee_id"):
+                    # Trả về thông tin nhân viên đã được ghi nhận gần đây
+                    recent_emp = db_service.get_employee_by_id(recent_success.get("employee_id"))
+                    if recent_emp:
+                        return {
+                            "match": True,
+                            "employee_name": recent_emp["full_name"],
+                            "employee_code": recent_emp["employee_code"],
+                            "open_door": True,
+                            "message": "Đã xác nhận từ ghi nhận gần đây"
+                        }
+            except Exception as e:
+                print(f"Cảnh báo: Lỗi khi kiểm tra log SUCCESS gần đây - {str(e)}")
+
             # Chụp snapshot cho người lạ
             snapshot_name = None
             try:
