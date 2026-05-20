@@ -1,8 +1,13 @@
 import os
 from pydantic_settings import BaseSettings
+from zoneinfo import ZoneInfo
+from datetime import datetime
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "FaceAccess AI System"
+    
+    # --- Timezone Configuration ---
+    TIMEZONE: str = "Asia/Ho_Chi_Minh"  # Vietnam timezone
     
     # --- Postgres Database ---
     # Thay đổi user/pass/db cho đúng với docker-compose của bạn
@@ -44,3 +49,15 @@ class Settings(BaseSettings):
         case_sensitive = True
 
 settings = Settings()
+
+# Helper function to convert UTC datetime to Vietnam timezone
+def utc_to_vn(dt: datetime) -> datetime:
+    """Convert UTC datetime to Vietnam timezone"""
+    if dt is None:
+        return None
+    # If naive, assume it's UTC
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+    # Convert to Vietnam timezone
+    vn_tz = ZoneInfo(settings.TIMEZONE)
+    return dt.astimezone(vn_tz)

@@ -130,6 +130,30 @@ export const api = {
       `/employees/search?query=${encodeURIComponent(query)}`,
       `/employees/employees/search?query=${encodeURIComponent(query)}`,
     ]),
+  
+  searchEmployeesAdvanced: (filters: {
+    query?: string;
+    department_id?: number;
+    is_active?: boolean;
+    ids?: number[];
+    codes?: string[];
+  }) => {
+    const params = new URLSearchParams();
+    if (filters.query) params.append("query", filters.query);
+    if (filters.department_id !== undefined) params.append("department_id", String(filters.department_id));
+    if (filters.is_active !== undefined) params.append("is_active", String(filters.is_active));
+    if (filters.ids && filters.ids.length > 0) params.append("ids", filters.ids.join(","));
+    if (filters.codes && filters.codes.length > 0) params.append("codes", filters.codes.join(","));
+    
+    const queryString = params.toString();
+    const searchUrl = `/employees/search${queryString ? "?" + queryString : ""}`;
+    
+    return request<Employee[]>([
+      searchUrl,
+      `/employees/employees/search${queryString ? "?" + queryString : ""}`,
+    ]);
+  },
+
   registerEmployee: (formData: FormData) =>
     request<Employee>(["/employees/register", "/employees/employees/register"], {
       method: "POST",

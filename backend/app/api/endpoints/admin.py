@@ -268,4 +268,8 @@ async def resync_vectors(background_tasks: BackgroundTasks):
 
 @router.delete("/clear-logs")
 async def clear_logs(days: int = 30):
-    return {"message": f"Đã xóa các bản ghi cũ hơn {days} ngày (Tính năng đang cập nhật)"}
+    deleted_count = db_service.delete_old_logs(days)
+    return {
+        "message": f"Đã xóa {deleted_count} bản ghi chấm công cũ hơn {days} ngày",
+        "deleted_count": deleted_count
+    }

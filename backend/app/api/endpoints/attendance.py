@@ -8,7 +8,7 @@ import pandas as pd
 
 from app.services.vision import FaceDetectionError, VisionService
 from app.services.vector_db import VectorDBService
-from app.services.database import DBService
+from app.services.database import DBService, VN_TZ
 from app.services.storage import StorageService
 from app.core.config import settings
 from app.schemas.schemas import AttendanceLogOut
@@ -23,7 +23,6 @@ storage_service = StorageService()
 COOLDOWN_SECONDS = 60
 WORK_START = time(9, 0)
 AFTERNOON_START = time(13, 30)
-VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
 def get_vn_now() -> datetime:
     return datetime.now(VN_TZ).replace(tzinfo=None)

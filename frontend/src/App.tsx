@@ -436,7 +436,13 @@ function formatReportValue(value: unknown) {
     return JSON.stringify(value);
   }
 
-  return String(value);
+  // Check if value is ISO datetime string (first_in, last_out, checkin_at)
+  const stringValue = String(value);
+  if (stringValue.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+    return formatDateTime(stringValue);
+  }
+
+  return stringValue;
 }
 
 function parse24HourTime(value: string): AmPmTime {
@@ -1287,6 +1293,8 @@ function EmployeesPage({
   onRefresh: () => void;
 }) {
   const [query, setQuery] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState<number | null>(null);
+  const [statusFilter, setStatusFilter] = useState<boolean | null>(null);
   const [rows, setRows] = useState<Employee[]>(employees);
 
   useEffect(() => setRows(employees), [employees]);
@@ -1294,7 +1302,17 @@ function EmployeesPage({
   const search = async (event: FormEvent) => {
     event.preventDefault();
     try {
-      setRows(query.trim() ? await api.searchEmployees(query.trim()) : employees);
+      if (!query.trim() && departmentFilter === null && statusFilter === null) {
+        setRows(employees);
+        return;
+      }
+      
+      const results = await api.searchEmployeesAdvanced({
+        query: query.trim() || undefined,
+        department_id: departmentFilter || undefined,
+        is_active: statusFilter !== null ? statusFilter : undefined,
+      });
+      setRows(results);
     } catch (error) {
       onNotice({ type: "error", text: errorMessage(error, "Không thể tìm kiếm nhân viên.") });
     }
@@ -1322,6 +1340,13 @@ function EmployeesPage({
 
   const departmentName = (id?: number | null) =>
     departments.find((department) => department.id === id)?.name ?? "Chưa gán";
+  
+  const clearFilters = () => {
+    setQuery("");
+    setDepartmentFilter(null);
+    setStatusFilter(null);
+    setRows(employees);
+  };
 
   return (
     <section className="panel full">
@@ -1337,6 +1362,70 @@ function EmployeesPage({
             onChange={(event) => setQuery(event.target.value)}
           />
         </form>
+      </div>
+
+      {/* Filter Row */}
+      <div style={{ display: "flex", gap: "10px", marginBottom: "15px", alignItems: "center", flexWrap: "wrap" }}>
+        <select
+          value={departmentFilter ?? ""}
+          onChange={(e) => setDepartmentFilter(e.target.value ? parseInt(e.target.value) : null)}
+          style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ccc" }}
+        >
+          <option value="">-- Tất cả phòng ban --</option>
+          {departments.map((dept) => (
+            <option key={dept.id} value={dept.id}>
+              {dept.name}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={statusFilter === null ? "" : statusFilter ? "active" : "inactive"}
+          onChange={(e) => {
+            if (e.target.value === "") setStatusFilter(null);
+            else if (e.target.value === "active") setStatusFilter(true);
+            else setStatusFilter(false);
+          }}
+          style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ccc" }}
+        >
+          <option value="">-- Tất cả trạng thái --</option>
+          <option value="active">Đang hoạt động</option>
+          <option value="inactive">Đã khóa</option>
+        </select>
+
+        <button
+          type="button"
+          onClick={() => void search({ preventDefault: () => {} } as FormEvent)}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: "#007bff",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          Tìm kiếm
+        </button>
+
+        <button
+          type="button"
+          onClick={clearFilters}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: "#6c757d",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          Xóa bộ lọc
+        </button>
+
+        <span style={{ marginLeft: "auto", fontSize: "14px", color: "#666" }}>
+          Tìm thấy: {rows.length} / {employees.length}
+        </span>
       </div>
 
       <div className="table-wrap">

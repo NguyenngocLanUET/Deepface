@@ -1,5 +1,5 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException, Form
-from typing import List
+from fastapi import APIRouter, File, UploadFile, HTTPException, Form, Query
+from typing import List, Optional
 import shutil, uuid, os
 from app.services.database import DBService
 from app.services.storage import StorageService
@@ -109,5 +109,49 @@ async def delete_employee(id: int):
     return {"status": "success", "message": f"Đã xóa nhân viên ID {id} khỏi hệ thống"}
 
 @router.get("/search", response_model=List[EmployeeOut])
-async def search_employees(query: str):
-    return db_service.search_employees(query)
+async def search_employees(
+    query: Optional[str] = Query(None),
+    department_id: Optional[int] = Query(None),
+    is_active: Optional[bool] = Query(None),
+    ids: Optional[str] = Query(None),  # Danh sách ID cách nhau bằng dấu phẩy: "1,2,3"
+    codes: Optional[str] = Query(None),  # Danh sách code cách nhau bằng dấu phẩy: "NV001,NV002"
+):
+    """
+    Tìm kiếm nhân viên với nhiều tiêu chí
+    
+    Query parameters:
+    - query: Tìm kiếm theo tên hoặc mã nhân viên
+    - department_id: ID phòng ban
+    - is_active: Trạng thái (true/false)
+    - ids: Danh sách ID nhân viên (cách nhau bằng dấu phẩy, vd: "1,2,3")
+    - codes: Danh sách mã nhân viên (cách nhau bằng dấu phẩy, vd: "NV001,NV002")
+    
+    Ví dụ:
+    - /employees/search?query=Nguyễn
+    - /employees/search?query=NV001
+    - /employees/search?department_id=1
+    - /employees/search?is_active=true
+    - /employees/search?ids=1,2,3
+    - /employees/search?codes=NV001,NV002,NV003
+    - /employees/search?department_id=1&is_active=true
+    """
+    
+    employee_ids = None
+    employee_codes = None
+    
+    if ids:
+        try:
+            employee_ids = [int(id.strip()) for id in ids.split(",") if id.strip()]
+        except ValueError:
+            raise HTTPException(status_code=400, detail="IDs phải là số nguyên, cách nhau bằng dấu phẩy")
+    
+    if codes:
+        employee_codes = [code.strip() for code in codes.split(",") if code.strip()]
+    
+    return db_service.search_employees_advanced(
+        query=query,
+        department_id=department_id,
+        is_active=is_active,
+        employee_ids=employee_ids,
+        employee_codes=employee_codes
+    )

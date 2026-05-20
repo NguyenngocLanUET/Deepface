@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import datetime, time
 from typing import List, Optional
 
@@ -75,6 +75,16 @@ class AttendanceLogOut(BaseModel):
     status: str
     reason: Optional[str]
     image_snapshot: Optional[str] = None
+    
+    @field_validator('checkin_at', mode='after')
+    @classmethod
+    def convert_to_vn_timezone(cls, v):
+        """Convert UTC datetime to Vietnam timezone"""
+        if v is None:
+            return None
+        from app.core.config import utc_to_vn
+        return utc_to_vn(v)
+    
     class Config: 
         from_attributes = True
 

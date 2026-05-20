@@ -6,7 +6,7 @@ from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 from app.core.config import settings
 
-VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+VN_TZ = ZoneInfo(settings.TIMEZONE)
 
 # Use DATABASE_URL env if provided, otherwise use settings from config
 DATABASE_URL = os.getenv("DATABASE_URL", settings.SQLALCHEMY_DATABASE_URL)
@@ -130,6 +130,60 @@ class DBService:
                 (Employee.full_name.ilike(f"%{query}%")) | 
                 (Employee.employee_code.ilike(f"%{query}%"))
             ).all()
+        finally:
+            db.close()
+
+    def search_employees_advanced(
+        self, 
+        query: str = None, 
+        department_id: int = None, 
+        is_active: bool = None,
+        employee_ids: list = None,
+        employee_codes: list = None
+    ):
+        """Tìm kiếm nhân viên với nhiều tiêu chí
+        
+        Args:
+            query: Tìm kiếm theo tên hoặc mã nhân viên
+            department_id: Lọc theo ID phòng ban
+            is_active: Lọc theo trạng thái (True/False)
+            employee_ids: Danh sách ID nhân viên cần tìm
+            employee_codes: Danh sách mã nhân viên cần tìm
+        """
+        db = SessionLocal()
+        try:
+            filters = []
+            
+            # Nếu có danh sách IDs, chỉ tìm trong đó
+            if employee_ids:
+                filters.append(Employee.id.in_(employee_ids))
+            
+            # Nếu có danh sách codes, chỉ tìm trong đó
+            if employee_codes:
+                filters.append(Employee.employee_code.in_(employee_codes))
+            
+            # Tìm kiếm theo text (name hoặc code)
+            if query:
+                filters.append(
+                    (Employee.full_name.ilike(f"%{query}%")) | 
+                    (Employee.employee_code.ilike(f"%{query}%"))
+                )
+            
+            # Lọc theo phòng ban
+            if department_id is not None:
+                filters.append(Employee.department_id == department_id)
+            
+            # Lọc theo trạng thái
+            if is_active is not None:
+                filters.append(Employee.is_active == is_active)
+            
+            query_obj = db.query(Employee)
+            
+            # Áp dụng tất cả filters với AND logic
+            for f in filters:
+                query_obj = query_obj.filter(f)
+            
+            return query_obj.all()
         finally:
             db.close()
 
@@ -318,8 +372,8 @@ class DBService:
             if not door:
                 return []
             
-            # Tính thời gian bắt đầu (N giây trước)
-            start_time = datetime.now() - timedelta(seconds=seconds)
+            # Tính thời gian bắt đầu (N giây trước) - dùng Vietnam timezone
+            start_time = datetime.now(VN_TZ) - timedelta(seconds=seconds)
             
             # Truy vấn log gần đây
             logs = db.query(AttendanceLog)\
@@ -350,7 +404,8 @@ class DBService:
                 return None
 
             from datetime import datetime, timedelta
-            start_time = datetime.now() - timedelta(seconds=seconds)
+            # Dùng Vietnam timezone
+            start_time = datetime.now(VN_TZ) - timedelta(seconds=seconds)
 
             log = db.query(AttendanceLog)\
                 .filter(AttendanceLog.door_id == door.id)\
@@ -368,6 +423,8 @@ class DBService:
     def get_monthly_report_data(self, month: int, year: int):
         db = SessionLocal()
         try:
+            from app.core.config import utc_to_vn
+            
             stats = db.query(
                 AttendanceLog.employee_id,
                 Employee.full_name,
@@ -381,7 +438,46 @@ class DBService:
              .group_by(AttendanceLog.employee_id, Employee.full_name, Employee.employee_code, "date")\
              .all()
             
-            # Convert SQLAlchemy objects to dict
-            return [dict(s._mapping) for s in stats]
+            # Convert SQLAlchemy objects to dict với formatting
+            result = []
+            for s in stats:
+                row = dict(s._mapping)
+                # Convert datetime objects to ISO strings (for consistency)
+                # Also convert to Vietnam timezone
+                if row.get('date'):
+                    row['date'] = str(row['date'])
+                if row.get('first_in'):
+                    vn_time = utc_to_vn(row['first_in'])
+                    row['first_in'] = vn_time.isoformat()
+                if row.get('last_out'):
+                    vn_time = utc_to_vn(row['last_out'])
+                    row['last_out'] = vn_time.isoformat()
+                result.append(row)
+            
+            return result
+        finally:
+            db.close()
+
+    def delete_old_logs(self, days: int = 30):
+        """Xóa các bản ghi chấm công cũ hơn N ngày"""
+        db = SessionLocal()
+        try:
+            cutoff_date = datetime.now(VN_TZ) - timedelta(days=days)
+            
+            # Xóa các bản ghi AttendanceLog cũ hơn cutoff_date
+            deleted_count = db.query(AttendanceLog)\
+                .filter(AttendanceLog.checkin_at < cutoff_date)\
+                .delete(synchronize_session=False)
+            
+            db.commit()
+            
+            print(f"✅ [DELETE_OLD_LOGS] Đã xóa {deleted_count} bản ghi cũ hơn {days} ngày")
+            return deleted_count
+        except Exception as e:
+            print(f"❌ [DELETE_OLD_LOGS] LỖI: {type(e).__name__}: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            db.rollback()
+            return 0
         finally:
             db.close()
