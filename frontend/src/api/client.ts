@@ -1,5 +1,6 @@
 import type {
   AttendanceLog,
+  BulkImportResponse,
   Department,
   Door,
   Employee,
@@ -260,7 +261,7 @@ export const api = {
   bulkImport: (zipFile: File) => {
     const formData = new FormData();
     formData.append("zip_file", zipFile);
-    return request<{ message: string; details?: unknown[] }>(
+    return request<BulkImportResponse>(
       ["/admin/bulk-import", "/admin/admin/bulk-import"],
       { method: "POST", body: formData },
     );

@@ -50,3 +50,22 @@ export type MonthlyStats = {
   total_records: number;
   data: Array<Record<string, unknown>>;
 };
+
+export type BulkImportSummary = {
+  success?: number;
+  errors?: number;
+  no_images?: number;
+};
+
+export type BulkImportDetail = {
+  code?: string;
+  status?: string;
+  images?: number;
+  message?: string;
+};
+
+export type BulkImportResponse = {
+  message: string;
+  details?: BulkImportDetail[];
+  summary?: BulkImportSummary;
+};

@@ -1110,6 +1110,77 @@ td {
   margin: 0;
 }
 
+.import-log {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px;
+  color: #166534;
+  background: var(--success-pastel);
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+}
+
+.import-log-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+}
+
+.import-log-list {
+  display: grid;
+  gap: 10px;
+}
+
+.import-log-item {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  color: var(--text-main);
+  background: #ffffff;
+  border: 1px solid #dcfce7;
+  border-radius: 8px;
+}
+
+.import-log-item strong,
+.import-log-item small {
+  display: block;
+}
+
+.import-log-item small {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.import-log-item p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.import-log-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.import-log-stats span {
+  padding: 4px 8px;
+  color: #166534;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.import-log-stats .danger {
+  color: #b91c1c;
+  background: var(--danger-pastel);
+  border-color: #fecaca;
+}
+
 .admin-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
