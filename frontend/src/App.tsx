@@ -1299,33 +1299,36 @@ function EmployeesPage({
 
   useEffect(() => setRows(employees), [employees]);
 
-  const search = async (event: FormEvent) => {
-    event.preventDefault();
-    try {
-      if (!query.trim() && departmentFilter === null && statusFilter === null) {
-        setRows(employees);
-        return;
-      }
+  const [isLoading, setIsLoading] = useState(false);
+
+  const search = async (event?: FormEvent) => {
+      if (event) event.preventDefault();
       
-      const results = await api.searchEmployeesAdvanced({
-        query: query.trim() || undefined,
-        department_id: departmentFilter || undefined,
-        is_active: statusFilter !== null ? statusFilter : undefined,
-      });
-      setRows(results);
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể tìm kiếm nhân viên.") });
-    }
+      setIsLoading(true);
+      try {
+        // Sử dụng toán tử ?? thay vì || để tránh nuốt mất giá trị 0
+        const results = await api.searchEmployeesAdvanced({
+          query: query.trim() || undefined,
+          department_id: departmentFilter ?? undefined,
+          is_active: statusFilter ?? undefined,
+        });
+        setRows(results);
+      } catch (error) {
+        onNotice({ type: "error", text: errorMessage(error, "Không thể tìm kiếm nhân viên.") });
+      } finally {
+        setIsLoading(false);
+      }
   };
 
+  // Gọi lại search() sau khi cập nhật hoặc xóa thay vì onRefresh() toàn trang
   const toggleStatus = async (employee: Employee) => {
-    try {
-      await api.updateEmployeeStatus(employee.id, !employee.is_active);
-      onNotice({ type: "success", text: "Đã cập nhật trạng thái nhân viên." });
-      onRefresh();
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật trạng thái nhân viên.") });
-    }
+      try {
+        await api.updateEmployeeStatus(employee.id, !employee.is_active);
+        onNotice({ type: "success", text: "Đã cập nhật trạng thái nhân viên." });
+        await search(); // Cập nhật lại danh sách dựa trên bộ lọc hiện tại
+      } catch (error) {
+        onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật.") });
+      }
   };
 
   const deleteEmployee = async (employee: Employee) => {
