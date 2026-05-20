@@ -2,11 +2,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy import create_engine, func, cast, Date
 from app.models.models import Base, Employee, AttendanceLog, AccessPermission, Door, DepartmentPermission, Department
 import os
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 from app.core.config import settings
 
-VN_TZ = ZoneInfo(settings.TIMEZONE)
+VN_TZ = timezone(timedelta(hours=7))
 
 # Use DATABASE_URL env if provided, otherwise use settings from config
 DATABASE_URL = os.getenv("DATABASE_URL", settings.SQLALCHEMY_DATABASE_URL)
