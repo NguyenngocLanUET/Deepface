@@ -516,6 +516,28 @@ button {
   max-width: 420px;
 }
 
+.camera-guidance {
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(33, 150, 243, 0.08), rgba(76, 175, 80, 0.08));
+  border: 1px solid #2196F3;
+  border-radius: 8px;
+  color: #17212f;
+}
+
+.camera-guidance strong {
+  display: block;
+  color: #2196F3;
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.camera-guidance p {
+  margin: 8px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #536274;
+}
+
 .camera-frame {
   position: relative;
   aspect-ratio: 16 / 9;

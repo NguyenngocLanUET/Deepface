@@ -13,6 +13,49 @@ storage_service = StorageService()
 
 @router.post("/bulk-import")
 async def bulk_import(zip_file: UploadFile = File(...)):
+    """
+    Import nhân viên hàng loạt từ file ZIP.
+    
+    Định dạng folder ZIP yêu cầu:
+    ```
+    my_employees.zip
+    ├── metadata.json
+    ├── employee_001/
+    │   ├── photo1.jpg
+    │   └── photo2.jpg
+    └── employee_002/
+        ├── photo1.jpg
+        └── photo2.jpg
+    ```
+    
+    Hoặc các ảnh có thể đặt trực tiếp ở gốc ZIP:
+    ```
+    my_employees.zip
+    ├── metadata.json
+    ├── photo_emp001_1.jpg
+    ├── photo_emp001_2.jpg
+    ├── photo_emp002_1.jpg
+    └── photo_emp002_2.jpg
+    ```
+    
+    File metadata.json phải có cấu trúc:
+    ```json
+    [
+        {
+            "full_name": "Nguyễn Văn A",
+            "employee_code": "EMP001",
+            "department_name": "Phòng IT",
+            "images": ["employee_001/photo1.jpg", "employee_001/photo2.jpg"]
+        },
+        {
+            "full_name": "Trần Thị B",
+            "employee_code": "EMP002",
+            "department_name": "Phòng HR",
+            "images": ["employee_002/photo1.jpg", "employee_002/photo2.jpg"]
+        }
+    ]
+    ```
+    """
     temp_dir = f"/tmp/bulk_{uuid.uuid4()}"
     os.makedirs(temp_dir, exist_ok=True)
     zip_path = os.path.join(temp_dir, "upload.zip")
@@ -89,6 +132,88 @@ async def bulk_import(zip_file: UploadFile = File(...)):
                 shutil.rmtree(temp_dir)
             except Exception as e:
                 print(f"Cảnh báo: Lỗi xóa thư mục tạm - {str(e)}")
+
+@router.get("/bulk-import-format")
+async def get_bulk_import_format():
+    """
+    Lấy hướng dẫn định dạng file ZIP cho import hàng loạt.
+    """
+    return {
+        "title": "Định dạng ZIP cho Import Hàng Loạt",
+        "description": "Hệ thống hỗ trợ hai cấu trúc folder ZIP",
+        "formats": [
+            {
+                "name": "Cấu trúc 1: Ảnh tổ chức theo folder nhân viên",
+                "structure": """
+my_employees.zip
+├── metadata.json
+├── employee_001/
+│   ├── photo1.jpg
+│   ├── photo2.jpg
+│   └── photo3.jpg
+└── employee_002/
+    ├── photo1.jpg
+    └── photo2.jpg
+                """,
+                "pros": "Dễ quản lý, tổ chức rõ ràng"
+            },
+            {
+                "name": "Cấu trúc 2: Ảnh đặt trực tiếp tại gốc",
+                "structure": """
+my_employees.zip
+├── metadata.json
+├── photo_emp001_1.jpg
+├── photo_emp001_2.jpg
+├── photo_emp002_1.jpg
+└── photo_emp002_2.jpg
+                """,
+                "pros": "Đơn giản hơn, phù hợp cho số lượng ít"
+            }
+        ],
+        "metadata_json_format": {
+            "example": [
+                {
+                    "full_name": "Nguyễn Văn A",
+                    "employee_code": "EMP001",
+                    "department_name": "Phòng IT",
+                    "images": ["employee_001/photo1.jpg", "employee_001/photo2.jpg", "employee_001/photo3.jpg"]
+                },
+                {
+                    "full_name": "Trần Thị B",
+                    "employee_code": "EMP002",
+                    "department_name": "Phòng HR",
+                    "images": ["photo_emp002_1.jpg", "photo_emp002_2.jpg"]
+                },
+                {
+                    "full_name": "Lê Văn C",
+                    "employee_code": "EMP003",
+                    "department_name": "Phòng Marketing",
+                    "images": ["employee_003/avatar.jpg"]
+                }
+            ],
+            "fields": {
+                "full_name": "Họ và tên nhân viên (bắt buộc)",
+                "employee_code": "Mã nhân viên (bắt buộc)",
+                "department_name": "Tên phòng ban (sẽ tạo nếu chưa tồn tại)",
+                "images": "Danh sách đường dẫn ảnh trong ZIP (tối thiểu 1 ảnh)"
+            }
+        },
+        "requirements": {
+            "file_formats": ["JPG", "JPEG", "PNG"],
+            "min_images_per_employee": 1,
+            "recommended_images_per_employee": 3,
+            "image_size_recommendation": "Tối thiểu 200x200px",
+            "max_employees_per_import": "Không giới hạn"
+        },
+        "tips": [
+            "Đặt tên ảnh rõ ràng để dễ quản lý",
+            "Sử dụng 3-5 ảnh mỗi nhân viên để cải thiện độ chính xác nhận diện",
+            "Đảm bảo khuôn mặt chiếm ít nhất 50% diện tích ảnh",
+            "Sử dụng ảnh từ các góc độ và điều kiện ánh sáng khác nhau",
+            "Kiểm tra metadata.json trước khi tạo ZIP",
+            "File ZIP không nên vượt quá 500MB"
+        ]
+    }
 
 @router.get("/system-stats")
 @cache(expire=60)

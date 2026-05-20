@@ -74,8 +74,18 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             raise HTTPException(status_code=500, detail=f"Lỗi tìm kiếm Vector DB: {str(e)}")
         
         if not results or results[0].score < 0.45:
+            # Chụp snapshot cho người lạ
+            snapshot_name = None
             try:
-                db_service.log_attendance(None, door_name, "DENIED", "Người lạ")
+                snapshot_name = f"snapshots/{date.today()}/{temp_id}.jpg"
+                with open(temp_path, "rb") as f:
+                    storage_service.upload_file(f, snapshot_name)
+            except Exception as e:
+                print(f"Cảnh báo: Không tải ảnh lên Storage cho người lạ - {str(e)}")
+                snapshot_name = None
+            
+            try:
+                db_service.log_attendance(None, door_name, "DENIED", "Người lạ", snapshot_name)
             except Exception as e:
                 print(f"Lỗi log attendance: {str(e)}")
             return {"match": False, "message": "Người lạ", "open_door": False, "score": results[0].score if results else 0}
@@ -89,8 +99,18 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             raise HTTPException(status_code=500, detail=f"Lỗi truy vấn DB: {str(e)}")
         
         if not user_info:
+            # Chụp snapshot cho nhân viên không tồn tại
+            snapshot_name = None
             try:
-                db_service.log_attendance(emp_id, door_name, "DENIED", "Nhân viên không tồn tại")
+                snapshot_name = f"snapshots/{date.today()}/{temp_id}.jpg"
+                with open(temp_path, "rb") as f:
+                    storage_service.upload_file(f, snapshot_name)
+            except Exception as e:
+                print(f"Cảnh báo: Không tải ảnh lên Storage - {str(e)}")
+                snapshot_name = None
+            
+            try:
+                db_service.log_attendance(emp_id, door_name, "DENIED", "Nhân viên không tồn tại", snapshot_name)
             except Exception as e:
                 print(f"Lỗi log attendance: {str(e)}")
             return {"match": False, "message": "Nhân viên không tồn tại", "open_door": False}
@@ -107,18 +127,42 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             print(f"Cảnh báo: Redis không khả dụng - {str(e)}")
         
         if is_cooldown:
+            # Nếu đang trong cooldown, kiểm tra log gần đây để xác nhận
+            try:
+                recent_logs = db_service.get_recent_attendance_logs(emp_id, door_name, seconds=5)
+                for log in recent_logs:
+                    if log.get("status") == "SUCCESS":
+                        return {
+                            "match": True, 
+                            "employee_name": user_info["full_name"], 
+                            "employee_code": user_info["employee_code"],
+                            "open_door": True, 
+                            "message": "Đã ghi nhận (Cooldown)"
+                        }
+            except Exception as e:
+                print(f"Cảnh báo: Không thể kiểm tra log gần đây - {str(e)}")
+            
+            # Nếu không có log hợp lệ gần đây, bỏ qua cooldown
             return {
-                "match": True, 
-                "employee_name": user_info["full_name"], 
-                "employee_code": user_info["employee_code"],
-                "open_door": True, 
-                "message": "Đã ghi nhận (Cooldown)"
+                "match": False,
+                "message": "Vui lòng chờ trước khi thử lại",
+                "open_door": False
             }
 
         # Kiểm tra tài khoản hoạt động
         if not user_info.get("is_active", False):
+            # Chụp snapshot cho tài khoản bị khóa
+            snapshot_name = None
             try:
-                db_service.log_attendance(emp_id, door_name, "DENIED", "Tài khoản bị khóa")
+                snapshot_name = f"snapshots/{date.today()}/{temp_id}.jpg"
+                with open(temp_path, "rb") as f:
+                    storage_service.upload_file(f, snapshot_name)
+            except Exception as e:
+                print(f"Cảnh báo: Không tải ảnh lên Storage - {str(e)}")
+                snapshot_name = None
+            
+            try:
+                db_service.log_attendance(emp_id, door_name, "DENIED", "Tài khoản bị khóa", snapshot_name)
             except Exception as e:
                 print(f"Lỗi log attendance: {str(e)}")
             return {"match": False, "message": "Tài khoản bị khóa", "open_door": False}

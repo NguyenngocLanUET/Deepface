@@ -960,9 +960,15 @@ function KioskPage({
   const [selectedDoor, setSelectedDoor] = useState(doors[0]?.name ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<IdentifyResult | null>(null);
+  const [faceDetectedAt, setFaceDetectedAt] = useState<number | null>(null);
+  const [countdownSeconds, setCountdownSeconds] = useState<number>(0);
   const clearResultTimerRef = useRef<number | null>(null);
   const lastSubmitTimeRef = useRef<number>(0);
+  const countdownTimerRef = useRef<number | null>(null);
   const DETECTION_THROTTLE_MS = 500; // Ngăn submit quá nhanh
+  const IDENTIFY_ATTEMPTS = 3;
+  const IDENTIFY_INTERVAL_MS = 180; // Khoảng cách giữa các ảnh để lấy major vote
+  const STABLE_FACE_DURATION_MS = 5000; // Yêu cầu đứng yên 5 giây
 
   useEffect(() => {
     if (!selectedDoor && doors[0]) setSelectedDoor(doors[0].name);
@@ -978,15 +984,63 @@ function KioskPage({
     };
   }, [camera.start, camera.stop, onNotice]);
 
+  // Theo dõi countdown khi khuôn mặt được phát hiện
+  useEffect(() => {
+    if (camera.faceBox && !faceDetectedAt) {
+      setFaceDetectedAt(Date.now());
+      setCountdownSeconds(5);
+    }
+
+    if (faceDetectedAt && camera.faceBox) {
+      const elapsed = Math.floor((Date.now() - faceDetectedAt) / 1000);
+      const remaining = Math.max(0, 5 - elapsed);
+      setCountdownSeconds(remaining);
+    } else if (!camera.faceBox) {
+      setFaceDetectedAt(null);
+      setCountdownSeconds(0);
+    }
+  }, [camera.faceBox, faceDetectedAt]);
+
   useEffect(
     () => () => {
       if (clearResultTimerRef.current) {
         window.clearTimeout(clearResultTimerRef.current);
       }
+      if (countdownTimerRef.current) {
+        window.clearInterval(countdownTimerRef.current);
+      }
     },
     [],
   );
 
+
+  const pickMajorityResult = useCallback((results: IdentifyResult[]) => {
+    if (results.length === 0) return null;
+
+    const countMap = new Map<string, { count: number; result: IdentifyResult }>();
+
+    for (const value of results) {
+      const key = value.employee_code ?? (value.match ? "KNOWN" : "UNKNOWN");
+      const current = countMap.get(key);
+      if (!current) {
+        countMap.set(key, { count: 1, result: value });
+      } else {
+        current.count += 1;
+        if ((value.score ?? 0) > (current.result.score ?? 0)) {
+          current.result = value;
+        }
+      }
+    }
+
+    let best: { count: number; result: IdentifyResult } | null = null;
+    for (const entry of countMap.values()) {
+      if (!best || entry.count > best.count) {
+        best = entry;
+      }
+    }
+
+    return best?.result ?? results[0];
+  }, []);
 
   const submitFrame = useCallback(async () => {
     if (submitting) return;
@@ -1008,17 +1062,27 @@ function KioskPage({
     lastSubmitTimeRef.current = now;
 
     setSubmitting(true);
-
-    const blob = await camera.captureBlob();
-    if (!blob) {
-      setSubmitting(false);
-      onNotice({ type: "error", text: "Không chụp được ảnh từ camera." });
-      return;
-    }
+    const results: IdentifyResult[] = [];
 
     try {
-      const identifyResult = await api.identify(selectedDoor, blob);
-      setResult(identifyResult);
+      for (let attempt = 0; attempt < IDENTIFY_ATTEMPTS; attempt += 1) {
+        const blob = await camera.captureBlob();
+        if (!blob) {
+          throw new Error("Không chụp được ảnh từ camera.");
+        }
+
+        const identifyResult = await api.identify(selectedDoor, blob);
+        results.push(identifyResult);
+
+        if (attempt < IDENTIFY_ATTEMPTS - 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, IDENTIFY_INTERVAL_MS));
+        }
+      }
+
+      const bestResult = pickMajorityResult(results);
+      if (bestResult) {
+        setResult(bestResult);
+      }
       onRefresh();
 
       // Reset detection để detection có thể chạy liên tục
@@ -1033,7 +1097,7 @@ function KioskPage({
     } finally {
       setSubmitting(false);
     }
-  }, [camera, onNotice, onRefresh, selectedDoor, submitting]);
+  }, [camera, clearResultTimerRef, errorMessage, IDENTIFY_ATTEMPTS, IDENTIFY_INTERVAL_MS, onNotice, onRefresh, pickMajorityResult, selectedDoor, submitting]);
 
   // Tự động chấm công khi phát hiện khuôn mặt ổn định (không cần chờ result clear)
   useEffect(() => {
@@ -1076,6 +1140,26 @@ function KioskPage({
               ))}
             </select>
           </label>
+        </div>
+
+        <div className="camera-guidance">
+          <strong>Hướng dẫn chấm công</strong>
+          {!camera.faceBox ? (
+            <>
+              <p>📍 Hãy nhìn thẳng vào camera</p>
+              <p>🔆 Đảm bảo đủ ánh sáng</p>
+              <p>📐 Giữ mặt trong khung xanh</p>
+              <p>⏱️ Đứng yên trong 5 giây để xác nhận</p>
+            </>
+          ) : (
+            <>
+              <p style={{ color: "#4CAF50", fontWeight: "bold" }}>✓ Khuôn mặt đã được phát hiện!</p>
+              <p>Hãy đứng yên để xác nhận danh tính...</p>
+              <p style={{ fontSize: "24px", color: "#2196F3", fontWeight: "bold", marginTop: "10px" }}>
+                ⏳ {countdownSeconds}s
+              </p>
+            </>
+          )}
         </div>
 
         <div className={cameraFrameClass}>

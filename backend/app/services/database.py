@@ -304,6 +304,34 @@ class DBService:
         finally:
             db.close()
 
+    def get_recent_attendance_logs(self, employee_id: int, door_name: str, seconds: int = 5):
+        """Lấy log chấm công gần đây trong N giây để kiểm tra xác nhận"""
+        from datetime import datetime, timedelta
+        from app.models.models import AttendanceLog
+        
+        db = SessionLocal()
+        try:
+            # Tính thời gian bắt đầu (N giây trước)
+            start_time = datetime.now() - timedelta(seconds=seconds)
+            
+            # Truy vấn log gần đây
+            logs = db.query(AttendanceLog)\
+                .filter(AttendanceLog.employee_id == employee_id)\
+                .filter(AttendanceLog.door_name == door_name)\
+                .filter(AttendanceLog.checkin_at >= start_time)\
+                .order_by(AttendanceLog.checkin_at.desc())\
+                .all()
+            
+            # Chuyển đổi sang dict
+            return [dict(
+                status=log.status,
+                message=log.message,
+                checkin_at=log.checkin_at,
+                is_allowed=log.status == "SUCCESS"  # Log SUCCESS nghĩa là nhân viên được phép
+            ) for log in logs]
+        finally:
+            db.close()
+
     def get_monthly_report_data(self, month: int, year: int):
         db = SessionLocal()
         try:
