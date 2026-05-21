@@ -893,6 +893,7 @@ function App() {
             {activePage === "register" && (
               <RegisterPage
                 departments={departments}
+                employees={employees}
                 onNotice={setNotice}
                 onRefresh={() => void refreshCoreData()}
               />
@@ -1383,15 +1384,6 @@ function EmployeesPage({
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
-  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
-  const [historyModalOpen, setHistoryModalOpen] = useState(false);
-  const [historyLogs, setHistoryLogs] = useState<AttendanceLog[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState<string | null>(null);
-  const [selectedHistoryLog, setSelectedHistoryLog] = useState<AttendanceLog | null>(null);
-  const [historySnapshotUrl, setHistorySnapshotUrl] = useState<string | null>(null);
-  const [historySnapshotLoading, setHistorySnapshotLoading] = useState(false);
-  const [historySnapshotError, setHistorySnapshotError] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -1428,60 +1420,7 @@ function EmployeesPage({
     }
   };
 
-  const loadHistoryForSelectedEmployees = async () => {
-    if (selectedEmployeeIds.length === 0) {
-      setHistoryError("Vui lòng chọn ít nhất một nhân viên để xem lịch sử.");
-      return;
-    }
-
-    setHistoryLoading(true);
-    setHistoryError(null);
-    setHistoryLogs([]);
-    try {
-      const logs = await api.getAttendanceHistory(1000, selectedEmployeeIds);
-      setHistoryLogs(logs);
-      setHistoryModalOpen(true);
-    } catch (error) {
-      setHistoryError(errorMessage(error, "Không thể tải lịch sử."));
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!selectedHistoryLog?.image_snapshot) {
-      setHistorySnapshotUrl(null);
-      setHistorySnapshotLoading(false);
-      setHistorySnapshotError(null);
-      return;
-    }
-
-    let cancelled = false;
-    let nextUrl: string | null = null;
-
-    setHistorySnapshotUrl(null);
-    setHistorySnapshotLoading(true);
-    setHistorySnapshotError(null);
-
-    api.getAttendanceSnapshot(selectedHistoryLog.image_snapshot)
-      .then((blob) => {
-        if (cancelled) return;
-        nextUrl = window.URL.createObjectURL(blob);
-        setHistorySnapshotUrl(nextUrl);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setHistorySnapshotError(errorMessage(error, "Không thể tải ảnh chấm công."));
-      })
-      .finally(() => {
-        if (!cancelled) setHistorySnapshotLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-      if (nextUrl) window.URL.revokeObjectURL(nextUrl);
-    };
-  }, [selectedHistoryLog?.id, selectedHistoryLog?.image_snapshot]);
+  
 
   const closePhotoModal = () => {
     setSelectedEmployee(null);
@@ -1532,7 +1471,6 @@ function EmployeesPage({
           query: query.trim() || undefined,
           department_id: departmentFilter ?? undefined,
           is_active: statusFilter ?? undefined,
-          ids: selectedEmployeeIds.length ? selectedEmployeeIds : undefined,
         });
         setRows(results);
       } catch (error) {
@@ -1646,40 +1584,6 @@ function EmployeesPage({
           }}
         >
           Xóa bộ lọc
-        </button>
-
-        <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "13px", color: "#333" }}>Chọn NV</span>
-          <select
-            multiple
-            value={selectedEmployeeIds.map(String)}
-            onChange={(e) => {
-              const opts = Array.from(e.target.selectedOptions).map((o) => Number(o.value));
-              setSelectedEmployeeIds(opts);
-            }}
-            style={{ padding: "6px", minWidth: 180, height: 100 }}
-          >
-            {employees.map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.employee_code} - {emp.full_name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <button
-          type="button"
-          onClick={() => void loadHistoryForSelectedEmployees()}
-          style={{
-            padding: "8px 14px",
-            backgroundColor: "#17a2b8",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          Xem lịch sử
         </button>
 
         <span style={{ marginLeft: "auto", fontSize: "14px", color: "#666" }}>
@@ -1824,76 +1728,19 @@ function EmployeesPage({
         </div>
       )}
 
-      {historyModalOpen && (
-        <div className="modal-backdrop" onClick={() => { setHistoryModalOpen(false); setHistoryLogs([]); setSelectedHistoryLog(null); }}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Lịch sử - {selectedEmployeeIds.length} nhân viên</h3>
-              <button className="icon-button" onClick={() => { setHistoryModalOpen(false); setHistoryLogs([]); setSelectedHistoryLog(null); }} type="button">✕</button>
-            </div>
-            <div className="modal-body">
-              {historyLoading ? (
-                <p>Đang tải lịch sử...</p>
-              ) : historyError ? (
-                <p className="inline-error">{historyError}</p>
-              ) : (
-                <div style={{ display: "grid", gap: 12 }}>
-                  <div className="table-wrap" style={{ maxHeight: "60vh", overflow: "auto" }}>
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Thời gian</th>
-                          <th>Cửa</th>
-                          <th>Trạng thái</th>
-                          <th>Lý do</th>
-                          <th>Nhân viên</th>
-                          <th>Ảnh</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {historyLogs.map((item) => (
-                          <tr key={item.id} onClick={() => setSelectedHistoryLog(item)} style={{ cursor: "pointer" }}>
-                            <td>{formatDateTime(item.checkin_at)}</td>
-                            <td>{item.door_id ?? "-"}</td>
-                            <td><StatusBadge status={item.status} /></td>
-                            <td>{item.reason ?? "-"}</td>
-                            <td>{employees.find((e) => e.id === item.employee_id)?.full_name ?? "-"}</td>
-                            <td>{item.image_snapshot ? <button className="small-button" onClick={(ev) => { ev.stopPropagation(); setSelectedHistoryLog(item); }}>Xem ảnh</button> : "-"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {selectedHistoryLog && (
-                    <div style={{ display: "grid", gap: 8 }}>
-                      <strong>Chi tiết bản ghi</strong>
-                      <p><strong>Thời gian:</strong> {formatDateTime(selectedHistoryLog.checkin_at)}</p>
-                      <p><strong>Trạng thái:</strong> {selectedHistoryLog.status}</p>
-                      <div className="snapshot-frame">
-                        {historySnapshotLoading && <p className="snapshot-empty">Đang tải ảnh...</p>}
-                        {historySnapshotError && <p className="inline-error">{historySnapshotError}</p>}
-                        {historySnapshotUrl && <img className="snapshot-image" src={historySnapshotUrl} alt="Snapshot" />}
-                        {!selectedHistoryLog.image_snapshot && <p className="snapshot-empty">Không có ảnh snapshot.</p>}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      
     </section>
   );
 }
 
 function RegisterPage({
   departments,
+  employees,
   onNotice,
   onRefresh,
 }: {
   departments: Department[];
+  employees: Employee[];
   onNotice: (notice: Notice) => void;
   onRefresh: () => void;
 }) {
@@ -2026,6 +1873,51 @@ function RegisterPage({
     setIsAutoCaptureActive(true); // Bắt đầu auto-capture liên tục
   };
 
+  // --- Update existing employee photos ---
+  const [selectedExistingEmployeeId, setSelectedExistingEmployeeId] = useState<number | null>(null);
+  const [updateFiles, setUpdateFiles] = useState<File[]>([]);
+  const [updateUploading, setUpdateUploading] = useState(false);
+
+  const onUpdateFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(event.target.files ?? []);
+    setUpdateFiles((current) => [...current, ...selected].slice(0, 5));
+    event.target.value = "";
+  };
+
+  const handleCaptureForUpdate = async () => {
+    try {
+      const captured = await registerCamera.captureValidatedFace();
+      setUpdateFiles((cur) => [...cur, captured].slice(0, 5));
+      onNotice({ type: "success", text: "Đã chụp và thêm ảnh vào danh sách cập nhật." });
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể chụp ảnh.") });
+    }
+  };
+
+  const handleUpdateSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!selectedExistingEmployeeId) {
+      onNotice({ type: "error", text: "Vui lòng chọn nhân viên để cập nhật." });
+      return;
+    }
+    if (updateFiles.length === 0) {
+      onNotice({ type: "error", text: "Vui lòng chọn ít nhất 1 ảnh để cập nhật." });
+      return;
+    }
+
+    setUpdateUploading(true);
+    try {
+      await api.updateEmployeePhotos(selectedExistingEmployeeId, updateFiles);
+      setUpdateFiles([]);
+      onNotice({ type: "success", text: "Đã cập nhật ảnh nhân viên." });
+      onRefresh();
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật ảnh nhân viên.") });
+    } finally {
+      setUpdateUploading(false);
+    }
+  };
+
   return (
     <section className="panel form-panel">
       <div className="section-heading">
@@ -2127,6 +2019,62 @@ function RegisterPage({
           {submitting ? "Đang gửi..." : "Đăng ký nhân viên"}
         </button>
       </form>
+
+      <section className="panel form-panel" style={{ marginTop: 18 }}>
+        <div className="section-heading">
+          <div>
+            <h3>Cập nhật ảnh lưu kho</h3>
+            <p style={{ margin: 0 }}>Chọn nhân viên và tải lên 1-5 ảnh để cập nhật ảnh trong kho.</p>
+          </div>
+        </div>
+
+        <form className="form-grid" onSubmit={(event) => void handleUpdateSubmit(event)}>
+          <label className="field">
+            <span>Chọn nhân viên</span>
+            <select value={selectedExistingEmployeeId ?? ""} onChange={(e) => setSelectedExistingEmployeeId(e.target.value ? Number(e.target.value) : null)}>
+              <option value="">-- Chọn nhân viên --</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.employee_code} - {emp.full_name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field file-field">
+            <span>Ảnh cập nhật</span>
+            <input accept="image/*" multiple type="file" onChange={onUpdateFileSelect} />
+            <small>{updateFiles.length ? `${updateFiles.length} ảnh đã chọn` : "Chọn hoặc chụp từ 1 đến 5 ảnh"}</small>
+          </label>
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button className="secondary-button" type="button" onClick={() => void registerCamera.start()}>
+              <Camera size={16} /> Bật camera
+            </button>
+            <button className="secondary-button" type="button" onClick={() => registerCamera.stop()}>
+              Tắt camera
+            </button>
+            <button className="secondary-button" type="button" onClick={() => void handleCaptureForUpdate()}>
+              <Camera size={16} /> Chụp ảnh & thêm
+            </button>
+          </div>
+
+          {updateFiles.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexDirection: 'column' }}>
+              {updateFiles.map((f, idx) => (
+                <div key={`${f.name}-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>{f.name}</span>
+                  <button type="button" onClick={() => setUpdateFiles((cur) => cur.filter((_, i) => i !== idx))}>Xóa</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button className="primary-button" type="submit" disabled={updateUploading}>
+            <Upload size={16} /> {updateUploading ? 'Đang cập nhật...' : 'Cập nhật ảnh nhân viên'}
+          </button>
+        </form>
+      </section>
     </section>
   );
 }
@@ -2436,8 +2384,8 @@ function HistoryPage({
   const [toDate, setToDate] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [doorFilter, setDoorFilter] = useState("ALL");
-  const [employeeFilter, setEmployeeFilter] = useState(
-    isSelfView && session.employeeId ? String(session.employeeId) : "ALL",
+  const [employeeFilter, setEmployeeFilter] = useState<string[]>(
+    isSelfView && session.employeeId ? [String(session.employeeId)] : [],
   );
 
   const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null);
@@ -2458,7 +2406,7 @@ function HistoryPage({
     if (toDate && itemDate > toDate) return false;
     if (statusFilter !== "ALL" && item.status !== statusFilter) return false;
     if (doorFilter !== "ALL" && String(item.door_id ?? "") !== doorFilter) return false;
-    if (!isSelfView && employeeFilter !== "ALL" && String(item.employee_id ?? "") !== employeeFilter) return false;
+    if (!isSelfView && employeeFilter.length > 0 && !employeeFilter.includes(String(item.employee_id ?? ""))) return false;
     return true;
   });
 
@@ -2558,14 +2506,19 @@ function HistoryPage({
             {!isSelfView && (
               <label className="field">
                 <span>Nhân viên</span>
-                <select value={employeeFilter} onChange={(event) => setEmployeeFilter(event.target.value)}>
-                  <option value="ALL">Tất cả nhân viên</option>
+                <select
+                  multiple
+                  value={employeeFilter}
+                  onChange={(event) => setEmployeeFilter(Array.from(event.target.selectedOptions).map((o) => o.value))}
+                  style={{ minHeight: 100 }}
+                >
                   {employees.map((employee) => (
-                    <option key={employee.id} value={employee.id}>
+                    <option key={employee.id} value={String(employee.id)}>
                       {employee.employee_code} - {employee.full_name}
                     </option>
                   ))}
                 </select>
+                <small style={{ display: 'block', marginTop: 6 }}>Giữ Ctrl/Cmd để chọn nhiều nhân viên</small>
               </label>
             )}
             <label className="field">
