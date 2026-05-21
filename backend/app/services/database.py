@@ -203,11 +203,37 @@ class DBService:
     def get_all_departments(self):
         db = SessionLocal()
         try:
-            return db.query(Department).all()
+            depts = db.query(Department).all()
+            return [{"id": d.id, "name": d.name} for d in depts]
+        finally:
+            db.close()
+    
+    def get_department_permissions(self, dept_id: int):
+        """
+        Lấy danh sách quền quyền truy cập của một phòng ban
+        """
+        db = SessionLocal()
+        try:
+            perms = db.query(DepartmentPermission).filter(
+                DepartmentPermission.department_id == dept_id
+            ).all()
+            
+            result = []
+            for perm in perms:
+                door = db.query(Door).filter(Door.id == perm.door_id).first()
+                if door:
+                    result.append({
+                        "id": perm.id,
+                        "door_id": perm.door_id,
+                        "door_name": door.name,
+                        "allowed_start_time": str(perm.allowed_start_time) if perm.allowed_start_time else None,
+                        "allowed_end_time": str(perm.allowed_end_time) if perm.allowed_end_time else None
+                    })
+            return result
         finally:
             db.close()
 
-    def set_department_permission(self, dept_id: int, door_id: int, start_t: time, end_t: time):
+    def set_department_permission(self, dept_id: int, door_id: int, start_t: time = None, end_t: time = None):
         db = SessionLocal()
         try:
             perm = db.query(DepartmentPermission).filter_by(
@@ -350,12 +376,19 @@ class DBService:
         finally:
             db.close()
 
-    def get_attendance_history(self, limit: int = 100, employee_id: int = None):
+    def get_attendance_history(self, limit: int = 100, employee_ids = None):
+        """
+        Lấy lịch sử chấm công
+        - employee_ids: có thể là None, một int, hoặc list of int
+        """
         db = SessionLocal()
         try:
             query = db.query(AttendanceLog)
-            if employee_id is not None:
-                query = query.filter(AttendanceLog.employee_id == employee_id)
+            if employee_ids is not None:
+                if isinstance(employee_ids, list):
+                    query = query.filter(AttendanceLog.employee_id.in_(employee_ids))
+                else:
+                    query = query.filter(AttendanceLog.employee_id == employee_ids)
             return query.order_by(AttendanceLog.checkin_at.desc()).limit(limit).all()
         finally:
             db.close()

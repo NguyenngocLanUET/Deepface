@@ -9,9 +9,11 @@
   FileArchive,
   Gauge,
   History,
+  Image,
   KeyRound,
   Lock,
   LogOut,
+  Printer,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -1296,6 +1298,128 @@ function InfoLine({ label, value }: { label: string; value: string }) {
   );
 }
 
+function generatePrintReport(
+  employees: Employee[],
+  departments: Department[],
+  departmentName: (id?: number | null) => string
+): string {
+  const departmentMap = new Map(departments.map((d) => [d.id, d.name]));
+  const reportDate = new Date().toLocaleString("vi-VN");
+  
+  let reportHTML = `
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Báo cáo nhân viên</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 20px;
+          color: #333;
+        }
+        h1 {
+          text-align: center;
+          color: #2c3e50;
+          margin-bottom: 10px;
+        }
+        .report-date {
+          text-align: center;
+          color: #666;
+          margin-bottom: 20px;
+          font-size: 14px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 20px;
+        }
+        th {
+          background-color: #34495e;
+          color: white;
+          padding: 12px;
+          text-align: left;
+          border: 1px solid #bdc3c7;
+        }
+        td {
+          padding: 10px;
+          border: 1px solid #bdc3c7;
+        }
+        tr:nth-child(even) {
+          background-color: #ecf0f1;
+        }
+        .status-active {
+          color: green;
+          font-weight: bold;
+        }
+        .status-inactive {
+          color: red;
+          font-weight: bold;
+        }
+        .summary {
+          margin-top: 30px;
+          padding: 15px;
+          background-color: #ecf0f1;
+          border-radius: 4px;
+        }
+        .summary-item {
+          margin: 8px 0;
+        }
+        @media print {
+          body { margin: 0; }
+        }
+      </style>
+    </head>
+    <body>
+      <h1>Báo cáo danh sách nhân viên</h1>
+      <div class="report-date">Ngày in: ${reportDate}</div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>STT</th>
+            <th>Mã NV</th>
+            <th>Họ tên</th>
+            <th>Phòng ban</th>
+            <th>Vai trò</th>
+            <th>Trạng thái</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+  
+  employees.forEach((emp, idx) => {
+    const statusClass = emp.is_active ? "status-active" : "status-inactive";
+    const statusText = emp.is_active ? "Đang hoạt động" : "Đã khóa";
+    reportHTML += `
+      <tr>
+        <td>${idx + 1}</td>
+        <td>${emp.employee_code}</td>
+        <td>${emp.full_name}</td>
+        <td>${departmentName(emp.department_id)}</td>
+        <td>${emp.role ?? "user"}</td>
+        <td><span class="${statusClass}">${statusText}</span></td>
+      </tr>
+    `;
+  });
+  
+  reportHTML += `
+        </tbody>
+      </table>
+      
+      <div class="summary">
+        <div class="summary-item"><strong>Tổng số nhân viên được in:</strong> ${employees.length}</div>
+        <div class="summary-item"><strong>Nhân viên đang hoạt động:</strong> ${employees.filter((e) => e.is_active).length}</div>
+        <div class="summary-item"><strong>Nhân viên đã khóa:</strong> ${employees.filter((e) => !e.is_active).length}</div>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  return reportHTML;
+}
+
 function EmployeesPage({
   employees,
   departments,
@@ -1312,6 +1436,13 @@ function EmployeesPage({
   const [statusFilter, setStatusFilter] = useState<boolean | null>(null);
   const [rows, setRows] = useState<Employee[]>(employees);
 
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<number>>(new Set());
+  const [selectedEmployeeForPhotos, setSelectedEmployeeForPhotos] = useState<Employee | null>(null);
+  const [employeePhotos, setEmployeePhotos] = useState<string[]>([]);
+  const [photosLoading, setPhotosLoading] = useState(false);
+  const [photosError, setPhotosError] = useState<string>("");
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+
   useEffect(() => setRows(employees), [employees]);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -1321,7 +1452,6 @@ function EmployeesPage({
       
       setIsLoading(true);
       try {
-        // Sử dụng toán tử ?? thay vì || để tránh nuốt mất giá trị 0
         const results = await api.searchEmployeesAdvanced({
           query: query.trim() || undefined,
           department_id: departmentFilter ?? undefined,
@@ -1335,12 +1465,11 @@ function EmployeesPage({
       }
   };
 
-  // Gọi lại search() sau khi cập nhật hoặc xóa thay vì onRefresh() toàn trang
   const toggleStatus = async (employee: Employee) => {
       try {
         await api.updateEmployeeStatus(employee.id, !employee.is_active);
         onNotice({ type: "success", text: "Đã cập nhật trạng thái nhân viên." });
-        await search(); // Cập nhật lại danh sách dựa trên bộ lọc hiện tại
+        await search();
       } catch (error) {
         onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật.") });
       }
@@ -1364,6 +1493,78 @@ function EmployeesPage({
     setDepartmentFilter(null);
     setStatusFilter(null);
     setRows(employees);
+  };
+
+  const toggleEmployeeSelection = (id: number) => {
+    const newSelected = new Set(selectedEmployeeIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedEmployeeIds(newSelected);
+  };
+
+  const toggleAllSelection = () => {
+    if (selectedEmployeeIds.size === rows.length) {
+      setSelectedEmployeeIds(new Set());
+    } else {
+      setSelectedEmployeeIds(new Set(rows.map((emp) => emp.id)));
+    }
+  };
+
+  const viewEmployeePhotos = async (employee: Employee) => {
+    setSelectedEmployeeForPhotos(employee);
+    setPhotosLoading(true);
+    setPhotosError("");
+    try {
+      const result = await api.getEmployeePhotos(employee.id);
+      setEmployeePhotos(result.photos);
+    } catch (error) {
+      setPhotosError(errorMessage(error, "Không thể tải ảnh nhân viên."));
+    } finally {
+      setPhotosLoading(false);
+    }
+  };
+
+  const handlePhotoUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    if (!selectedEmployeeForPhotos || !event.target.files) return;
+
+    const files = Array.from(event.target.files);
+    if (files.length === 0 || files.length > 5) {
+      onNotice({ type: "error", text: "Vui lòng chọn từ 1 đến 5 ảnh." });
+      return;
+    }
+
+    setUploadingPhotos(true);
+    try {
+      await api.updateEmployeePhotos(selectedEmployeeForPhotos.id, files);
+      onNotice({ type: "success", text: "Đã cập nhật ảnh nhân viên." });
+      // Reload photos
+      const result = await api.getEmployeePhotos(selectedEmployeeForPhotos.id);
+      setEmployeePhotos(result.photos);
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật ảnh.") });
+    } finally {
+      setUploadingPhotos(false);
+    }
+  };
+
+  const printReport = () => {
+    if (selectedEmployeeIds.size === 0) {
+      onNotice({ type: "error", text: "Vui lòng chọn ít nhất một nhân viên." });
+      return;
+    }
+
+    const selectedEmployees = rows.filter((emp) => selectedEmployeeIds.has(emp.id));
+    const reportContent = generatePrintReport(selectedEmployees, departments, departmentName);
+    
+    const printWindow = window.open("", "", "height=600,width=800");
+    if (printWindow) {
+      printWindow.document.write(reportContent);
+      printWindow.document.close();
+      setTimeout(() => printWindow.print(), 100);
+    }
   };
 
   return (
@@ -1441,7 +1642,27 @@ function EmployeesPage({
           Xóa bộ lọc
         </button>
 
-        <span style={{ marginLeft: "auto", fontSize: "14px", color: "#666" }}>
+        <button
+          type="button"
+          onClick={printReport}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: "#28a745",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            marginLeft: "auto",
+            display: "flex",
+            alignItems: "center",
+            gap: "5px",
+          }}
+        >
+          <Printer size={15} />
+          In báo cáo ({selectedEmployeeIds.size})
+        </button>
+
+        <span style={{ fontSize: "14px", color: "#666" }}>
           Tìm thấy: {rows.length} / {employees.length}
         </span>
       </div>
@@ -1450,6 +1671,13 @@ function EmployeesPage({
         <table>
           <thead>
             <tr>
+              <th style={{ width: "30px" }}>
+                <input
+                  type="checkbox"
+                  checked={selectedEmployeeIds.size === rows.length && rows.length > 0}
+                  onChange={toggleAllSelection}
+                />
+              </th>
               <th>Mã NV</th>
               <th>Họ tên</th>
               <th>Phòng ban</th>
@@ -1461,6 +1689,13 @@ function EmployeesPage({
           <tbody>
             {rows.map((employee) => (
               <tr key={employee.id}>
+                <td style={{ width: "30px", textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedEmployeeIds.has(employee.id)}
+                    onChange={() => toggleEmployeeSelection(employee.id)}
+                  />
+                </td>
                 <td>{employee.employee_code}</td>
                 <td>{employee.full_name}</td>
                 <td>{departmentName(employee.department_id)}</td>
@@ -1472,6 +1707,10 @@ function EmployeesPage({
                 </td>
                 <td>
                   <div className="row-actions">
+                    <button className="small-button" onClick={() => void viewEmployeePhotos(employee)} type="button">
+                      <Image size={15} />
+                      Xem ảnh
+                    </button>
                     <button className="small-button" onClick={() => void toggleStatus(employee)} type="button">
                       <Lock size={15} />
                       {employee.is_active ? "Khóa" : "Mở"}
@@ -1487,7 +1726,105 @@ function EmployeesPage({
         </table>
         {rows.length === 0 && <EmptyState text="Không có nhân viên phù hợp." />}
       </div>
+
+      {selectedEmployeeForPhotos && (
+        <div className="modal-backdrop" onClick={() => setSelectedEmployeeForPhotos(null)}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Quản lý ảnh - {selectedEmployeeForPhotos.full_name}</h3>
+              <button className="icon-button" onClick={() => setSelectedEmployeeForPhotos(null)} type="button">
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              {photosLoading ? (
+                <p style={{ textAlign: "center" }}>Đang tải ảnh...</p>
+              ) : photosError ? (
+                <p className="inline-error">{photosError}</p>
+              ) : (
+                <>
+                  <div style={{ marginBottom: "20px" }}>
+                    <h4 style={{ marginBottom: "10px" }}>Danh sách ảnh:</h4>
+                    {employeePhotos.length > 0 ? (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: "10px" }}>
+                        {employeePhotos.map((photoName, idx) => (
+                          <EmployeePhotoThumbnail
+                            key={idx}
+                            employeeId={selectedEmployeeForPhotos.id}
+                            photoName={photoName}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ color: "#999" }}>Không có ảnh nào.</p>
+                    )}
+                  </div>
+                  <div style={{ borderTop: "1px solid #eee", paddingTop: "15px" }}>
+                    <h4 style={{ marginBottom: "10px" }}>Cập nhật ảnh:</h4>
+                    <label style={{ display: "block", marginBottom: "10px" }}>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/jpeg,image/png,image/jpg"
+                        onChange={(e) => void handlePhotoUpload(e)}
+                        disabled={uploadingPhotos}
+                        style={{ display: "block", marginBottom: "5px" }}
+                      />
+                      <span style={{ fontSize: "12px", color: "#666" }}>
+                        Chọn 1-5 ảnh để cập nhật (JPG/PNG)
+                      </span>
+                    </label>
+                    {uploadingPhotos && <p>Đang tải lên...</p>}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
+  );
+}
+
+function EmployeePhotoThumbnail({
+  employeeId,
+  photoName,
+}: {
+  employeeId: number;
+  photoName: string;
+}) {
+  const [imageUrl, setImageUrl] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadPhoto = async () => {
+      try {
+        const blob = await api.getEmployeePhoto(employeeId, photoName);
+        const url = URL.createObjectURL(blob);
+        setImageUrl(url);
+      } catch (error) {
+        console.error("Error loading photo:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadPhoto();
+  }, [employeeId, photoName]);
+
+  return (
+    <div style={{ border: "1px solid #ddd", borderRadius: "4px", overflow: "hidden", backgroundColor: "#f5f5f5" }}>
+      {loading ? (
+        <div style={{ width: "120px", height: "120px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ fontSize: "12px", color: "#999" }}>Tải...</span>
+        </div>
+      ) : imageUrl ? (
+        <img src={imageUrl} alt={photoName} style={{ width: "100%", height: "120px", objectFit: "cover" }} />
+      ) : (
+        <div style={{ width: "120px", height: "120px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ fontSize: "12px", color: "#999" }}>Lỗi</span>
+        </div>
+      )}
+    </div>
   );
 }
 

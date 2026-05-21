@@ -38,3 +38,32 @@ class StorageService:
 
     def get_file_object(self, object_name):
         return self.s3.get_object(Bucket=self.bucket_name, Key=object_name)
+
+    def list_objects(self, prefix):
+        """Liệt kê các object trong bucket với prefix cho trước"""
+        try:
+            response = self.s3.list_objects_v2(Bucket=self.bucket_name, Prefix=prefix)
+            if 'Contents' in response:
+                return [obj['Key'].replace(prefix, '') for obj in response['Contents'] if obj['Key'] != prefix]
+            return []
+        except Exception as e:
+            print(f"Lỗi liệt kê objects: {str(e)}")
+            return []
+
+    def get_object(self, object_name):
+        """Lấy nội dung của một object"""
+        try:
+            response = self.s3.get_object(Bucket=self.bucket_name, Key=object_name)
+            return response['Body'].read()
+        except Exception as e:
+            print(f"Lỗi lấy object: {str(e)}")
+            raise
+
+    def delete_object(self, object_name):
+        """Xóa một object"""
+        try:
+            self.s3.delete_object(Bucket=self.bucket_name, Key=object_name)
+            return True
+        except Exception as e:
+            print(f"Lỗi xóa object: {str(e)}")
+            return False

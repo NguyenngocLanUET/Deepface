@@ -2,7 +2,7 @@ from fastapi import APIRouter, File, UploadFile, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi_cache import FastAPICache
 import shutil, uuid, os, io, tempfile
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 import pandas as pd
 
@@ -21,23 +21,25 @@ db_service = DBService()
 storage_service = StorageService()
 
 COOLDOWN_SECONDS = 60
-WORK_START = time(9, 0)
-AFTERNOON_START = time(13, 30)
+WORK_START = time(8, 30)  # Updated work start time
+GRACE_PERIOD = 15  # Grace period in minutes
 
 def get_vn_now() -> datetime:
     return datetime.now(VN_TZ).replace(tzinfo=None)
 
 
+# Updated attendance message logic to include grace period
 def build_attendance_message(checkin_time: time, is_allowed: bool, default_msg: str) -> str:
     if not is_allowed:
         return default_msg
     if checkin_time < WORK_START:
         return "Chấm công thành công"
-    if WORK_START <= checkin_time < AFTERNOON_START:
-        return "Chấm công thành công" if checkin_time == WORK_START else "Chấm công thành công (muộn)"
-    if checkin_time == AFTERNOON_START:
-        return "Chấm công thành công"
-    return "Chấm công thành công (muộn)"
+    grace_end = (datetime.combine(datetime.today(), WORK_START) + timedelta(minutes=GRACE_PERIOD)).time()
+    if WORK_START <= checkin_time <= grace_end:
+        return "Chấm công thành công (trong thời gian ân hạn)"
+    if checkin_time > grace_end:
+        return "Chấm công thành công (muộn)"
+    return "Chấm công thành công"
 
 @router.post("/identify")
 async def identify(door_name: str, file: UploadFile = File(...)):
@@ -270,11 +272,44 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             except Exception as e:
                 print(f"Cảnh báo: Không xóa file tạm - {str(e)}")
 @router.get("/history", response_model=List[AttendanceLogOut])
-async def get_history(limit: int = 100, employee_id: Optional[int] = None):
+async def get_history(limit: int = 100, employee_id: Optional[int] = None, employee_ids: Optional[str] = None):
+    """
+    Lấy lịch sử chấm công
+    - employee_id: Tìm kiếm 1 nhân viên (backward compatibility)
+    - employee_ids: Tìm kiếm nhiều nhân viên, format: "1,2,3"
+    """
     try:
-        return db_service.get_attendance_history(limit, employee_id)
+        emp_list = None
+        if employee_ids:
+            # Parse chuỗi "1,2,3" thành list [1, 2, 3]
+            emp_list = [int(id.strip()) for id in employee_ids.split(",") if id.strip()]
+        elif employee_id:
+            emp_list = [employee_id]
+        
+        return db_service.get_attendance_history(limit, emp_list)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi lấy lịch sử: {str(e)}")
+
+@router.get("/departments-with-permissions")
+async def get_departments_with_permissions():
+    """
+    Lấy danh sách phòng ban và quyền truy cập của từng phòng
+    """
+    try:
+        departments = db_service.get_all_departments()
+        result = []
+        
+        for dept in departments:
+            dept_info = {
+                "id": dept.get("id"),
+                "name": dept.get("name"),
+                "permissions": db_service.get_department_permissions(dept.get("id"))
+            }
+            result.append(dept_info)
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi lấy thông tin phòng ban: {str(e)}")
 
 @router.get("/snapshot")
 async def get_snapshot(path: str):

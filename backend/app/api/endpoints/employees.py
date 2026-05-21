@@ -1,6 +1,7 @@
 from fastapi import APIRouter, File, UploadFile, HTTPException, Form, Query
+from fastapi.responses import StreamingResponse
 from typing import List, Optional
-import shutil, uuid, os
+import shutil, uuid, os, io
 from app.services.database import DBService
 from app.services.storage import StorageService
 from app.services.vision import VisionService
@@ -127,3 +128,108 @@ async def search_employees(
         employee_ids=ids,
         employee_codes=codes
     )
+
+@router.get("/{id}/photos")
+async def get_employee_photos(id: int):
+    """Lấy danh sách các ảnh của nhân viên"""
+    employee = db_service.get_employee_by_id(id)
+    if not employee:
+        raise HTTPException(status_code=404, detail="Không tìm thấy nhân viên")
+    
+    try:
+        # Liệt kê tất cả các object trong folder avatars/{id}/
+        photos = storage_service.list_objects(f"avatars/{id}/")
+        return {
+            "employee_id": id,
+            "employee_name": employee.full_name,
+            "photos": photos
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi lấy ảnh: {str(e)}")
+
+@router.get("/{id}/photo/{photo_name}")
+async def get_employee_photo(id: int, photo_name: str):
+    """Tải xuống một ảnh của nhân viên"""
+    employee = db_service.get_employee_by_id(id)
+    if not employee:
+        raise HTTPException(status_code=404, detail="Không tìm thấy nhân viên")
+    
+    try:
+        photo_path = f"avatars/{id}/{photo_name}"
+        photo_data = storage_service.get_object(photo_path)
+        return StreamingResponse(io.BytesIO(photo_data), media_type="image/jpeg")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi tải ảnh: {str(e)}")
+
+@router.put("/{id}/photos")
+async def update_employee_photos(id: int, files: List[UploadFile] = File(...)):
+    """Cập nhật ảnh cho nhân viên (thay thế tất cả ảnh cũ)"""
+    employee = db_service.get_employee_by_id(id)
+    if not employee:
+        raise HTTPException(status_code=404, detail="Không tìm thấy nhân viên")
+    
+    if not (1 <= len(files) <= 5):
+        raise HTTPException(status_code=400, detail="Vui lòng gửi từ 1 đến 5 ảnh.")
+
+    object_names = []
+    temp_paths = []
+    
+    try:
+        # Kiểm tra chất lượng và tải ảnh mới
+        for file in files:
+            temp_path = f"/tmp/{uuid.uuid4()}.jpg"
+            temp_paths.append(temp_path)
+            
+            try:
+                with open(temp_path, "wb") as buffer:
+                    shutil.copyfileobj(file.file, buffer)
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Lỗi lưu file: {str(e)}")
+            
+            try:
+                is_ok, msg = vision_service.check_image_quality(temp_path)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Lỗi kiểm tra ảnh: {str(e)}")
+            
+            if not is_ok:
+                raise HTTPException(status_code=400, detail=f"Ảnh lỗi: {msg}")
+            
+            obj_name = f"avatars/{id}/{uuid.uuid4()}.jpg"
+            try:
+                with open(temp_path, "rb") as f:
+                    storage_service.upload_file(f, obj_name)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Lỗi tải ảnh lên storage: {str(e)}")
+            
+            object_names.append(obj_name)
+        
+        # Xóa các ảnh cũ
+        try:
+            old_photos = storage_service.list_objects(f"avatars/{id}/")
+            for old_photo in old_photos:
+                old_photo_path = f"avatars/{id}/{old_photo}"
+                if old_photo_path not in object_names:
+                    storage_service.delete_object(old_photo_path)
+        except Exception as e:
+            print(f"Cảnh báo: Lỗi xóa ảnh cũ - {str(e)}")
+        
+        # Gửi task xử lý lại face embedding
+        try:
+            celery_app.send_task("process_face_registration", args=[id, object_names])
+        except Exception as e:
+            print(f"Cảnh báo: Lỗi gửi task Celery - {str(e)}")
+        
+        return {
+            "status": "success",
+            "message": f"Đã cập nhật {len(object_names)} ảnh cho nhân viên",
+            "photos": object_names
+        }
+    
+    finally:
+        # Xóa các file tạm
+        for path in temp_paths:
+            if os.path.exists(path):
+                try:
+                    os.remove(path)
+                except Exception as e:
+                    print(f"Cảnh báo: Lỗi xóa file tạm - {str(e)}")

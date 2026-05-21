@@ -226,7 +226,6 @@ export const api = {
     return request<IdentifyResult>(
       [
         `/attendance/identify?door_name=${encodeURIComponent(doorName)}`,
-        `/attendance/attendance/identify?door_name=${encodeURIComponent(doorName)}`,
       ],
       {
         method: "POST",
@@ -234,19 +233,27 @@ export const api = {
       },
     );
   },
-  getAttendanceHistory: (limit = 100, employeeId?: number) => {
+  getAttendanceHistory: (limit = 100, employeeIds?: number | number[]) => {
     const params = new URLSearchParams({ limit: String(limit) });
-    if (employeeId) params.set("employee_id", String(employeeId));
+    if (employeeIds) {
+      if (Array.isArray(employeeIds)) {
+        params.set("employee_ids", employeeIds.join(","));
+      } else {
+        params.set("employee_id", String(employeeIds));
+      }
+    }
     return request<AttendanceLog[]>([
       `/attendance/history?${params.toString()}`,
-      `/attendance/attendance/history?${params.toString()}`,
     ]);
   },
+  getDepartmentsWithPermissions: () =>
+    request<Array<{ id: number; name: string; permissions: Array<any> }>>(
+      [`/attendance/departments-with-permissions`],
+    ),
   getAttendanceSnapshot: (snapshotPath: string) => {
     const params = new URLSearchParams({ path: snapshotPath });
     return requestBlob([
       `/attendance/snapshot?${params.toString()}`,
-      `/attendance/attendance/snapshot?${params.toString()}`,
     ]);
   },
   getMonthlyStats: (month: number, year: number) =>
@@ -275,4 +282,33 @@ export const api = {
       [`/admin/clear-logs?days=${days}`, `/admin/admin/clear-logs?days=${days}`],
       jsonRequest("DELETE"),
     ),
+
+  getEmployeePhotos: (employeeId: number) =>
+    request<{ employee_id: number; employee_name: string; photos: string[] }>(
+      [
+        `/employees/${employeeId}/photos`,
+        `/employees/employees/${employeeId}/photos`,
+      ],
+    ),
+  getEmployeePhoto: (employeeId: number, photoName: string) =>
+    requestBlob(
+      [
+        `/employees/${employeeId}/photo/${encodeURIComponent(photoName)}`,
+        `/employees/employees/${employeeId}/photo/${encodeURIComponent(photoName)}`,
+      ],
+    ),
+  updateEmployeePhotos: (employeeId: number, files: File[]) => {
+    const formData = new FormData();
+    files.forEach((file) => formData.append("files", file));
+    return request<{ status: string; message: string; photos: string[] }>(
+      [
+        `/employees/${employeeId}/photos`,
+        `/employees/employees/${employeeId}/photos`,
+      ],
+      {
+        method: "PUT",
+        body: formData,
+      },
+    );
+  },
 };
