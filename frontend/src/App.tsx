@@ -486,6 +486,35 @@ function formatReportValue(value: unknown) {
   return stringValue;
 }
 
+function calculateAttendanceCredit(firstInStr: any, lastOutStr: any): string {
+  if (!firstInStr || !lastOutStr) return "0";
+  
+  const getVNMinutes = (isoStr: string) => {
+    try {
+      const utcValue = isoStr.endsWith("Z") || isoStr.includes("+") ? isoStr : `${isoStr}Z`;
+      const date = new Date(utcValue);
+      const parts = new Intl.DateTimeFormat("en-US", {
+        hour12: false,
+        hour: "numeric",
+        minute: "numeric",
+        timeZone: "Asia/Ho_Chi_Minh",
+      }).formatToParts(date);
+      
+      const h = parseInt(parts.find(p => p.type === "hour")?.value || "0", 10);
+      const m = parseInt(parts.find(p => p.type === "minute")?.value || "0", 10);
+      return h * 60 + m;
+    } catch { return 0; }
+  };
+
+  const fMin = getVNMinutes(String(firstInStr));
+  const lMin = getVNMinutes(String(lastOutStr));
+
+  let credit = 0;
+  if (fMin <= 510 && lMin >= 720) credit += 0.5;    // Sáng: 08:30 - 12:00 (510p - 720p)
+  if (fMin <= 810 && lMin >= 1050) credit += 0.5;   // Chiều: 13:30 - 17:30 (810p - 1050p)
+  return credit.toString();
+}
+
 function parse24HourTime(value: string): AmPmTime {
   const [rawHour = "08", rawMinute = "00"] = value.split(":");
   const hour24 = Number(rawHour);
@@ -979,11 +1008,11 @@ function DashboardPage({
 
   return (
     <div className="page-grid">
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px", marginBottom: "25px" }}>
-        <Metric icon={Users} label="Nhân viên" value={stats.employees} sub={`${activeEmployees} đang hoạt động`} />
-        <Metric icon={Building2} label="Phòng ban" value={stats.departments} sub="Quyền kế thừa" />
-        <Metric icon={DoorOpen} label="Cửa/Khu vực" value={stats.doors} sub="Điểm kiểm soát" />
-        <Metric icon={History} label="Lượt hôm nay" value={stats.today_logs} sub="Ghi nhận mới" />
+      <div className="metrics-row" style={{ display: "flex", gap: "20px", marginBottom: "35px", flexWrap: "wrap", justifyContent: "space-between" }}>
+        <Metric icon={Users} label="Nhân viên" value={stats.employees} sub={`${activeEmployees} đang hoạt động`} color="#339af0" />
+        <Metric icon={Building2} label="Phòng ban" value={stats.departments} sub="Quyền kế thừa" color="#51cf66" />
+        <Metric icon={DoorOpen} label="Cửa/Khu vực" value={stats.doors} sub="Điểm kiểm soát" color="#fcc419" />
+        <Metric icon={History} label="Lượt hôm nay" value={stats.today_logs} sub="Ghi nhận mới" color="#ff922b" />
       </div>
 
       <section className="panel wide" style={{ border: "1px solid #edf2f7", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)" }}>
@@ -1041,16 +1070,18 @@ function Metric({
   label,
   value,
   sub,
+  color,
 }: {
   icon: typeof Gauge;
   label: string;
   value: number;
   sub: string;
+  color?: string;
 }) {
   return (
-    <article className="metric-card">
-      <div className="metric-icon">
-        <Icon size={22} />
+    <article className="metric-card" style={{ flex: "1 1 200px", minWidth: "220px", borderTop: color ? `4px solid ${color}` : "none", transition: "transform 0.2s" }}>
+      <div className="metric-icon" style={{ backgroundColor: color ? `${color}15` : undefined, color: color }}>
+        <Icon size={24} />
       </div>
       <div>
         <span>{label}</span>
@@ -1628,7 +1659,7 @@ function EmployeesPage({
       </div>
 
       <div className="table-wrap">
-        <table>
+        <table className="zebra-table">
           <thead>
             <tr>
               <th>Mã NV</th>
@@ -2651,7 +2682,7 @@ function HistoryPage({
       )}
 
       <div className="table-wrap">
-        <table className={isSelfView ? "user-history-table" : undefined}>
+        <table className={`zebra-table ${isSelfView ? "user-history-table" : ""}`}>
           <thead>
             <tr>
               <th>Thời gian</th>
@@ -2801,12 +2832,13 @@ function ReportsPage({
         <>
           {monthlyStats.data.length ? (
             <div className="table-wrap report-table-wrap">
-              <table className="report-table">
+              <table className="report-table zebra-table">
                 <thead>
                   <tr>
                     {reportColumns.map((column) => (
                       <th key={column}>{column}</th>
                     ))}
+                    <th>Số công</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2815,6 +2847,9 @@ function ReportsPage({
                       {reportColumns.map((column) => (
                         <td key={`${index}-${column}`}>{formatReportValue(row[column])}</td>
                       ))}
+                      <td style={{ fontWeight: 'bold', color: '#2b8a3e' }}>
+                        {calculateAttendanceCredit(row.first_in, row.last_out)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
