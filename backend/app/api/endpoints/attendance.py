@@ -481,6 +481,7 @@ async def identify_multi(door_name: str, files: List[UploadFile] = File(...)):
                     print(f"Cảnh báo: Không xóa file tạm - {str(e)}")
 
 
+@router.get("/history")
 async def get_history(limit: int = 100, employee_id: Optional[int] = None, employee_ids: Optional[str] = None):
     """
     Lấy lịch sử chấm công
