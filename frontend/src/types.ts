@@ -42,6 +42,7 @@ export type IdentifyResult = {
   open_door: boolean;
   message: string;
   score?: number;
+  images_processed?: number;
 };
 
 export type MonthlyStats = {

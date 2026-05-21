@@ -1051,8 +1051,8 @@ function KioskPage({
   const lastSubmitTimeRef = useRef<number>(0);
   const countdownTimerRef = useRef<number | null>(null);
   const DETECTION_THROTTLE_MS = 500; // Ngăn submit quá nhanh
-  const IDENTIFY_ATTEMPTS = 3;
-  const IDENTIFY_INTERVAL_MS = 180; // Khoảng cách giữa các ảnh để lấy major vote
+  const CAPTURE_COUNT = 10; // Số lượng ảnh để chụp
+  const CAPTURE_INTERVAL_MS = 500; // Khoảng cách giữa các chụp (tổng ~5 giây)
   const STABLE_FACE_DURATION_MS = 5000; // Yêu cầu đứng yên 5 giây
 
   useEffect(() => {
@@ -1073,12 +1073,12 @@ function KioskPage({
   useEffect(() => {
     if (camera.faceBox && !faceDetectedAt) {
       setFaceDetectedAt(Date.now());
-      setCountdownSeconds(2);
+      setCountdownSeconds(5); // 5 giây để chụp 10 ảnh
     }
 
     if (faceDetectedAt && camera.faceBox) {
       const elapsed = Math.floor((Date.now() - faceDetectedAt) / 1000);
-      const remaining = Math.max(0, 2 - elapsed);
+      const remaining = Math.max(0, 5 - elapsed);
       setCountdownSeconds(remaining);
     } else if (!camera.faceBox) {
       setFaceDetectedAt(null);
@@ -1114,35 +1114,40 @@ function KioskPage({
     lastSubmitTimeRef.current = now;
 
     setSubmitting(true);
-    let finalResult = null;
 
     try {
-      let finalResult = null; // Biến tạm để lưu kết quả tốt nhất
-
-      for (let attempt = 0; attempt < IDENTIFY_ATTEMPTS; attempt += 1) {
-        const blob = await camera.captureBlob();
-        if (!blob) continue;
-
-        const identifyResult = await api.identify(selectedDoor, blob);
-
-        // KIỂM TRA: Nếu lần chụp này trả về MATCH = TRUE
-        if (identifyResult && identifyResult.match === true) {
-          finalResult = identifyResult; // Lưu kết quả thành công
-          console.log("✅ Khớp nhân viên ở lần thử:", attempt + 1);
-          break; // THOÁT VÒNG LẶP NGAY LẬP TỨC, không cho lần chụp sau ghi đè
+      // Chụp 10 ảnh trong khoảng thời gian ~5 giây
+      const capturedImages: Blob[] = [];
+      
+      for (let i = 0; i < CAPTURE_COUNT; i += 1) {
+        try {
+          const blob = await camera.captureBlob();
+          if (blob) {
+            capturedImages.push(blob);
+            console.log(`📸 Đã chụp ảnh ${i + 1}/${CAPTURE_COUNT}`);
+          }
+        } catch (error) {
+          console.error(`Lỗi chụp ảnh ${i + 1}:`, error);
         }
 
-        // Nếu chưa match, lưu kết quả này lại để hiển thị nếu sau 3 lần vẫn thất bại
-        finalResult = identifyResult;
-
-        if (attempt < IDENTIFY_ATTEMPTS - 1) {
-          await new Promise((resolve) => window.setTimeout(resolve, IDENTIFY_INTERVAL_MS));
+        // Tạm dừng giữa các chụp (ngoại trừ lần cuối cùng)
+        if (i < CAPTURE_COUNT - 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, CAPTURE_INTERVAL_MS));
         }
       }
 
-      // Sau khi thoát vòng lặp, hiển thị kết quả tốt nhất tìm được lên màn hình
-      if (finalResult) {
-        setResult(finalResult);
+      if (capturedImages.length === 0) {
+        onNotice({ type: "error", text: "Không thể chụp ảnh từ camera." });
+        return;
+      }
+
+      console.log(`🔄 Gửi ${capturedImages.length} ảnh để xác định...`);
+      
+      // Gửi tất cả ảnh đến endpoint multi-image
+      const identifyResult = await api.identifyMulti(selectedDoor, capturedImages);
+
+      if (identifyResult) {
+        setResult(identifyResult);
       }
       
       onRefresh(); // Làm mới bảng lịch sử ở dưới
@@ -1158,7 +1163,7 @@ function KioskPage({
     } finally {
       setSubmitting(false);
     }
-  }, [camera, selectedDoor, submitting, onNotice, onRefresh, IDENTIFY_ATTEMPTS, IDENTIFY_INTERVAL_MS, AUTO_CAPTURE_COOLDOWN_MS]);
+  }, [camera, selectedDoor, submitting, onNotice, onRefresh, CAPTURE_COUNT, CAPTURE_INTERVAL_MS, AUTO_CAPTURE_COOLDOWN_MS]);
   // const pickMajorityResult = useCallback((results: IdentifyResult[]) => {
   //   if (results.length === 0) return null;
 
@@ -1324,12 +1329,18 @@ function KioskPage({
               </div>
             )}
           </div>
-          {result && (
+      {result && (
             <div className={result.open_door ? "camera-result-overlay allowed" : "camera-result-overlay denied"}>
               {result.open_door ? <CheckCircle2 size={34} /> : <XCircle size={34} />}
               <strong>{result.open_door ? "Mở cửa" : "Từ chối"}</strong>
               <span>{result.employee_name ?? "Không xác định"}</span>
               {result.employee_code && <small>Mã nhân viên: {result.employee_code}</small>}
+              {result.score !== undefined && (
+                <small>
+                  Độ trùng khớp: {(result.score * 100).toFixed(1)}%
+                  {result.images_processed && ` (${result.images_processed} ảnh)`}
+                </small>
+              )}
               <p>{result.message}</p>
             </div>
           )}

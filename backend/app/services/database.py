@@ -514,7 +514,8 @@ class DBService:
             return 0
         finally:
             db.close()
-def has_recent_denied_stranger(self, door_name: str, seconds: int = 5) -> bool:
+
+    def has_recent_denied_stranger(self, door_name: str, seconds: int = 5) -> bool:
         """Kiểm tra xem gần đây có log DENIED (Người lạ) nào trên cửa này chưa"""
         db = SessionLocal()
         try:

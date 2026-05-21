@@ -271,7 +271,216 @@ async def identify(door_name: str, file: UploadFile = File(...)):
                 os.remove(temp_path)
             except Exception as e:
                 print(f"Cảnh báo: Không xóa file tạm - {str(e)}")
-@router.get("/history", response_model=List[AttendanceLogOut])
+
+@router.post("/identify-multi")
+async def identify_multi(door_name: str, files: List[UploadFile] = File(...)):
+    """
+    Xác định nhân viên từ 10 ảnh trong 5 giây.
+    Lấy điểm số cao nhất từ tất cả các ảnh được cung cấp.
+    """
+    if not files or len(files) == 0:
+        raise HTTPException(status_code=400, detail="Vui lòng gửi ít nhất một ảnh")
+    
+    if len(files) > 10:
+        raise HTTPException(status_code=400, detail="Tối đa 10 ảnh mỗi lần")
+
+    temp_id = str(uuid.uuid4())
+    temp_paths = []
+    best_result = None
+    best_score = -1
+    best_emp_id = None
+    best_temp_path = None
+    
+    try:
+        # Xử lý từng ảnh và lấy embedding
+        for file in files:
+            temp_path = None
+            try:
+                # Ghi file ảnh tạm thời
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as buffer:
+                    temp_path = buffer.name
+                    shutil.copyfileobj(file.file, buffer)
+                temp_paths.append(temp_path)
+                
+                # Trích xuất embedding
+                try:
+                    embedding = vision_service.get_embedding(temp_path)
+                except Exception as e:
+                    print(f"Cảnh báo: Không thể trích xuất embedding từ ảnh - {str(e)}")
+                    continue
+                
+                if not embedding:
+                    print(f"Cảnh báo: Embedding rỗng từ ảnh")
+                    continue
+                
+                # Tìm kiếm trong Vector DB
+                try:
+                    results = vector_db.search(embedding, collection_name=settings.COLLECTION_NAME)
+                    if results and results[0].score > best_score:
+                        best_score = results[0].score
+                        best_result = results[0]
+                        best_emp_id = int(results[0].id)
+                        best_temp_path = temp_path
+                except Exception as e:
+                    print(f"Cảnh báo: Lỗi tìm kiếm Vector DB - {str(e)}")
+                    continue
+                    
+            except Exception as e:
+                print(f"Cảnh báo: Lỗi xử lý ảnh - {str(e)}")
+                continue
+
+        # Kiểm tra kết quả tốt nhất
+        if not best_result or best_score < 0.45:
+            # Người lạ - không match
+            snapshot_name = None
+            if best_temp_path:
+                try:
+                    snapshot_name = f"snapshots/{date.today()}/{temp_id}.jpg"
+                    with open(best_temp_path, "rb") as f:
+                        storage_service.upload_file(f, snapshot_name)
+                except Exception as e:
+                    print(f"Cảnh báo: Không tải ảnh lên Storage cho người lạ - {str(e)}")
+                    snapshot_name = None
+            
+            # GHI LOG "DENIED" với chống spam
+            try:
+                if not db_service.has_recent_denied_stranger(door_name, seconds=5):
+                    db_service.log_attendance(None, door_name, "DENIED", "Người lạ", snapshot_name)
+            except Exception as e:
+                print(f"Lỗi log attendance: {str(e)}")
+
+            return {
+                "match": False, 
+                "message": "Người lạ", 
+                "open_door": False, 
+                "score": best_score,
+                "images_processed": len(temp_paths)
+            }
+
+        # Nhân viên match - tiếp tục xử lý như endpoint /identify
+        emp_id = best_emp_id
+        
+        # Lấy thông tin nhân viên
+        try:
+            user_info = db_service.get_employee_by_id(emp_id)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Lỗi truy vấn DB: {str(e)}")
+        
+        if not user_info:
+            snapshot_name = None
+            if best_temp_path:
+                try:
+                    snapshot_name = f"snapshots/{date.today()}/{temp_id}.jpg"
+                    with open(best_temp_path, "rb") as f:
+                        storage_service.upload_file(f, snapshot_name)
+                except Exception as e:
+                    print(f"Cảnh báo: Không tải ảnh lên Storage - {str(e)}")
+                    snapshot_name = None
+            
+            try:
+                db_service.log_attendance(emp_id, door_name, "DENIED", "Nhân viên không tồn tại", snapshot_name)
+            except Exception as e:
+                print(f"Lỗi log attendance: {str(e)}")
+            return {"match": False, "message": "Nhân viên không tồn tại", "open_door": False}
+        
+        # Kiểm tra cooldown
+        cache_key = f"cooldown_{emp_id}_{door_name}"
+        try:
+            redis_cache = FastAPICache.get_backend()
+            if redis_cache:
+                cached = await redis_cache.get(cache_key)
+                if cached:
+                    return {
+                        "match": True,
+                        "employee_name": user_info["full_name"],
+                        "employee_code": user_info["employee_code"],
+                        "open_door": False,
+                        "message": "Vừa chấm công cách đây ít phút",
+                        "score": best_score
+                    }
+        except Exception as e:
+            print(f"Cảnh báo: Lỗi kiểm tra cooldown - {str(e)}")
+
+        # Kiểm tra quyền truy cập
+        try:
+            is_allowed, msg = db_service.check_access_permission(emp_id, door_name)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Lỗi kiểm tra quyền: {str(e)}")
+        
+        # Tải ảnh snapshot lên storage
+        snapshot_name = None
+        if best_temp_path:
+            snapshot_name = f"snapshots/{date.today()}/{temp_id}.jpg"
+            try:
+                with open(best_temp_path, "rb") as f:
+                    storage_service.upload_file(f, snapshot_name)
+            except Exception as e:
+                print(f"Cảnh báo: Không tải ảnh lên Storage - {str(e)}")
+                snapshot_name = None
+
+        # Thiết lập thông điệp
+        checkin_time = get_vn_now().time()
+        attendance_message = build_attendance_message(checkin_time, is_allowed, msg)
+        status = "SUCCESS" if is_allowed else "DENIED"
+
+        # Ghi nhận lịch sử
+        try:
+            log_result = db_service.log_attendance(
+                emp_id, 
+                door_name, 
+                status,
+                attendance_message,
+                snapshot_name
+            )
+            if log_result:
+                print(f"✅ Đã ghi nhận lịch sử chấm công: ID {log_result.id} ({status})")
+            else:
+                print(f"⚠️ Cảnh báo: Không thể lưu log chấm công.")
+        except Exception as e:
+            print(f"❌ Lỗi ghi log attendance: {str(e)}")
+
+        # Dọn dẹp log rác
+        if is_allowed:
+            try:
+                db_service.delete_recent_denied_strangers(door_name, seconds=5)
+            except Exception as e:
+                print(f"Cảnh báo: Không thể dọn dẹp các log rác - {str(e)}")
+
+        # Lưu cooldown
+        try:
+            redis_cache = FastAPICache.get_backend()
+            if redis_cache:
+                await redis_cache.set(cache_key, "1", expire=COOLDOWN_SECONDS)
+        except Exception as e:
+            print(f"Cảnh báo: Không lưu cooldown vào Redis - {str(e)}")
+
+        if not is_allowed:
+            print(f"⚠️ Từ chối truy cập: {attendance_message} tại cửa {door_name}")
+
+        return {
+            "match": True,
+            "employee_name": user_info["full_name"],
+            "employee_code": user_info["employee_code"],
+            "open_door": is_allowed,
+            "message": attendance_message,
+            "score": best_score,
+            "images_processed": len(temp_paths)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi hệ thống không xác định: {str(e)}")
+    finally:
+        # Xóa tất cả file tạm
+        for temp_path in temp_paths:
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception as e:
+                    print(f"Cảnh báo: Không xóa file tạm - {str(e)}")
+
+
 async def get_history(limit: int = 100, employee_id: Optional[int] = None, employee_ids: Optional[str] = None):
     """
     Lấy lịch sử chấm công

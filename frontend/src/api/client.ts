@@ -234,6 +234,23 @@ export const api = {
       },
     );
   },
+  
+  identifyMulti: (doorName: string, images: Blob[]) => {
+    const formData = new FormData();
+    images.forEach((image, index) => {
+      formData.append("files", image, `capture-${index}.jpg`);
+    });
+    return request<IdentifyResult>(
+      [
+        `/attendance/identify-multi?door_name=${encodeURIComponent(doorName)}`,
+      ],
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+  },
+
   getAttendanceHistory: (limit = 100, employeeIds?: number | number[]) => {
     const params = new URLSearchParams({ limit: String(limit) });
     if (employeeIds) {
