@@ -3,14 +3,25 @@ import uuid
 import numpy as np
 from typing import List
 from celery import Celery
+from celery.schedules import crontab
 from app.services.vision import VisionService
 from app.services.vector_db import VectorDBService
 from app.services.storage import StorageService
 from app.core.config import settings
+from app.services.database import DBService
 
 # Cấu hình Celery
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 celery_app = Celery("worker", broker=CELERY_BROKER_URL)
+db_service = DBService()
+
+celery_app.conf.beat_schedule = {
+    # Tự động dọn dẹp snapshot cũ vào 2 giờ sáng mỗi ngày
+    'auto-cleanup-snapshots': {
+        'task': 'app.worker.system_maintenance',
+        'schedule': crontab(hour=2, minute=0),
+    },
+}
 
 # Khởi tạo services
 vision_service = VisionService()
@@ -77,3 +88,14 @@ def process_face_registration(user_id: int, object_names: List[str]):
         for f in processed_temp_files:
             if os.path.exists(f):
                 os.remove(f)
+
+@celery_app.task(name="system_maintenance")
+def system_maintenance():
+    """
+    Tác vụ bảo trì hệ thống định kỳ:
+    1. Xóa log cũ (quá 60 ngày)
+    2. (Option) Xóa các snapshot ảnh người lạ để tiết kiệm dung lượng
+    """
+    print("--- Đang chạy tác vụ bảo trì hệ thống ---")
+    deleted_count = db_service.delete_old_logs(days=60)
+    return {"status": "cleaned", "deleted_logs": deleted_count}

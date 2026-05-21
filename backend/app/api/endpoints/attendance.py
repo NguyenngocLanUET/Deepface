@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException
+from fastapi import APIRouter, File, UploadFile, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from fastapi_cache import FastAPICache
 import shutil, uuid, os, io, tempfile
@@ -14,13 +14,35 @@ from app.services.database import DBService, VN_TZ
 from app.services.storage import StorageService
 from app.core.config import settings
 from app.schemas.schemas import AttendanceLogOut
-from typing import List, Optional
+from typing import List, Optional, Dict
+import json
 
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
 vision_service = VisionService()
 vector_db = VectorDBService()
 db_service = DBService()
 storage_service = StorageService()
+
+# --- Real-time WebSocket Manager ---
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            try:
+                await connection.send_text(json.dumps(message))
+            except:
+                pass
+
+manager = ConnectionManager()
 
 # Executor để chạy các tác vụ CPU-bound (DeepFace) song song, tránh block event loop
 executor = ThreadPoolExecutor(max_workers=4)
@@ -49,6 +71,17 @@ def build_attendance_message(checkin_time: time, is_allowed: bool, default_msg: 
 def _get_embedding_sync(path: str):
     """Hàm wrapper để chạy trích xuất embedding trong ThreadPool"""
     return vision_service.get_embedding(path)
+
+@router.websocket("/ws/monitoring")
+async def monitoring_endpoint(websocket: WebSocket):
+    """Endpoint để Dashboard nhận dữ liệu log thời gian thực"""
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Giữ kết nối mở, có thể nhận heartbeat từ client nếu cần
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 
 @router.post("/identify")
 async def identify(door_name: str, file: UploadFile = File(...)):
@@ -273,6 +306,16 @@ async def identify(door_name: str, file: UploadFile = File(...)):
                 print(f"⚠️ Cảnh báo: Không thể lưu log chấm công.")
         except Exception as e:
             print(f"❌ Lỗi ghi log attendance: {str(e)}")
+
+        # 10.5 BROADCAST REAL-TIME (Cải tiến mới)
+        await manager.broadcast({
+            "type": "ATTENDANCE_EVENT",
+            "status": status,
+            "employee_name": user_info["full_name"] if status == "SUCCESS" else "Người lạ",
+            "door_name": door_name,
+            "timestamp": datetime.now(VN_TZ).isoformat(),
+            "reason": attendance_message
+        })
 
         # 11. DỌN DẸP LOG RÁC & CẬP NHẬT COOLDOWN
         if is_allowed:
