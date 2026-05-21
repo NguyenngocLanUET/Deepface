@@ -426,6 +426,38 @@ function cameraStatusLabel(value: string) {
     detecting: "Đang dò khuôn mặt",
     error: "Có lỗi",
   };
+
+  const openEmployeeHistory = async (employee: Employee) => {
+    setHistoryLoading(true);
+    try {
+      const logs = await api.getAttendanceHistory(1000, employee.id);
+      setHistoryLogs(logs);
+      setHistoryTitle(`${employee.employee_code} - ${employee.full_name}`);
+      setHistoryModalVisible(true);
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể tải lịch sử nhân viên.") });
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const openSelectedHistory = async () => {
+    if (!selectedEmployeeIds || selectedEmployeeIds.length === 0) {
+      onNotice({ type: "info", text: "Hãy chọn ít nhất một nhân viên để xem lịch sử." });
+      return;
+    }
+    setHistoryLoading(true);
+    try {
+      const logs = await api.getAttendanceHistory(1000, selectedEmployeeIds);
+      setHistoryLogs(logs);
+      setHistoryTitle(`Lịch sử cho ${selectedEmployeeIds.length} nhân viên`);
+      setHistoryModalVisible(true);
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể tải lịch sử.") });
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
   return labels[value] ?? value;
 }
 
@@ -561,6 +593,23 @@ function TimeMeridiemField({
         >
           <option value="AM">AM</option>
           <option value="PM">PM</option>
+        </select>
+
+        <select
+          multiple
+          size={4}
+          value={selectedEmployeeIds.map(String)}
+          onChange={(e) => {
+            const opts = Array.from(e.target.selectedOptions).map((o) => Number(o.value));
+            setSelectedEmployeeIds(opts);
+          }}
+          style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ccc", minWidth: "220px" }}
+        >
+          {employees.map((emp) => (
+            <option key={emp.id} value={emp.id}>
+              {emp.employee_code} - {emp.full_name}
+            </option>
+          ))}
         </select>
       </div>
     </label>
@@ -1374,9 +1423,94 @@ function EmployeesPage({
   const [statusFilter, setStatusFilter] = useState<boolean | null>(null);
   const [rows, setRows] = useState<Employee[]>(employees);
 
+  // Multi-select IDs and per-employee history modal
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const [historyLogs, setHistoryLogs] = useState<AttendanceLog[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyTitle, setHistoryTitle] = useState("");
+
   useEffect(() => setRows(employees), [employees]);
 
   const [isLoading, setIsLoading] = useState(false);
+
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [modalPhotos, setModalPhotos] = useState<Array<{ name: string; url: string }>>([]);
+  const [modalEmployeeName, setModalEmployeeName] = useState<string>("");
+  const [modalEmployeeId, setModalEmployeeId] = useState<number | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+
+  const closeImageModal = () => {
+    // Revoke object URLs
+    modalPhotos.forEach((p) => {
+      try {
+        URL.revokeObjectURL(p.url);
+      } catch (_) {
+        // ignore
+      }
+    });
+    setModalPhotos([]);
+    setModalEmployeeName("");
+    setModalEmployeeId(null);
+    setUploadFiles([]);
+    setImageModalOpen(false);
+  };
+
+  const viewPhotos = async (employee: Employee) => {
+    setIsLoading(true);
+    try {
+      const res = await api.getEmployeePhotos(employee.id);
+      const photos: string[] = res.photos ?? [];
+      const blobs = await Promise.all(
+        photos.map((p) => api.getEmployeePhoto(employee.id, p).catch(() => null)),
+      );
+
+      const urls: Array<{ name: string; url: string }> = [];
+      for (let i = 0; i < photos.length; i += 1) {
+        const b = blobs[i];
+        if (b) {
+          const url = URL.createObjectURL(b as Blob);
+          urls.push({ name: photos[i], url });
+        }
+      }
+
+      setModalEmployeeName(res.employee_name ?? employee.full_name);
+      setModalEmployeeId(employee.id);
+      setUploadFiles([]);
+      setModalPhotos(urls);
+      setImageModalOpen(true);
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể tải ảnh nhân viên.") });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const onUploadFilesChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []).slice(0, 5);
+    setUploadFiles(files);
+  };
+
+  const uploadPhotos = async () => {
+    if (!modalEmployeeId) return;
+    if (uploadFiles.length < 1 || uploadFiles.length > 5) {
+      onNotice({ type: "error", text: "Cần chọn từ 1 đến 5 ảnh để cập nhật." });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await api.updateEmployeePhotos(modalEmployeeId, uploadFiles);
+      onNotice({ type: "success", text: "Đã cập nhật ảnh nhân viên." });
+      await search();
+      onRefresh();
+      closeImageModal();
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật ảnh.") });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const search = async (event?: FormEvent) => {
       if (event) event.preventDefault();
@@ -1388,6 +1522,7 @@ function EmployeesPage({
           query: query.trim() || undefined,
           department_id: departmentFilter ?? undefined,
           is_active: statusFilter ?? undefined,
+          ids: selectedEmployeeIds.length ? selectedEmployeeIds : undefined,
         });
         setRows(results);
       } catch (error) {
@@ -1426,6 +1561,7 @@ function EmployeesPage({
     setDepartmentFilter(null);
     setStatusFilter(null);
     setRows(employees);
+    setSelectedEmployeeIds([]);
   };
 
   return (
@@ -1490,6 +1626,21 @@ function EmployeesPage({
 
         <button
           type="button"
+          onClick={() => void openSelectedHistory()}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: "#17a2b8",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          Xem lịch sử (đã chọn)
+        </button>
+
+        <button
+          type="button"
           onClick={clearFilters}
           style={{
             padding: "8px 16px",
@@ -1538,6 +1689,14 @@ function EmployeesPage({
                       <Lock size={15} />
                       {employee.is_active ? "Khóa" : "Mở"}
                     </button>
+                    <button className="small-button" onClick={() => void viewPhotos(employee)} type="button">
+                      <Camera size={15} />
+                      Xem ảnh
+                    </button>
+                    <button className="small-button" onClick={() => void openEmployeeHistory(employee)} type="button">
+                      <History size={14} />
+                      Lịch sử
+                    </button>
                     <button className="small-button danger" onClick={() => void deleteEmployee(employee)} type="button">
                       Xóa
                     </button>
@@ -1549,6 +1708,97 @@ function EmployeesPage({
         </table>
         {rows.length === 0 && <EmptyState text="Không có nhân viên phù hợp." />}
       </div>
+      {imageModalOpen && (
+        <div className="image-modal-overlay" onClick={closeImageModal}>
+          <div className="image-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="image-modal-header">
+              <strong>Ảnh nhân viên: {modalEmployeeName}</strong>
+              <button className="icon-button" onClick={closeImageModal} type="button">
+                <XCircle size={18} />
+              </button>
+            </div>
+
+            <div className="image-modal-grid">
+              {modalPhotos.length === 0 ? (
+                <div>Không có ảnh hoặc đang tải...</div>
+              ) : (
+                modalPhotos.map((p) => (
+                  <figure key={p.name} className="image-tile">
+                    <img src={p.url} alt={p.name} />
+                    <figcaption>{p.name}</figcaption>
+                  </figure>
+                ))
+              )}
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <label style={{ display: "block", marginBottom: 8 }}>Cập nhật ảnh (1-5 ảnh):</label>
+              <input type="file" accept="image/*" multiple onChange={onUploadFilesChange} />
+              <div style={{ marginTop: 8, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button className="secondary-button" onClick={() => setUploadFiles([])} type="button">Clear</button>
+                <button className="primary-button" onClick={uploadPhotos} type="button" disabled={isLoading || uploadFiles.length === 0}>Cập nhật ảnh</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {historyModalVisible && (
+        <div className="history-modal-overlay" onClick={() => setHistoryModalVisible(false)}>
+          <div className="history-modal panel" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 900, margin: "40px auto" }}>
+            <div className="section-heading">
+              <div>
+                <h2>Lịch sử: {historyTitle}</h2>
+              </div>
+              <div>
+                <button className="icon-button" onClick={() => setHistoryModalVisible(false)} type="button">
+                  <XCircle size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div style={{ padding: 12 }}>
+              {historyLoading ? (
+                <div>Đang tải lịch sử...</div>
+              ) : historyLogs.length === 0 ? (
+                <div>Không có bản ghi lịch sử cho lựa chọn này.</div>
+              ) : (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>ID NV</th>
+                        <th>Mã NV</th>
+                        <th>Họ tên</th>
+                        <th>Trạng thái</th>
+                        <th>Thời gian</th>
+                        <th>Lý do</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyLogs.map((log) => {
+                        const emp = employees.find((e) => e.id === log.employee_id);
+                        return (
+                          <tr key={log.id}>
+                            <td>{log.employee_id ?? "-"}</td>
+                            <td>{emp?.employee_code ?? "-"}</td>
+                            <td>{emp?.full_name ?? "-"}</td>
+                            <td>
+                              <span className={log.status === "SUCCESS" ? "badge success" : "badge danger"}>
+                                {log.status}
+                              </span>
+                            </td>
+                            <td>{formatDateTime(log.checkin_at)}</td>
+                            <td>{log.reason ?? ""}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

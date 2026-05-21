@@ -143,8 +143,13 @@ export const api = {
     if (filters.query) params.append("query", filters.query);
     if (filters.department_id !== undefined) params.append("department_id", String(filters.department_id));
     if (filters.is_active !== undefined) params.append("is_active", String(filters.is_active));
-    if (filters.ids && filters.ids.length > 0) params.append("ids", filters.ids.join(","));
-    if (filters.codes && filters.codes.length > 0) params.append("codes", filters.codes.join(","));
+    // Append repeated query params for lists so backend can accept either ?ids=1&ids=2 or comma lists
+    if (filters.ids && filters.ids.length > 0) {
+      filters.ids.forEach((id) => params.append("ids", String(id)));
+    }
+    if (filters.codes && filters.codes.length > 0) {
+      filters.codes.forEach((code) => params.append("codes", code));
+    }
     
     const queryString = params.toString();
     const searchUrl = `/employees/search${queryString ? "?" + queryString : ""}`;
