@@ -1377,150 +1377,6 @@ function EmployeesPage({
   useEffect(() => setRows(employees), [employees]);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [employeePhotos, setEmployeePhotos] = useState<Array<{ name: string; url: string }>>([]);
-  const [photoLoading, setPhotoLoading] = useState(false);
-  const [photoError, setPhotoError] = useState<string | null>(null);
-  const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
-  const [uploadingPhotos, setUploadingPhotos] = useState(false);
-  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
-  const [historyModalOpen, setHistoryModalOpen] = useState(false);
-  const [historyLogs, setHistoryLogs] = useState<AttendanceLog[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState<string | null>(null);
-  const [selectedHistoryLog, setSelectedHistoryLog] = useState<AttendanceLog | null>(null);
-  const [historySnapshotUrl, setHistorySnapshotUrl] = useState<string | null>(null);
-  const [historySnapshotLoading, setHistorySnapshotLoading] = useState(false);
-  const [historySnapshotError, setHistorySnapshotError] = useState<string | null>(null);
-
-  useEffect(() => {
-    return () => {
-      employeePhotos.forEach((item) => URL.revokeObjectURL(item.url));
-    };
-  }, [employeePhotos]);
-
-  const loadEmployeePhotos = async (employee: Employee) => {
-    setSelectedEmployee(employee);
-    setEmployeePhotos([]);
-    setFilesToUpload([]);
-    setPhotoError(null);
-    setPhotoLoading(true);
-
-    try {
-      const result = await api.getEmployeePhotos(employee.id);
-      if (!result.photos.length) {
-        setPhotoError("Nhân viên chưa có ảnh lưu kho.");
-        return;
-      }
-
-      const photos = await Promise.all(
-        result.photos.map(async (photoName) => {
-          const blob = await api.getEmployeePhoto(employee.id, photoName);
-          return { name: photoName, url: URL.createObjectURL(blob) };
-        }),
-      );
-
-      setEmployeePhotos(photos);
-    } catch (error) {
-      setPhotoError(errorMessage(error, "Không thể tải ảnh nhân viên."));
-    } finally {
-      setPhotoLoading(false);
-    }
-  };
-
-  const loadHistoryForSelectedEmployees = async () => {
-    if (selectedEmployeeIds.length === 0) {
-      setHistoryError("Vui lòng chọn ít nhất một nhân viên để xem lịch sử.");
-      return;
-    }
-
-    setHistoryLoading(true);
-    setHistoryError(null);
-    setHistoryLogs([]);
-    try {
-      const logs = await api.getAttendanceHistory(1000, selectedEmployeeIds);
-      setHistoryLogs(logs);
-      setHistoryModalOpen(true);
-    } catch (error) {
-      setHistoryError(errorMessage(error, "Không thể tải lịch sử."));
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!selectedHistoryLog?.image_snapshot) {
-      setHistorySnapshotUrl(null);
-      setHistorySnapshotLoading(false);
-      setHistorySnapshotError(null);
-      return;
-    }
-
-    let cancelled = false;
-    let nextUrl: string | null = null;
-
-    setHistorySnapshotUrl(null);
-    setHistorySnapshotLoading(true);
-    setHistorySnapshotError(null);
-
-    api.getAttendanceSnapshot(selectedHistoryLog.image_snapshot)
-      .then((blob) => {
-        if (cancelled) return;
-        nextUrl = window.URL.createObjectURL(blob);
-        setHistorySnapshotUrl(nextUrl);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setHistorySnapshotError(errorMessage(error, "Không thể tải ảnh chấm công."));
-      })
-      .finally(() => {
-        if (!cancelled) setHistorySnapshotLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-      if (nextUrl) window.URL.revokeObjectURL(nextUrl);
-    };
-  }, [selectedHistoryLog?.id, selectedHistoryLog?.image_snapshot]);
-
-  const closePhotoModal = () => {
-    setSelectedEmployee(null);
-    setEmployeePhotos([]);
-    setPhotoError(null);
-    setFilesToUpload([]);
-    setPhotoLoading(false);
-    setUploadingPhotos(false);
-  };
-
-  const handleFileSelection = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    if (files.length === 0) return;
-
-    const selected = [...filesToUpload, ...files].slice(0, 5);
-    setFilesToUpload(selected);
-    event.target.value = "";
-  };
-
-  const handleUpdatePhotos = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!selectedEmployee) return;
-    if (filesToUpload.length === 0) {
-      onNotice({ type: "error", text: "Vui lòng chọn ảnh để cập nhật." });
-      return;
-    }
-
-    setUploadingPhotos(true);
-    try {
-      await api.updateEmployeePhotos(selectedEmployee.id, filesToUpload);
-      onNotice({ type: "success", text: "Đã cập nhật ảnh nhân viên." });
-      await loadEmployeePhotos(selectedEmployee);
-      onRefresh();
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật ảnh nhân viên.") });
-    } finally {
-      setUploadingPhotos(false);
-    }
-  };
 
   const search = async (event?: FormEvent) => {
       if (event) event.preventDefault();
@@ -1532,7 +1388,6 @@ function EmployeesPage({
           query: query.trim() || undefined,
           department_id: departmentFilter ?? undefined,
           is_active: statusFilter ?? undefined,
-          ids: selectedEmployeeIds.length ? selectedEmployeeIds : undefined,
         });
         setRows(results);
       } catch (error) {
@@ -1648,40 +1503,6 @@ function EmployeesPage({
           Xóa bộ lọc
         </button>
 
-        <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "13px", color: "#333" }}>Chọn NV</span>
-          <select
-            multiple
-            value={selectedEmployeeIds.map(String)}
-            onChange={(e) => {
-              const opts = Array.from(e.target.selectedOptions).map((o) => Number(o.value));
-              setSelectedEmployeeIds(opts);
-            }}
-            style={{ padding: "6px", minWidth: 180, height: 100 }}
-          >
-            {employees.map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.employee_code} - {emp.full_name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <button
-          type="button"
-          onClick={() => void loadHistoryForSelectedEmployees()}
-          style={{
-            padding: "8px 14px",
-            backgroundColor: "#17a2b8",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          Xem lịch sử
-        </button>
-
         <span style={{ marginLeft: "auto", fontSize: "14px", color: "#666" }}>
           Tìm thấy: {rows.length} / {employees.length}
         </span>
@@ -1701,11 +1522,7 @@ function EmployeesPage({
           </thead>
           <tbody>
             {rows.map((employee) => (
-              <tr
-                key={employee.id}
-                onClick={() => void loadEmployeePhotos(employee)}
-                style={{ cursor: "pointer" }}
-              >
+              <tr key={employee.id}>
                 <td>{employee.employee_code}</td>
                 <td>{employee.full_name}</td>
                 <td>{departmentName(employee.department_id)}</td>
@@ -1729,17 +1546,6 @@ function EmployeesPage({
                       {employee.is_active ? "Khóa" : "Mở"}
                     </button>
                     <button
-                      className="small-button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void loadEmployeePhotos(employee);
-                      }}
-                      type="button"
-                    >
-                      <Camera size={15} />
-                      Xem ảnh
-                    </button>
-                    <button
                       className="small-button danger"
                       onClick={(event) => {
                         event.stopPropagation();
@@ -1758,132 +1564,6 @@ function EmployeesPage({
         {rows.length === 0 && <EmptyState text="Không có nhân viên phù hợp." />}
       </div>
 
-      {selectedEmployee && (
-        <div className="modal-backdrop" onClick={closePhotoModal}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Ảnh nhân viên: {selectedEmployee.full_name}</h3>
-              <button className="icon-button" onClick={closePhotoModal} type="button">
-                ✕
-              </button>
-            </div>
-            <div className="modal-body">
-              {photoLoading ? (
-                <p>Đang tải ảnh...</p>
-              ) : (
-                <div style={{ display: "grid", gap: "16px" }}>
-                  {photoError ? (
-                    <p className="snapshot-empty">{photoError}</p>
-                  ) : (
-                    <div style={{ display: "grid", gap: "12px" }}>
-                      <div style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))" }}>
-                        {employeePhotos.map((photo) => (
-                          <div key={photo.name} style={{ display: "grid", gap: "8px" }}>
-                            <img
-                              src={photo.url}
-                              alt={photo.name}
-                              style={{ width: "100%", height: "auto", borderRadius: "8px", border: "1px solid #dfe7ef" }}
-                            />
-                            <small style={{ color: "#555" }}>{photo.name}</small>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <form onSubmit={handleUpdatePhotos} style={{ display: "grid", gap: "12px" }}>
-                    <label style={{ fontWeight: 700 }}>Cập nhật ảnh lưu kho</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleFileSelection}
-                    />
-                    {filesToUpload.length > 0 && (
-                      <div style={{ display: "grid", gap: "6px", padding: "8px", background: "#f8fafc", borderRadius: "8px", border: "1px solid #dfe7ef" }}>
-                        <strong>Tệp chọn:</strong>
-                        {filesToUpload.map((file) => (
-                          <span key={file.name} style={{ fontSize: "13px", color: "#333" }}>
-                            {file.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <button
-                      className="small-button"
-                      type="submit"
-                      disabled={uploadingPhotos || filesToUpload.length === 0}
-                    >
-                      {uploadingPhotos ? "Đang cập nhật..." : "Cập nhật ảnh"}
-                    </button>
-                  </form>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {historyModalOpen && (
-        <div className="modal-backdrop" onClick={() => { setHistoryModalOpen(false); setHistoryLogs([]); setSelectedHistoryLog(null); }}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Lịch sử - {selectedEmployeeIds.length} nhân viên</h3>
-              <button className="icon-button" onClick={() => { setHistoryModalOpen(false); setHistoryLogs([]); setSelectedHistoryLog(null); }} type="button">✕</button>
-            </div>
-            <div className="modal-body">
-              {historyLoading ? (
-                <p>Đang tải lịch sử...</p>
-              ) : historyError ? (
-                <p className="inline-error">{historyError}</p>
-              ) : (
-                <div style={{ display: "grid", gap: 12 }}>
-                  <div className="table-wrap" style={{ maxHeight: "60vh", overflow: "auto" }}>
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Thời gian</th>
-                          <th>Cửa</th>
-                          <th>Trạng thái</th>
-                          <th>Lý do</th>
-                          <th>Nhân viên</th>
-                          <th>Ảnh</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {historyLogs.map((item) => (
-                          <tr key={item.id} onClick={() => setSelectedHistoryLog(item)} style={{ cursor: "pointer" }}>
-                            <td>{formatDateTime(item.checkin_at)}</td>
-                            <td>{item.door_id ?? "-"}</td>
-                            <td><StatusBadge status={item.status} /></td>
-                            <td>{item.reason ?? "-"}</td>
-                            <td>{employees.find((e) => e.id === item.employee_id)?.full_name ?? "-"}</td>
-                            <td>{item.image_snapshot ? <button className="small-button" onClick={(ev) => { ev.stopPropagation(); setSelectedHistoryLog(item); }}>Xem ảnh</button> : "-"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {selectedHistoryLog && (
-                    <div style={{ display: "grid", gap: 8 }}>
-                      <strong>Chi tiết bản ghi</strong>
-                      <p><strong>Thời gian:</strong> {formatDateTime(selectedHistoryLog.checkin_at)}</p>
-                      <p><strong>Trạng thái:</strong> {selectedHistoryLog.status}</p>
-                      <div className="snapshot-frame">
-                        {historySnapshotLoading && <p className="snapshot-empty">Đang tải ảnh...</p>}
-                        {historySnapshotError && <p className="inline-error">{historySnapshotError}</p>}
-                        {historySnapshotUrl && <img className="snapshot-image" src={historySnapshotUrl} alt="Snapshot" />}
-                        {!selectedHistoryLog.image_snapshot && <p className="snapshot-empty">Không có ảnh snapshot.</p>}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }
