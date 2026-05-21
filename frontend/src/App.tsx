@@ -1741,64 +1741,6 @@ function EmployeesPage({
           </div>
         </div>
       )}
-      {historyModalVisible && (
-        <div className="history-modal-overlay" onClick={() => setHistoryModalVisible(false)}>
-          <div className="history-modal panel" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 900, margin: "40px auto" }}>
-            <div className="section-heading">
-              <div>
-                <h2>Lịch sử: {historyTitle}</h2>
-              </div>
-              <div>
-                <button className="icon-button" onClick={() => setHistoryModalVisible(false)} type="button">
-                  <XCircle size={18} />
-                </button>
-              </div>
-            </div>
-
-            <div style={{ padding: 12 }}>
-              {historyLoading ? (
-                <div>Đang tải lịch sử...</div>
-              ) : historyLogs.length === 0 ? (
-                <div>Không có bản ghi lịch sử cho lựa chọn này.</div>
-              ) : (
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>ID NV</th>
-                        <th>Mã NV</th>
-                        <th>Họ tên</th>
-                        <th>Trạng thái</th>
-                        <th>Thời gian</th>
-                        <th>Lý do</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {historyLogs.map((log) => {
-                        const emp = employees.find((e) => e.id === log.employee_id);
-                        return (
-                          <tr key={log.id}>
-                            <td>{log.employee_id ?? "-"}</td>
-                            <td>{emp?.employee_code ?? "-"}</td>
-                            <td>{emp?.full_name ?? "-"}</td>
-                            <td>
-                              <span className={log.status === "SUCCESS" ? "badge success" : "badge danger"}>
-                                {log.status}
-                              </span>
-                            </td>
-                            <td>{formatDateTime(log.checkin_at)}</td>
-                            <td>{log.reason ?? ""}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }
