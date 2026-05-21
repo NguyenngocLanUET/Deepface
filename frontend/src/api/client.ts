@@ -210,6 +210,11 @@ export const api = {
       [`/departments/${departmentId}`, `/departments/departments/${departmentId}`],
       jsonRequest("DELETE"),
     ),
+  deleteDepartmentPermission: (permissionId: number) =>
+    request<{ status: string; message: string }>(
+      [`/departments/permissions/${permissionId}`, `/departments/departments/permissions/${permissionId}`],
+      jsonRequest("DELETE"),
+    ),
   setDepartmentPermission: (
     departmentId: number,
     doorId: number,

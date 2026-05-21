@@ -174,8 +174,10 @@ async def identify(door_name: str, file: UploadFile = File(...)):
                 print(f"Cảnh báo: Không thể kiểm tra log gần đây - {str(e)}")
             
             return {
-                "match": False,
-                "message": "Vui lòng chờ trước khi thử lại",
+                "match": True,
+                "employee_name": user_info["full_name"],
+                "employee_code": user_info["employee_code"],
+                "message": "Vừa chấm công, vui lòng chờ giây lát",
                 "open_door": False
             }
 
