@@ -138,14 +138,12 @@ const loginAccounts: Array<AppSession & { password: string }> = [
 const EMPLOYEE_DEFAULT_PASSWORDS = new Set(["user123", "user 123"]);
 
 function formatDateTime(value: string) {
-  // Nếu chuỗi thời gian không có ký tự múi giờ 'Z' hoặc dấu '+' (giờ UTC thô), 
-  // chúng ta chủ động thêm 'Z' để JS hiểu đây là giờ UTC và tự động +7 tiếng sang giờ Việt Nam.
   const utcValue = value.endsWith("Z") || value.includes("+") ? value : `${value}Z`;
   
   return new Intl.DateTimeFormat("vi-VN", {
     dateStyle: "short",
     timeStyle: "medium",
-    timeZone: "Asia/Ho_Chi_Minh", // Ép buộc hiển thị theo giờ Việt Nam
+    timeZone: "Asia/Ho_Chi_Minh",
   }).format(new Date(utcValue));
 }
 
@@ -153,8 +151,6 @@ function toDateInputValue(value: string) {
   const utcValue = value.endsWith("Z") || value.includes("+") ? value : `${value}Z`;
   const date = new Date(utcValue);
   
-  // Trả về định dạng YYYY-MM-DD theo đúng ngày thực tế tại Việt Nam 
-  // (tránh việc lệch múi giờ làm ngày bị lùi hoặc tiến 1 ngày)
   return new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Asia/Ho_Chi_Minh",
     year: "numeric",
@@ -176,20 +172,17 @@ function normalizeLoginCode(value: string) {
   return value.trim().replace(/\s+/g, "").toUpperCase();
 }
 
-// Kiểm tra chất lượng ảnh để detect blur, độ sáng, kích thước khuôn mặt
 async function analyzeImageQuality(file: File): Promise<{ isGood: boolean; issues: string[] }> {
   return new Promise((resolve) => {
     const reader = new FileReader();
     
     reader.onerror = () => {
-      console.error("FileReader error:", reader.error);
       resolve({ isGood: false, issues: ["Lỗi đọc file"] });
     };
 
     reader.onload = (event) => {
       const img = new Image();
       img.onerror = () => {
-        console.error("Image load error");
         resolve({ isGood: false, issues: ["Không thể tải ảnh"] });
       };
       
@@ -209,14 +202,11 @@ async function analyzeImageQuality(file: File): Promise<{ isGood: boolean; issue
           const data = imageData.data;
           const issues: string[] = [];
 
-          // Kiểm tra độ sáng trung bình
           let brightness = 0;
           for (let i = 0; i < data.length; i += 4) {
             brightness += (data[i] + data[i + 1] + data[i + 2]) / 3;
           }
           brightness /= data.length / 4;
-
-          console.log("Brightness:", Math.round(brightness));
 
           if (brightness < 30) {
             issues.push("Ảnh quá tối");
@@ -224,7 +214,6 @@ async function analyzeImageQuality(file: File): Promise<{ isGood: boolean; issue
             issues.push("Ảnh quá sáng");
           }
 
-          // Kiểm tra Laplacian để phát hiện blur (độ sắc nét)
           const grayscale: number[] = [];
           for (let i = 0; i < data.length; i += 4) {
             grayscale.push(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
@@ -254,14 +243,11 @@ async function analyzeImageQuality(file: File): Promise<{ isGood: boolean; issue
           }
           laplacian = validPixels > 0 ? Math.sqrt(laplacian / validPixels) : 0;
 
-          console.log("Laplacian (sharpness):", Math.round(laplacian));
-
           if (laplacian < 25) {
             issues.push("Ảnh quá mờ/nhòe");
           }
 
           const isGood = issues.length === 0;
-          console.log("Image quality check:", { isGood, issues, brightness: Math.round(brightness), laplacian: Math.round(laplacian) });
           resolve({ isGood, issues });
         } catch (error) {
           console.error("Analysis error:", error);
@@ -276,13 +262,11 @@ async function analyzeImageQuality(file: File): Promise<{ isGood: boolean; issue
     try {
       reader.readAsDataURL(file);
     } catch (error) {
-      console.error("Read error:", error);
       resolve({ isGood: false, issues: ["Lỗi đọc ảnh"] });
     }
   });
 }
 
-// Tiền xử lý ảnh: adjust brightness, contrast, sharpen
 async function preprocessImage(file: File): Promise<File> {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -294,7 +278,7 @@ async function preprocessImage(file: File): Promise<File> {
         canvas.height = img.height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
-          resolve(file); // Lỗi, trả về file gốc
+          resolve(file);
           return;
         }
 
@@ -302,29 +286,25 @@ async function preprocessImage(file: File): Promise<File> {
         let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
 
-        // 1. Tính brightness hiện tại
         let brightness = 0;
         for (let i = 0; i < data.length; i += 4) {
           brightness += (data[i] + data[i + 1] + data[i + 2]) / 3;
         }
         brightness /= data.length / 4;
 
-        // 2. Adjust brightness & contrast
         const targetBrightness = 128;
         const brightnessDiff = targetBrightness - brightness;
-        const contrastFactor = 1.1; // Tăng contrast 10%
+        const contrastFactor = 1.1;
 
         for (let i = 0; i < data.length; i += 4) {
           let r = data[i];
           let g = data[i + 1];
           let b = data[i + 2];
 
-          // Adjust brightness
           r = Math.min(255, Math.max(0, r + brightnessDiff * 0.3));
           g = Math.min(255, Math.max(0, g + brightnessDiff * 0.3));
           b = Math.min(255, Math.max(0, b + brightnessDiff * 0.3));
 
-          // Adjust contrast
           r = Math.min(255, Math.max(0, 128 + (r - 128) * contrastFactor));
           g = Math.min(255, Math.max(0, 128 + (g - 128) * contrastFactor));
           b = Math.min(255, Math.max(0, 128 + (b - 128) * contrastFactor));
@@ -336,7 +316,6 @@ async function preprocessImage(file: File): Promise<File> {
 
         ctx.putImageData(imageData, 0, 0);
 
-        // 3. Unsharp mask (sharpen) - đơn giản
         const tempCanvas = document.createElement("canvas");
         tempCanvas.width = canvas.width;
         tempCanvas.height = canvas.height;
@@ -346,14 +325,12 @@ async function preprocessImage(file: File): Promise<File> {
           const blurredData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
           const blurredPixels = blurredData.data;
 
-          // Tạo version mờ
           for (let i = 0; i < blurredPixels.length; i += 4) {
             blurredPixels[i] = Math.round(blurredPixels[i] * 0.8);
             blurredPixels[i + 1] = Math.round(blurredPixels[i + 1] * 0.8);
             blurredPixels[i + 2] = Math.round(blurredPixels[i + 2] * 0.8);
           }
 
-          // Sharpening: Original + (Original - Blurred) * 0.5
           imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           for (let i = 0; i < imageData.data.length; i += 4) {
             imageData.data[i] = Math.min(255, Math.max(0, imageData.data[i] + (imageData.data[i] - blurredPixels[i]) * 0.3));
@@ -363,12 +340,10 @@ async function preprocessImage(file: File): Promise<File> {
           ctx.putImageData(imageData, 0, 0);
         }
 
-        // 4. Convert canvas về File
         canvas.toBlob(
           (blob) => {
             if (blob) {
               const processedFile = new File([blob], `processed-${Date.now()}.jpg`, { type: "image/jpeg" });
-              console.log("Image preprocessed:", processedFile.name);
               resolve(processedFile);
             } else {
               resolve(file);
@@ -387,6 +362,7 @@ async function preprocessImage(file: File): Promise<File> {
 
 function readStoredSession() {
   try {
+    if (typeof window === "undefined") return null;
     const rawSession = window.localStorage.getItem(SESSION_STORAGE_KEY);
     if (!rawSession) return null;
     const session = JSON.parse(rawSession) as AppSession;
@@ -425,38 +401,6 @@ function cameraStatusLabel(value: string) {
     ready: "Sẵn sàng",
     detecting: "Đang dò khuôn mặt",
     error: "Có lỗi",
-  };
-
-  const openEmployeeHistory = async (employee: Employee) => {
-    setHistoryLoading(true);
-    try {
-      const logs = await api.getAttendanceHistory(1000, employee.id);
-      setHistoryLogs(logs);
-      setHistoryTitle(`${employee.employee_code} - ${employee.full_name}`);
-      setHistoryModalVisible(true);
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể tải lịch sử nhân viên.") });
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
-
-  const openSelectedHistory = async () => {
-    if (!selectedEmployeeIds || selectedEmployeeIds.length === 0) {
-      onNotice({ type: "info", text: "Hãy chọn ít nhất một nhân viên để xem lịch sử." });
-      return;
-    }
-    setHistoryLoading(true);
-    try {
-      const logs = await api.getAttendanceHistory(1000, selectedEmployeeIds);
-      setHistoryLogs(logs);
-      setHistoryTitle(`Lịch sử cho ${selectedEmployeeIds.length} nhân viên`);
-      setHistoryModalVisible(true);
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể tải lịch sử.") });
-    } finally {
-      setHistoryLoading(false);
-    }
   };
   return labels[value] ?? value;
 }
@@ -505,7 +449,6 @@ function formatReportValue(value: unknown) {
     return JSON.stringify(value);
   }
 
-  // Check if value is ISO datetime string (first_in, last_out, checkin_at)
   const stringValue = String(value);
   if (stringValue.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
     return formatDateTime(stringValue);
@@ -535,6 +478,7 @@ function to24HourTime({ hour12, minute, meridiem }: AmPmTime) {
   return `${String(hour).padStart(2, "0")}:${minute}`;
 }
 
+// Hàm bổ trợ kiểm tra đầu vào thời gian
 function sanitizeTimePart(value: string, maxLength: number) {
   return value.replace(/\D/g, "").slice(0, maxLength);
 }
@@ -594,23 +538,6 @@ function TimeMeridiemField({
           <option value="AM">AM</option>
           <option value="PM">PM</option>
         </select>
-
-        <select
-          multiple
-          size={4}
-          value={selectedEmployeeIds.map(String)}
-          onChange={(e) => {
-            const opts = Array.from(e.target.selectedOptions).map((o) => Number(o.value));
-            setSelectedEmployeeIds(opts);
-          }}
-          style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ccc", minWidth: "220px" }}
-        >
-          {employees.map((emp) => (
-            <option key={emp.id} value={emp.id}>
-              {emp.employee_code} - {emp.full_name}
-            </option>
-          ))}
-        </select>
       </div>
     </label>
   );
@@ -664,7 +591,9 @@ function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
         signedInAt: new Date().toISOString(),
       };
 
-      window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+      }
       setError("");
       onLogin(session);
       return;
@@ -680,7 +609,9 @@ function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
       signedInAt: new Date().toISOString(),
     };
 
-    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    }
     setError("");
     onLogin(session);
   };
@@ -750,7 +681,6 @@ function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
             User
           </button>
         </div>
-
       </section>
     </main>
   );
@@ -758,7 +688,7 @@ function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
 
 function App() {
   const [activePage, setActivePage] = useState<PageId>("dashboard");
-  const [session, setSession] = useState<AppSession | null>(() => readStoredSession());
+  const [session, setSession] = useState<AppSession | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [stats, setStats] = useState<SystemStats>(initialStats);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -767,6 +697,10 @@ function App() {
   const [history, setHistory] = useState<AttendanceLog[]>([]);
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setSession(readStoredSession());
+  }, []);
 
   const refreshCoreData = useCallback(async (showLoading = false) => {
     if (!session) return;
@@ -855,7 +789,9 @@ function App() {
   };
 
   const handleLogout = () => {
-    window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    }
     setSession(null);
     setNotice(null);
     setActivePage("dashboard");
@@ -977,7 +913,7 @@ function App() {
             {activePage === "admin" && <AdminToolsPage onNotice={setNotice} />}
           </>
         )}
-      </main>
+      </</main>
     </div>
   );
 }
@@ -1002,7 +938,7 @@ function DashboardPage({
         <Metric icon={Building2} label="Phòng ban" value={stats.departments} sub="Quyền có thể kế thừa" />
         <Metric icon={DoorOpen} label="Cửa/Khu vực" value={stats.doors} sub="Điểm kiểm soát" />
         <Metric icon={History} label="Lượt hôm nay" value={stats.today_logs} sub="Ghi nhận vào log" />
-      </section>
+      </</section>
 
       <section className="panel wide">
         <div className="section-heading">
@@ -1097,10 +1033,9 @@ function KioskPage({
   const clearResultTimerRef = useRef<number | null>(null);
   const lastSubmitTimeRef = useRef<number>(0);
   const countdownTimerRef = useRef<number | null>(null);
-  const DETECTION_THROTTLE_MS = 500; // Ngăn submit quá nhanh
+  const DETECTION_THROTTLE_MS = 500;
   const IDENTIFY_ATTEMPTS = 3;
-  const IDENTIFY_INTERVAL_MS = 180; // Khoảng cách giữa các ảnh để lấy major vote
-  const STABLE_FACE_DURATION_MS = 5000; // Yêu cầu đứng yên 5 giây
+  const IDENTIFY_INTERVAL_MS = 180;
 
   useEffect(() => {
     if (!selectedDoor && doors[0]) setSelectedDoor(doors[0].name);
@@ -1116,7 +1051,6 @@ function KioskPage({
     };
   }, [camera.start, camera.stop, onNotice]);
 
-  // Theo dõi countdown khi khuôn mặt được phát hiện
   useEffect(() => {
     if (camera.faceBox && !faceDetectedAt) {
       setFaceDetectedAt(Date.now());
@@ -1155,16 +1089,14 @@ function KioskPage({
 
     if (!camera.canSubmit) return;
 
-    // Ngăn submit quá nhanh
     const now = Date.now();
     if (now - lastSubmitTimeRef.current < DETECTION_THROTTLE_MS) return;
     lastSubmitTimeRef.current = now;
 
     setSubmitting(true);
-    let finalResult = null;
 
     try {
-      let finalResult = null; // Biến tạm để lưu kết quả tốt nhất
+      let finalResult = null;
 
       for (let attempt = 0; attempt < IDENTIFY_ATTEMPTS; attempt += 1) {
         const blob = await camera.captureBlob();
@@ -1172,14 +1104,11 @@ function KioskPage({
 
         const identifyResult = await api.identify(selectedDoor, blob);
 
-        // KIỂM TRA: Nếu lần chụp này trả về MATCH = TRUE
         if (identifyResult && identifyResult.match === true) {
-          finalResult = identifyResult; // Lưu kết quả thành công
-          console.log("✅ Khớp nhân viên ở lần thử:", attempt + 1);
-          break; // THOÁT VÒNG LẶP NGAY LẬP TỨC, không cho lần chụp sau ghi đè
+          finalResult = identifyResult;
+          break;
         }
 
-        // Nếu chưa match, lưu kết quả này lại để hiển thị nếu sau 3 lần vẫn thất bại
         finalResult = identifyResult;
 
         if (attempt < IDENTIFY_ATTEMPTS - 1) {
@@ -1187,15 +1116,13 @@ function KioskPage({
         }
       }
 
-      // Sau khi thoát vòng lặp, hiển thị kết quả tốt nhất tìm được lên màn hình
       if (finalResult) {
         setResult(finalResult);
       }
       
-      onRefresh(); // Làm mới bảng lịch sử ở dưới
+      onRefresh();
       camera.resetDetection();
 
-      // Xóa kết quả trên màn hình sau một khoảng thời gian
       if (clearResultTimerRef.current) {
         window.clearTimeout(clearResultTimerRef.current);
       }
@@ -1206,98 +1133,12 @@ function KioskPage({
       setSubmitting(false);
     }
   }, [camera, selectedDoor, submitting, onNotice, onRefresh, IDENTIFY_ATTEMPTS, IDENTIFY_INTERVAL_MS, AUTO_CAPTURE_COOLDOWN_MS]);
-  // const pickMajorityResult = useCallback((results: IdentifyResult[]) => {
-  //   if (results.length === 0) return null;
 
-  //   const countMap = new Map<string, { count: number; result: IdentifyResult }>();
-
-  //   for (const value of results) {
-  //     const key = value.employee_code ?? (value.match ? "KNOWN" : "UNKNOWN");
-  //     const current = countMap.get(key);
-  //     if (!current) {
-  //       countMap.set(key, { count: 1, result: value });
-  //     } else {
-  //       current.count += 1;
-  //       if ((value.score ?? 0) > (current.result.score ?? 0)) {
-  //         current.result = value;
-  //       }
-  //     }
-  //   }
-
-  //   let best: { count: number; result: IdentifyResult } | null = null;
-  //   for (const entry of countMap.values()) {
-  //     if (!best || entry.count > best.count) {
-  //       best = entry;
-  //     }
-  //   }
-
-  //   return best?.result ?? results[0];
-  // }, []);
-
-  // const submitFrame = useCallback(async () => {
-  //   if (submitting) return;
-
-  //   if (!selectedDoor) {
-  //     onNotice({ type: "error", text: "Hãy tạo/chọn cửa trước khi nhận diện." });
-  //     return;
-  //   }
-
-  //   if (!camera.canSubmit) {
-  //     return;
-  //   }
-
-  //   // Kiểm tra throttle để ngăn submit quá nhanh
-  //   const now = Date.now();
-  //   if (now - lastSubmitTimeRef.current < DETECTION_THROTTLE_MS) {
-  //     return;
-  //   }
-  //   lastSubmitTimeRef.current = now;
-
-  //   setSubmitting(true);
-  //   const results: IdentifyResult[] = [];
-
-  //   try {
-  //     for (let attempt = 0; attempt < IDENTIFY_ATTEMPTS; attempt += 1) {
-  //       const blob = await camera.captureBlob();
-  //       if (!blob) {
-  //         throw new Error("Không chụp được ảnh từ camera.");
-  //       }
-
-  //       const identifyResult = await api.identify(selectedDoor, blob);
-  //       results.push(identifyResult);
-
-  //       if (attempt < IDENTIFY_ATTEMPTS - 1) {
-  //         await new Promise((resolve) => window.setTimeout(resolve, IDENTIFY_INTERVAL_MS));
-  //       }
-  //     }
-
-  //     const bestResult = pickMajorityResult(results);
-  //     if (bestResult) {
-  //       setResult(bestResult);
-  //     }
-  //     onRefresh();
-
-  //     // Reset detection để detection có thể chạy liên tục
-  //     camera.resetDetection();
-
-  //     if (clearResultTimerRef.current) {
-  //       window.clearTimeout(clearResultTimerRef.current);
-  //     }
-  //     clearResultTimerRef.current = window.setTimeout(() => setResult(null), AUTO_CAPTURE_COOLDOWN_MS);
-  //   } catch (error) {
-  //     onNotice({ type: "error", text: errorMessage(error, "Không thể gửi ảnh tới backend.") });
-  //   } finally {
-  //     setSubmitting(false);
-  //   }
-  // }, [camera, clearResultTimerRef, errorMessage, IDENTIFY_ATTEMPTS, IDENTIFY_INTERVAL_MS, onNotice, onRefresh, pickMajorityResult, selectedDoor, submitting]);
-
-  // Tự động chấm công khi phát hiện khuôn mặt ổn định (không cần chờ result clear)
   useEffect(() => {
     if (camera.canSubmit && !submitting) {
       submitFrame();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [camera.canSubmit]);
+  }, [camera.canSubmit, submitFrame, submitting]);
 
   const cameraFrameClass = [
     "camera-frame",
@@ -1392,17 +1233,7 @@ function KioskPage({
             {submitting ? "Đang gửi..." : "Đang tự động chấm công..."}
           </button>
         </div>
-
       </section>
-    </div>
-  );
-}
-
-function InfoLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="info-line">
-      <span>{label}</span>
-      <strong>{value}</strong>
     </div>
   );
 }
@@ -1423,7 +1254,6 @@ function EmployeesPage({
   const [statusFilter, setStatusFilter] = useState<boolean | null>(null);
   const [rows, setRows] = useState<Employee[]>(employees);
 
-  // Multi-select IDs and per-employee history modal
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [historyLogs, setHistoryLogs] = useState<AttendanceLog[]>([]);
@@ -1440,14 +1270,44 @@ function EmployeesPage({
   const [modalEmployeeId, setModalEmployeeId] = useState<number | null>(null);
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
 
+  // Đưa hàm xem lịch sử chi tiết về đúng phạm vi cấu phần quản lý nhân viên
+  const openEmployeeHistory = async (employee: Employee) => {
+    setHistoryLoading(true);
+    try {
+      const logs = await api.getAttendanceHistory(1000, employee.id);
+      setHistoryLogs(logs);
+      setHistoryTitle(`${employee.employee_code} - ${employee.full_name}`);
+      setHistoryModalVisible(true);
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể tải lịch sử nhân viên.") });
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const openSelectedHistory = async () => {
+    if (!selectedEmployeeIds || selectedEmployeeIds.length === 0) {
+      onNotice({ type: "info", text: "Hãy chọn ít nhất một nhân viên từ danh sách lọc bên dưới để xem lịch sử." });
+      return;
+    }
+    setHistoryLoading(true);
+    try {
+      const logs = await api.getAttendanceHistory(1000, selectedEmployeeIds);
+      setHistoryLogs(logs);
+      setHistoryTitle(`Lịch sử cho ${selectedEmployeeIds.length} nhân viên`);
+      setHistoryModalVisible(true);
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể tải lịch sử.") });
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   const closeImageModal = () => {
-    // Revoke object URLs
     modalPhotos.forEach((p) => {
       try {
         URL.revokeObjectURL(p.url);
-      } catch (_) {
-        // ignore
-      }
+      } catch (_) {}
     });
     setModalPhotos([]);
     setModalEmployeeName("");
@@ -1513,34 +1373,32 @@ function EmployeesPage({
   };
 
   const search = async (event?: FormEvent) => {
-      if (event) event.preventDefault();
-      
-      setIsLoading(true);
-      try {
-        // Sử dụng toán tử ?? thay vì || để tránh nuốt mất giá trị 0
-        const results = await api.searchEmployeesAdvanced({
-          query: query.trim() || undefined,
-          department_id: departmentFilter ?? undefined,
-          is_active: statusFilter ?? undefined,
-          ids: selectedEmployeeIds.length ? selectedEmployeeIds : undefined,
-        });
-        setRows(results);
-      } catch (error) {
-        onNotice({ type: "error", text: errorMessage(error, "Không thể tìm kiếm nhân viên.") });
-      } finally {
-        setIsLoading(false);
-      }
+    if (event) event.preventDefault();
+    
+    setIsLoading(true);
+    try {
+      const results = await api.searchEmployeesAdvanced({
+        query: query.trim() || undefined,
+        department_id: departmentFilter ?? undefined,
+        is_active: statusFilter ?? undefined,
+        ids: selectedEmployeeIds.length ? selectedEmployeeIds : undefined,
+      });
+      setRows(results);
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể tìm kiếm nhân viên.") });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Gọi lại search() sau khi cập nhật hoặc xóa thay vì onRefresh() toàn trang
   const toggleStatus = async (employee: Employee) => {
-      try {
-        await api.updateEmployeeStatus(employee.id, !employee.is_active);
-        onNotice({ type: "success", text: "Đã cập nhật trạng thái nhân viên." });
-        await search(); // Cập nhật lại danh sách dựa trên bộ lọc hiện tại
-      } catch (error) {
-        onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật.") });
-      }
+    try {
+      await api.updateEmployeeStatus(employee.id, !employee.is_active);
+      onNotice({ type: "success", text: "Đã cập nhật trạng thái nhân viên." });
+      await search();
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật.") });
+    }
   };
 
   const deleteEmployee = async (employee: Employee) => {
@@ -1580,7 +1438,6 @@ function EmployeesPage({
         </form>
       </div>
 
-      {/* Filter Row */}
       <div style={{ display: "flex", gap: "10px", marginBottom: "15px", alignItems: "center", flexWrap: "wrap" }}>
         <select
           value={departmentFilter ?? ""}
@@ -1608,6 +1465,25 @@ function EmployeesPage({
           <option value="active">Đang hoạt động</option>
           <option value="inactive">Đã khóa</option>
         </select>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+          <select
+            multiple
+            size={3}
+            value={selectedEmployeeIds.map(String)}
+            onChange={(e) => {
+              const opts = Array.from(e.target.selectedOptions).map((o) => Number(o.value));
+              setSelectedEmployeeIds(opts);
+            }}
+            style={{ padding: "4px", borderRadius: "4px", border: "1px solid #ccc", minWidth: "180px", fontSize: "12px" }}
+          >
+            {employees.map((emp) => (
+              <option key={emp.id} value={emp.id}>
+                {emp.employee_code} - {emp.full_name}
+              </option>
+            ))}
+          </select>
+        </div>
 
         <button
           type="button"
@@ -1741,6 +1617,64 @@ function EmployeesPage({
           </div>
         </div>
       )}
+      {historyModalVisible && (
+        <div className="history-modal-overlay" onClick={() => setHistoryModalVisible(false)}>
+          <div className="history-modal panel" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 900, margin: "40px auto" }}>
+            <div className="section-heading">
+              <div>
+                <h2>Lịch sử: {historyTitle}</h2>
+              </div>
+              <div>
+                <button className="icon-button" onClick={() => setHistoryModalVisible(false)} type="button">
+                  <XCircle size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div style={{ padding: 12 }}>
+              {historyLoading ? (
+                <div>Đang tải lịch sử...</div>
+              ) : historyLogs.length === 0 ? (
+                <div>Không có bản ghi lịch sử cho lựa chọn này.</div>
+              ) : (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>ID NV</th>
+                        <th>Mã NV</th>
+                        <th>Họ tên</th>
+                        <th>Trạng thái</th>
+                        <th>Thời gian</th>
+                        <th>Lý do</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyLogs.map((log) => {
+                        const emp = employees.find((e) => e.id === log.employee_id);
+                        return (
+                          <tr key={log.id}>
+                            <td>{log.employee_id ?? "-"}</td>
+                            <td>{emp?.employee_code ?? "-"}</td>
+                            <td>{emp?.full_name ?? "-"}</td>
+                            <td>
+                              <span className={log.status === "SUCCESS" ? "badge success" : "badge danger"}>
+                                {log.status}
+                              </span>
+                            </td>
+                            <td>{formatDateTime(log.checkin_at)}</td>
+                            <td>{log.reason ?? ""}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -1803,7 +1737,6 @@ function RegisterPage({
     event.target.value = "";
   };
 
-  // Auto capture liên tục - không cần bấm "Chụp ảnh tiếp"
   useEffect(() => {
     let cancelled = false;
     const autoCapture = async () => {
@@ -1812,7 +1745,6 @@ function RegisterPage({
           setCaptureAttempts((prev) => prev + 1);
           const capturedFile = await registerCamera.captureValidatedFace();
           if (!cancelled) {
-            // Bớt quality check - chỉ check brightness basic
             const quality = await analyzeImageQuality(capturedFile);
             
             if (quality.isGood || captureAttempts <= 1) {
@@ -1823,7 +1755,6 @@ function RegisterPage({
               setLastQualityIssues([]);
               setCaptureAttempts(0);
               onNotice({ type: "success", text: `✓ Ảnh ${files.length + 1}/5 tốt!` });
-              // Tiếp tục capture sau 300ms
               if (files.length + 1 < 5) {
                 setTimeout(() => {
                   if (!cancelled && registerCamera.cameraOn) {
@@ -1832,7 +1763,6 @@ function RegisterPage({
                 }, 300);
               }
             } else {
-              // Retry nhanh hơn - chỉ 2 lần
               setLastQualityIssues(quality.issues);
               if (captureAttempts < 2) {
                 await new Promise((resolve) => setTimeout(resolve, 200));
@@ -1854,7 +1784,6 @@ function RegisterPage({
           }
         } catch (error) {
           console.error("Auto capture error:", error);
-          // Lỗi detection, retry nhanh
           if (!cancelled && registerCamera.cameraOn && isAutoCaptureActive) {
             await new Promise((resolve) => setTimeout(resolve, 100));
             autoCapture();
@@ -1870,8 +1799,7 @@ function RegisterPage({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAutoCaptureActive, registerCamera.cameraOn, files.length]);
+  }, [isAutoCaptureActive, registerCamera.cameraOn, files.length, captureAttempts, onNotice]);
 
   const removeFile = (index: number) => {
     setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index));
@@ -1880,7 +1808,7 @@ function RegisterPage({
   const handleCaptureMore = () => {
     setCaptureAttempts(0);
     setLastQualityIssues([]);
-    setIsAutoCaptureActive(true); // Bắt đầu auto-capture liên tục
+    setIsAutoCaptureActive(true);
   };
 
   return (
@@ -2322,10 +2250,6 @@ function HistoryPage({
   const successCount = filteredHistory.filter((item) => item.status === "SUCCESS").length;
   const deniedCount = filteredHistory.filter((item) => item.status === "DENIED").length;
   const workDays = countDistinctDays(filteredHistory);
-  const selectedEmployee =
-    session.employeeId && isSelfView
-      ? employees.find((employee) => employee.id === session.employeeId) ?? null
-      : null;
 
   const employeeName = (id: number | null) => {
     if (isSelfView && id === session.employeeId) return session.displayName;
