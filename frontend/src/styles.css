@@ -1604,14 +1604,30 @@ body {
   background: #f1f5f9;
 }
 
-.dot.green {
-  background: var(--success-accent);
+.topbar,
+.section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
 }
 
-.dot.red {
-  background: var(--danger-accent);
+.topbar,
+.section-heading,
+.topbar .topbar-actions,
+.section-heading > div {
+  min-width: 0;
 }
 
+.section-heading {
+  justify-content: space-between;
+}
+
+.section-heading h2,
+.topbar h1 {
+  min-width: 0;
+  word-break: break-word;
+}
 .dot.blue {
   background: var(--primary-accent);
 }
