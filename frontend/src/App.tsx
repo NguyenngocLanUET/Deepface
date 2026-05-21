@@ -1163,7 +1163,7 @@ function KioskPage({
     } finally {
       setSubmitting(false);
     }
-  }, [camera, selectedDoor, submitting, onNotice, onRefresh, CAPTURE_COUNT, CAPTURE_INTERVAL_MS, AUTO_CAPTURE_COOLDOWN_MS]);
+  }, [camera, selectedDoor, submitting, onNotice, onRefresh]);
   // const pickMajorityResult = useCallback((results: IdentifyResult[]) => {
   //   if (results.length === 0) return null;
 
@@ -1329,7 +1329,7 @@ function KioskPage({
               </div>
             )}
           </div>
-      {result && (
+          {result && (
             <div className={result.open_door ? "camera-result-overlay allowed" : "camera-result-overlay denied"}>
               {result.open_door ? <CheckCircle2 size={34} /> : <XCircle size={34} />}
               <strong>{result.open_door ? "Mở cửa" : "Từ chối"}</strong>
