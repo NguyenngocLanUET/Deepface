@@ -1038,7 +1038,7 @@ function KioskPage({
   onRefresh,
 }: {
   doors: Door[];
-  onNotice: (notice: Notice) => void;
+  onNotice: (notice: Notice | null) => void;
   onRefresh: () => void;
 }) {
   const camera = useCameraGate();
@@ -1501,7 +1501,7 @@ function EmployeesPage({
 }: {
   employees: Employee[];
   departments: Department[];
-  onNotice: (notice: Notice) => void;
+  onNotice: (notice: Notice | null) => void;
   onRefresh: () => void;
 }) {
   const [query, setQuery] = useState("");
@@ -1519,23 +1519,25 @@ function EmployeesPage({
   useEffect(() => setRows(employees), [employees]);
 
   const [isLoading, setIsLoading] = useState(false);
-
+  
   const search = async (event?: FormEvent) => {
-      if (event) event.preventDefault();
-      
-      setIsLoading(true);
-      try {
-        const results = await api.searchEmployeesAdvanced({
-          query: query.trim() || undefined,
-          department_id: departmentFilter ?? undefined,
-          is_active: statusFilter ?? undefined,
-        });
-        setRows(results);
-      } catch (error) {
-        onNotice({ type: "error", text: errorMessage(error, "Không thể tìm kiếm nhân viên.") });
-      } finally {
-        setIsLoading(false);
-      }
+    if (event && typeof event.preventDefault === "function") {
+      event.preventDefault();
+    }
+    
+    setIsLoading(true);
+    try {
+      const results = await api.searchEmployeesAdvanced({
+        query: query.trim() || undefined,
+        department_id: departmentFilter ?? undefined,
+        is_active: statusFilter ?? undefined,
+      });
+      setRows(results);
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Không thể tìm kiếm nhân viên.") });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const toggleStatus = async (employee: Employee) => {
@@ -1907,7 +1909,7 @@ function RegisterPage({
   onRefresh,
 }: {
   departments: Department[];
-  onNotice: (notice: Notice) => void;
+  onNotice: (notice: Notice | null) => void;
   onRefresh: () => void;
 }) {
   const [fullName, setFullName] = useState("");
@@ -2150,7 +2152,7 @@ function DoorsPage({
   onRefresh,
 }: {
   doors: Door[];
-  onNotice: (notice: Notice) => void;
+  onNotice: (notice: Notice | null) => void;
   onRefresh: () => void;
 }) {
   const [name, setName] = useState("");
@@ -2242,7 +2244,7 @@ function DepartmentsPage({
   onRefresh,
 }: {
   departments: Department[];
-  onNotice: (notice: Notice) => void;
+  onNotice: (notice: Notice | null) => void;
   onRefresh: () => void;
 }) {
   const [name, setName] = useState("");
@@ -2331,7 +2333,7 @@ function PermissionsPage({
   employees: Employee[];
   departments: Department[];
   doors: Door[];
-  onNotice: (notice: Notice) => void;
+  onNotice: (notice: Notice | null) => void;
 }) {
   const [mode, setMode] = useState<"employee" | "department">("employee");
   const [employeeId, setEmployeeId] = useState(employees[0]?.id ?? 0);
@@ -2727,7 +2729,7 @@ function ReportsPage({
 }: {
   monthlyStats: MonthlyStats | null;
   setMonthlyStats: (stats: MonthlyStats) => void;
-  onNotice: (notice: Notice) => void;
+  onNotice: (notice: Notice | null) => void;
 }) {
   const today = new Date();
   const [month, setMonth] = useState(today.getMonth() + 1);
