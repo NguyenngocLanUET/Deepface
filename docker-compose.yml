@@ -102,6 +102,7 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_PATHS_PLUGINS=/var/lib/grafana/plugins # Đảm bảo Grafana cài plugin vào volume
     depends_on:
       - prometheus
     volumes:
