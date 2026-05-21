@@ -2018,6 +2018,7 @@ function DoorsPage({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
+  // Function to handle deleting a door
   const deleteDoor = async (door: Door) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa cửa "${door.name}"?`)) return;
     try {
@@ -2029,6 +2030,7 @@ function DoorsPage({
     }
   };
 
+  // Function to handle submitting the new door form
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     try {
@@ -2044,6 +2046,23 @@ function DoorsPage({
 
   return (
     <div className="two-column">
+      {/* Section for listing existing doors (moved to left) */}
+      <section className="panel">
+        <div className="section-heading">
+          <div>
+            <h2>Danh sách cửa</h2>
+            <p>Các điểm kiểm soát đang có trong database.</p>
+          </div>
+        </div>
+        <div className="item-list">
+          {doors.map((door) => (
+            <DoorCard key={door.id} door={door} onDelete={deleteDoor} />
+          ))}
+        </div>
+        {doors.length === 0 && <EmptyState text="Chưa có cửa nào được tạo." />}
+      </section>
+
+      {/* Section for adding a new door (moved to right) */}
       <section className="panel">
         <div className="section-heading">
           <div>
@@ -2065,36 +2084,29 @@ function DoorsPage({
           </button>
         </form>
       </section>
-
-      <section className="panel">
-        <div className="section-heading">
-          <div>
-            <h2>Danh sách cửa</h2>
-            <p>Các điểm kiểm soát đang có trong database.</p>
-          </div>
-        </div>
-        <div className="item-list">
-          {doors.map((door) => (
-            <article className="list-card" key={door.id}>
-              <DoorOpen size={20} />
-              <div>
-                <strong>{door.name}</strong>
-                <span>{door.description || "Không có mô tả"}</span>
-              </div>
-              <div className="list-card-actions">
-                <button
-                  className="small-button danger"
-                  type="button"
-                  onClick={() => void deleteDoor(door)}
-                >
-                  Xóa
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
     </div>
+  );
+}
+
+// Helper component for Door Card to reduce repetition
+function DoorCard({ door, onDelete }: { door: Door; onDelete: (door: Door) => void }) {
+  return (
+    <article className="list-card" key={door.id}>
+      <DoorOpen size={20} />
+      <div>
+        <strong>{door.name}</strong>
+        <span>{door.description || "Không có mô tả"}</span>
+      </div>
+      <div className="list-card-actions">
+        <button
+          className="small-button danger"
+          type="button"
+          onClick={() => onDelete(door)}
+        >
+          Xóa
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -2119,6 +2131,7 @@ function DepartmentsPage({
   const [permissionsMap, setPermissionsMap] = useState<Record<number, any[]>>({});
   const [loadingPerms, setLoadingPerms] = useState(false);
 
+  // Effect to fetch permissions when component mounts or departments change
   // Hàm tải danh sách quyền hạn của tất cả phòng ban
   const fetchPermissions = useCallback(async () => {
     setLoadingPerms(true);
@@ -2137,12 +2150,14 @@ function DepartmentsPage({
     }
   }, []);
 
+  // Effect to load permissions when departments or fetchPermissions changes
   useEffect(() => {
     void fetchPermissions();
   }, [fetchPermissions, departments]);
 
+  // Effect to set default selected door when doors are loaded
   useEffect(() => {
-    if (!selectedDoorId && doors?.length > 0) {
+    if (!selectedDoorId && doors.length > 0) {
       setSelectedDoorId(doors[0].id);
     }
   }, [doors, selectedDoorId]);
@@ -2150,10 +2165,12 @@ function DepartmentsPage({
   const openEditPermissions = (dept: Department) => {
     setEditingDept(dept);
     if (doors?.length > 0) setSelectedDoorId(doors[0].id);
+    // Pre-fill times if there's an existing permission for this dept and door
+    // (This part would require more complex logic to find the specific permission)
   };
 
+  // Function to remove a department permission
   const removePermission = async (permId: number) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa quyền này không?")) return;
     try {
       // Giả định api.deleteDepartmentPermission(id) thực hiện gọi DELETE /attendance/permissions/{id}
       await api.deleteDepartmentPermission(permId);
@@ -2164,6 +2181,7 @@ function DepartmentsPage({
     }
   };
 
+  // Function to save quick permission for a department
   const saveQuickPermission = async (event: FormEvent) => {
     event.preventDefault();
     if (!editingDept) return;
@@ -2182,6 +2200,7 @@ function DepartmentsPage({
     }
   };
 
+  // Function to delete a department
   const deleteDepartment = async (department: Department) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa phòng ban "${department.name}"?`)) return;
     try {
@@ -2193,6 +2212,7 @@ function DepartmentsPage({
     }
   };
 
+  // Function to submit the new department form
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     try {
@@ -2207,24 +2227,7 @@ function DepartmentsPage({
 
   return (
     <div className="two-column">
-      <section className="panel">
-        <div className="section-heading">
-          <div>
-            <h2>Thêm phòng ban</h2>
-          </div>
-        </div>
-        <form className="stack-form" onSubmit={(event) => void submit(event)}>
-          <label className="field">
-            <span>Tên phòng ban</span>
-            <input value={name} onChange={(event) => setName(event.target.value)} required />
-          </label>
-          <button className="primary-button" type="submit">
-            <Building2 size={18} />
-            Tạo phòng ban
-          </button>
-        </form>
-      </section>
-
+      {/* Section for listing existing departments (moved to left) */}
       <section className="panel">
         <div className="section-heading">
           <div>
@@ -2261,25 +2264,33 @@ function DepartmentsPage({
                 </div>
               </div>
               <div className="list-card-actions">
-                <button
-                  className="small-button"
-                  type="button"
-                  onClick={() => openEditPermissions(department)}
-                >
-                  <ShieldCheck size={14} />
-                  Sửa quyền
+                <button className="small-button" type="button" onClick={() => openEditPermissions(department)}>
+                  <ShieldCheck size={14} /> Sửa quyền
                 </button>
-                <button
-                  className="small-button danger"
-                  type="button"
-                  onClick={() => void deleteDepartment(department)}
-                >
-                  Xóa
-                </button>
+                <button className="small-button danger" type="button" onClick={() => void deleteDepartment(department)}>Xóa</button>
               </div>
             </article>
           ))}
         </div>
+      </section>
+
+      {/* Section for adding a new department (moved to right) */}
+      <section className="panel">
+        <div className="section-heading">
+          <div>
+            <h2>Thêm phòng ban</h2>
+          </div>
+        </div>
+        <form className="stack-form" onSubmit={(event) => void submit(event)}>
+          <label className="field">
+            <span>Tên phòng ban</span>
+            <input value={name} onChange={(event) => setName(event.target.value)} required />
+          </label>
+          <button className="primary-button" type="submit">
+            <Building2 size={18} />
+            Tạo phòng ban
+          </button>
+        </form>
       </section>
 
       {editingDept && (
