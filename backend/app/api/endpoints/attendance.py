@@ -80,7 +80,7 @@ async def identify(door_name: str, file: UploadFile = File(...)):
         if not results or results[0].score < 0.45:
             # Kiểm tra xem có ai vừa check-in thành công trước đó 5 giây trên cùng cửa không (Fallback)
             try:
-                recent_success = db_service.get_recent_success_on_door(door_name, seconds=5)
+                recent_success = db_service.get_recent_success_on_door(door_name, seconds=3)
                 if recent_success and recent_success.get("employee_id"):
                     recent_emp = db_service.get_employee_by_id(recent_success.get("employee_id"))
                     if recent_emp:
@@ -160,7 +160,7 @@ async def identify(door_name: str, file: UploadFile = File(...)):
         if is_cooldown:
             # Nếu đang trong cooldown, kiểm tra xem vừa ghi nhận thành công chưa để duy trì mở cửa
             try:
-                recent_logs = db_service.get_recent_attendance_logs(emp_id, door_name, seconds=5)
+                recent_logs = db_service.get_recent_attendance_logs(emp_id, door_name, seconds=15)
                 for log in recent_logs:
                     if log.get("status") == "SUCCESS":
                         return {
@@ -241,13 +241,13 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             except Exception as e:
                 print(f"Cảnh báo: Không thể dọn dẹp các log rác trước đó: {str(e)}")
 
-        # Lưu thông tin Cooldown tránh spam request vào Redis
-        try:
-            redis_cache = FastAPICache.get_backend()
-            if redis_cache:
-                await redis_cache.set(cache_key, "1", expire=COOLDOWN_SECONDS)
-        except Exception as e:
-            print(f"Cảnh báo: Không lưu cooldown vào Redis - {str(e)}")
+            # Lưu thông tin Cooldown tránh spam request vào Redis (Chỉ khi SUCCESS)
+            try:
+                redis_cache = FastAPICache.get_backend()
+                if redis_cache:
+                    await redis_cache.set(cache_key, "1", expire=COOLDOWN_SECONDS)
+            except Exception as e:
+                print(f"Cảnh báo: Không lưu cooldown vào Redis - {str(e)}")
 
         if not is_allowed:
             print(f"⚠️ Từ chối truy cập: {attendance_message} tại cửa {door_name}")
@@ -390,14 +390,28 @@ async def identify_multi(door_name: str, files: List[UploadFile] = File(...)):
             if redis_cache:
                 cached = await redis_cache.get(cache_key)
                 if cached:
-                    return {
-                        "match": True,
-                        "employee_name": user_info["full_name"],
-                        "employee_code": user_info["employee_code"],
-                        "open_door": False,
-                        "message": "Vừa chấm công cách đây ít phút",
-                        "score": best_score
-                    }
+                    # Kiểm tra xem vừa ghi nhận thành công chưa để duy trì mở cửa
+                    recent_logs = db_service.get_recent_attendance_logs(emp_id, door_name, seconds=15)
+                    is_prev_success = any(l.get("status") == "SUCCESS" for l in recent_logs)
+                    
+                    if is_prev_success:
+                        return {
+                            "match": True,
+                            "employee_name": user_info["full_name"],
+                            "employee_code": user_info["employee_code"],
+                            "open_door": True,
+                            "message": "Đã ghi nhận (Cooldown)",
+                            "score": best_score
+                        }
+                    else:
+                        return {
+                            "match": True,
+                            "employee_name": user_info["full_name"],
+                            "employee_code": user_info["employee_code"],
+                            "open_door": False,
+                            "message": "Vui lòng chờ giây lát",
+                            "score": best_score
+                        }
         except Exception as e:
             print(f"Cảnh báo: Lỗi kiểm tra cooldown - {str(e)}")
 
@@ -446,13 +460,13 @@ async def identify_multi(door_name: str, files: List[UploadFile] = File(...)):
             except Exception as e:
                 print(f"Cảnh báo: Không thể dọn dẹp các log rác - {str(e)}")
 
-        # Lưu cooldown
-        try:
-            redis_cache = FastAPICache.get_backend()
-            if redis_cache:
-                await redis_cache.set(cache_key, "1", expire=COOLDOWN_SECONDS)
-        except Exception as e:
-            print(f"Cảnh báo: Không lưu cooldown vào Redis - {str(e)}")
+            # Lưu cooldown (Chỉ khi SUCCESS)
+            try:
+                redis_cache = FastAPICache.get_backend()
+                if redis_cache:
+                    await redis_cache.set(cache_key, "1", expire=COOLDOWN_SECONDS)
+            except Exception as e:
+                print(f"Cảnh báo: Không lưu cooldown vào Redis - {str(e)}")
 
         if not is_allowed:
             print(f"⚠️ Từ chối truy cập: {attendance_message} tại cửa {door_name}")

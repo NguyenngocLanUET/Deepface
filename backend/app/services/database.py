@@ -242,6 +242,27 @@ class DBService:
         finally:
             db.close()
 
+    def delete_department_permission_by_id(self, permission_id: int):
+        """Xóa một bản ghi quyền hạn cụ thể theo ID"""
+        db = SessionLocal()
+        try:
+            perm = db.query(DepartmentPermission).filter(DepartmentPermission.id == permission_id).first()
+            if perm:
+                # Đồng bộ: Khi xóa quyền phòng ban, xóa luôn các quyền cá nhân ghi đè của nhân viên
+                # trong phòng này tại cửa này để đảm bảo trạng thái mất quyền đồng nhất.
+                emp_ids_query = db.query(Employee.id).filter(Employee.department_id == perm.department_id)
+                db.query(AccessPermission).filter(
+                    AccessPermission.employee_id.in_(emp_ids_query),
+                    AccessPermission.door_id == perm.door_id
+                ).delete(synchronize_session=False)
+
+                db.delete(perm)
+                db.commit()
+                return True
+            return False
+        finally:
+            db.close()
+
     def set_department_permission(self, dept_id: int, door_id: int, start_t: time = None, end_t: time = None):
         db = SessionLocal()
         try:
@@ -255,6 +276,16 @@ class DBService:
             
             perm.allowed_start_time = start_t
             perm.allowed_end_time = end_t
+
+            # Đồng bộ: Xóa các quyền cá nhân (overrides) của nhân viên trong phòng ban này cho cửa này.
+            # Nhờ cơ chế fallback trong check_access_permission, khi không còn quyền cá nhân,
+            # nhân viên sẽ tự động kế thừa quyền vừa mới cập nhật của phòng ban.
+            emp_ids_query = db.query(Employee.id).filter(Employee.department_id == dept_id)
+            db.query(AccessPermission).filter(
+                AccessPermission.employee_id.in_(emp_ids_query),
+                AccessPermission.door_id == door_id
+            ).delete(synchronize_session=False)
+
             db.commit()
             db.refresh(perm)
             return perm

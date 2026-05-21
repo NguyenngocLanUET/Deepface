@@ -32,6 +32,14 @@ async def set_dept_permission(perm: DeptPermissionCreate):
         perm.allowed_end_time
     )
 
+@router.delete("/permissions/{permission_id}")
+async def delete_permission(permission_id: int):
+    """Xóa một quyền truy cập cụ thể của phòng ban"""
+    success = db_service.delete_department_permission_by_id(permission_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Quyền không tồn tại.")
+    return {"status": "success", "message": "Đã xóa quyền truy cập thành công."}
+
 @router.post("/{dept_id}/quick-setup")
 async def quick_setup(dept_id: int, door_ids: List[int], start_time: time, end_time: time):
     """

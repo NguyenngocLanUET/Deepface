@@ -1,4 +1,4 @@
-﻿import {
+import {
   BarChart3,
   Building2,
   Camera,
@@ -17,7 +17,6 @@
   ShieldCheck,
   SlidersHorizontal,
   Upload,
-  X,
   UserPlus,
   UserRound,
   Users,
@@ -904,7 +903,6 @@ function App() {
             {activePage === "departments" && (
               <DepartmentsPage
                 departments={departments}
-                doors={doors}
                 onNotice={setNotice}
                 onRefresh={() => void refreshCoreData()}
               />
@@ -1379,13 +1377,6 @@ function EmployeesPage({
   useEffect(() => setRows(employees), [employees]);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [employeePhotos, setEmployeePhotos] = useState<Array<{ name: string; url: string }>>([]);
-  const [photoLoading, setPhotoLoading] = useState(false);
-  const [photoError, setPhotoError] = useState<string | null>(null);
-  const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
-  const [uploadingPhotos, setUploadingPhotos] = useState(false);
-  const latestPhotoLoadRef = useRef(0);
 
   const search = async (event?: FormEvent) => {
       if (event) event.preventDefault();
@@ -1424,87 +1415,6 @@ function EmployeesPage({
       onRefresh();
     } catch (error) {
       onNotice({ type: "error", text: errorMessage(error, "Không thể xóa nhân viên.") });
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      employeePhotos.forEach((item) => URL.revokeObjectURL(item.url));
-    };
-  }, [employeePhotos]);
-
-  const loadEmployeePhotos = async (employee: Employee) => {
-    const currentLoadId = ++latestPhotoLoadRef.current;
-    setSelectedEmployee(employee);
-    setEmployeePhotos([]);
-    setFilesToUpload([]);
-    setPhotoError(null);
-    setPhotoLoading(true);
-
-    try {
-      const result = await api.getEmployeePhotos(employee.id);
-      if (currentLoadId !== latestPhotoLoadRef.current) return;
-
-      if (!result.photos.length) {
-        setPhotoError("Nhân viên chưa có ảnh lưu kho.");
-        return;
-      }
-
-      const photos = await Promise.all(
-        result.photos.map(async (photoName) => {
-          const blob = await api.getEmployeePhoto(employee.id, photoName);
-          return { name: photoName, url: URL.createObjectURL(blob) };
-        }),
-      );
-
-      if (currentLoadId !== latestPhotoLoadRef.current) return;
-      setEmployeePhotos(photos);
-    } catch (error) {
-      if (currentLoadId !== latestPhotoLoadRef.current) return;
-      setPhotoError(errorMessage(error, "Không thể tải ảnh nhân viên."));
-    } finally {
-      if (currentLoadId !== latestPhotoLoadRef.current) return;
-      setPhotoLoading(false);
-    }
-  };
-
-  const closePhotoModal = () => {
-    latestPhotoLoadRef.current += 1;
-    setSelectedEmployee(null);
-    setEmployeePhotos([]);
-    setPhotoError(null);
-    setFilesToUpload([]);
-    setPhotoLoading(false);
-    setUploadingPhotos(false);
-  };
-
-  const handleFileSelection = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    if (files.length === 0) return;
-
-    const selected = [...filesToUpload, ...files].slice(0, 5);
-    setFilesToUpload(selected);
-    event.target.value = "";
-  };
-
-  const handleUpdatePhotos = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!selectedEmployee) return;
-    if (filesToUpload.length === 0) {
-      onNotice({ type: "error", text: "Vui lòng chọn ảnh để cập nhật." });
-      return;
-    }
-
-    setUploadingPhotos(true);
-    try {
-      await api.updateEmployeePhotos(selectedEmployee.id, filesToUpload);
-      onNotice({ type: "success", text: "Đã cập nhật ảnh nhân viên." });
-      await loadEmployeePhotos(selectedEmployee);
-      onRefresh();
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật ảnh nhân viên.") });
-    } finally {
-      setUploadingPhotos(false);
     }
   };
 
@@ -1636,17 +1546,6 @@ function EmployeesPage({
                       {employee.is_active ? "Khóa" : "Mở"}
                     </button>
                     <button
-                      className="small-button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void loadEmployeePhotos(employee);
-                      }}
-                      type="button"
-                    >
-                      <Camera size={15} />
-                      Xem ảnh
-                    </button>
-                    <button
                       className="small-button danger"
                       onClick={(event) => {
                         event.stopPropagation();
@@ -1665,71 +1564,6 @@ function EmployeesPage({
         {rows.length === 0 && <EmptyState text="Không có nhân viên phù hợp." />}
       </div>
 
-      {selectedEmployee && (
-        <div className="modal-backdrop" onClick={closePhotoModal}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Ảnh nhân viên: {selectedEmployee.full_name}</h3>
-              <button className="icon-button" onClick={closePhotoModal} type="button">
-                ✕
-              </button>
-            </div>
-            <div className="modal-body">
-              {photoLoading ? (
-                <p>Đang tải ảnh...</p>
-              ) : (
-                <div style={{ display: "grid", gap: "16px" }}>
-                  {photoError ? (
-                    <p className="snapshot-empty">{photoError}</p>
-                  ) : (
-                    <div style={{ display: "grid", gap: "12px" }}>
-                      <div style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))" }}>
-                        {employeePhotos.map((photo) => (
-                          <div key={photo.name} style={{ display: "grid", gap: "8px" }}>
-                            <img
-                              src={photo.url}
-                              alt={photo.name}
-                              style={{ width: "100%", height: "auto", borderRadius: "8px", border: "1px solid #dfe7ef" }}
-                            />
-                            <small style={{ color: "#555" }}>{photo.name}</small>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <form onSubmit={handleUpdatePhotos} style={{ display: "grid", gap: "12px" }}>
-                    <label style={{ fontWeight: 700 }}>Cập nhật ảnh lưu kho</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleFileSelection}
-                    />
-                    {filesToUpload.length > 0 && (
-                      <div style={{ display: "grid", gap: "6px", padding: "8px", background: "#f8fafc", borderRadius: "8px", border: "1px solid #dfe7ef" }}>
-                        <strong>Tệp chọn:</strong>
-                        {filesToUpload.map((file) => (
-                          <span key={file.name} style={{ fontSize: "13px", color: "#333" }}>
-                            {file.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <button
-                      className="small-button"
-                      type="submit"
-                      disabled={uploadingPhotos || filesToUpload.length === 0}
-                    >
-                      {uploadingPhotos ? "Đang cập nhật..." : "Cập nhật ảnh"}
-                    </button>
-                  </form>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }
@@ -2071,87 +1905,14 @@ function DoorsPage({
 
 function DepartmentsPage({
   departments,
-  doors,
   onNotice,
   onRefresh,
 }: {
   departments: Department[];
-  doors: Door[];
   onNotice: (notice: Notice) => void;
   onRefresh: () => void;
 }) {
   const [name, setName] = useState("");
-  const [editingDept, setEditingDept] = useState<Department | null>(null);
-  const [selectedDoorId, setSelectedDoorId] = useState<number>(0);
-  const [startTime, setStartTime] = useState<AmPmTime>(() => parse24HourTime("08:00"));
-  const [endTime, setEndTime] = useState<AmPmTime>(() => parse24HourTime("17:30"));
-  const [savingPerm, setSavingPerm] = useState(false);
-
-  const [permissionsMap, setPermissionsMap] = useState<Record<number, any[]>>({});
-  const [loadingPerms, setLoadingPerms] = useState(false);
-
-  // Hàm tải danh sách quyền hạn của tất cả phòng ban
-  const fetchPermissions = useCallback(async () => {
-    setLoadingPerms(true);
-    try {
-      // Gọi endpoint lấy phòng ban kèm quyền hạn (đã định nghĩa ở backend attendance.py)
-      const response = await api.getDepartmentsWithPermissions();
-      const mapping: Record<number, any[]> = {};
-      response.forEach((dept: any) => {
-        mapping[dept.id] = dept.permissions;
-      });
-      setPermissionsMap(mapping);
-    } catch (error) {
-      console.error("Lỗi khi tải quyền hạn phòng ban:", error);
-    } finally {
-      setLoadingPerms(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchPermissions();
-  }, [fetchPermissions, departments]);
-
-  useEffect(() => {
-    if (!selectedDoorId && doors.length > 0) {
-      setSelectedDoorId(doors[0].id);
-    }
-  }, [doors, selectedDoorId]);
-
-  const openEditPermissions = (dept: Department) => {
-    setEditingDept(dept);
-    if (doors.length > 0) setSelectedDoorId(doors[0].id);
-  };
-
-  const removePermission = async (permId: number) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa quyền này không?")) return;
-    try {
-      // Giả định api.deleteDepartmentPermission(id) thực hiện gọi DELETE /attendance/permissions/{id}
-      await api.deleteDepartmentPermission(permId);
-      onNotice({ type: "success", text: "Đã xóa quyền truy cập thành công." });
-      void fetchPermissions();
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Lỗi khi xóa quyền") });
-    }
-  };
-
-  const saveQuickPermission = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!editingDept) return;
-    setSavingPerm(true);
-    try {
-      const start = `${to24HourTime(startTime)}:00`;
-      const end = `${to24HourTime(endTime)}:00`;
-      await api.setDepartmentPermission(editingDept.id, selectedDoorId, start, end);
-      onNotice({ type: "success", text: `Đã cập nhật quyền cho ${editingDept.name}` });
-      setEditingDept(null);
-      void fetchPermissions();
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Lỗi khi lưu quyền") });
-    } finally {
-      setSavingPerm(false);
-    }
-  };
 
   const deleteDepartment = async (department: Department) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa phòng ban "${department.name}"?`)) return;
@@ -2210,36 +1971,8 @@ function DepartmentsPage({
               <div>
                 <strong>{department.name}</strong>
                 <span>ID #{department.id}</span>
-                
-                <div className="card-permissions-summary">
-                  {permissionsMap[department.id]?.length > 0 ? (
-                    permissionsMap[department.id].map((p) => (
-                      <div key={p.id} className="permission-tag">
-                        <ShieldCheck size={12} />
-                        <span>{p.door_name}: {p.allowed_start_time?.slice(0, 5)} - {p.allowed_end_time?.slice(0, 5)}</span>
-                        <button 
-                          className="tag-remove-btn" 
-                          onClick={(e) => { e.stopPropagation(); void removePermission(p.id); }}
-                          title="Xóa quyền này"
-                        >
-                          <X size={10} />
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    !loadingPerms && <small className="muted-text">Chưa cấu hình quyền truy cập</small>
-                  )}
-                </div>
               </div>
               <div className="list-card-actions">
-                <button
-                  className="small-button"
-                  type="button"
-                  onClick={() => openEditPermissions(department)}
-                >
-                  <ShieldCheck size={14} />
-                  Sửa quyền
-                </button>
                 <button
                   className="small-button danger"
                   type="button"
@@ -2252,50 +1985,6 @@ function DepartmentsPage({
           ))}
         </div>
       </section>
-
-      {editingDept && (
-        <div className="modal-backdrop" onClick={() => setEditingDept(null)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Chỉnh sửa quyền: {editingDept.name}</h3>
-              <button className="icon-button" onClick={() => setEditingDept(null)}>✕</button>
-            </div>
-            <form className="modal-body stack-form" onSubmit={(e) => void saveQuickPermission(e)}>
-              <label className="field">
-                <span>Cửa / Khu vực</span>
-                <select 
-                  value={selectedDoorId} 
-                  onChange={(e) => setSelectedDoorId(Number(e.target.value))}
-                  required
-                >
-                  {doors.map(door => (
-                    <option key={door.id} value={door.id}>{door.name}</option>
-                  ))}
-                </select>
-              </label>
-              
-              <div className="form-grid">
-                <TimeMeridiemField label="Từ giờ" value={startTime} onChange={setStartTime} />
-                <TimeMeridiemField label="Đến giờ" value={endTime} onChange={setEndTime} />
-              </div>
-
-              <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
-                <button 
-                  className="primary-button" 
-                  type="submit" 
-                  disabled={savingPerm}
-                  style={{ flex: 1 }}
-                >
-                  {savingPerm ? "Đang lưu..." : "Lưu quyền"}
-                </button>
-                <button className="secondary-button" type="button" onClick={() => setEditingDept(null)}>
-                  Hủy
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -1859,6 +1859,24 @@ body {
   font-weight: 600;
 }
 
+.tag-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  margin-left: 2px;
+  color: #0052cc;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.tag-remove-btn:hover {
+  background: rgba(0, 82, 204, 0.1);
+  color: #c54b4b;
+}
+
 .muted-text {
   color: #8899a6;
   font-style: italic;
