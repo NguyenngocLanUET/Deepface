@@ -926,68 +926,70 @@ function App() {
 
         <NoticeBar notice={notice} />
 
-        {loading ? (
-          <div className="loading-panel">Đang tải dữ liệu hệ thống...</div>
-        ) : (
-          <>
-            {activePage === "dashboard" && (
-              <DashboardPage stats={stats} history={history} employees={employees} />
-            )}
-            {activePage === "kiosk" && (
-              <KioskPage
-                doors={doors}
-                onNotice={setNotice}
-                onRefresh={() => void refreshCoreData()}
-              />
-            )}
-            {activePage === "employees" && (
-              <EmployeesPage
-                employees={employees}
-                departments={departments}
-                onNotice={setNotice}
-                onRefresh={() => void refreshCoreData()}
-              />
-            )}
-            {activePage === "register" && (
-              <RegisterPage
-                departments={departments}
-                onNotice={setNotice}
-                onRefresh={() => void refreshCoreData()}
-              />
-            )}
-            {activePage === "doors" && (
-              <DoorsPage doors={doors} onNotice={setNotice} onRefresh={() => void refreshCoreData()} />
-            )}
-            {activePage === "departments" && (
-              <DepartmentsPage
-                departments={departments}
-                doors={doors}
-                onNotice={setNotice}
-                onRefresh={() => void refreshCoreData()}
-              />
-            )}
-            {activePage === "permissions" && (
-              <PermissionsPage
-                employees={employees}
-                departments={departments}
-                doors={doors}
-                onNotice={setNotice}
-              />
-            )}
-            {activePage === "monitoring" && <MonitoringPage />}
-            {activePage === "history" && (
-              <HistoryPage history={history} employees={employees} doors={doors} session={session} />
-            )}
-            {activePage === "reports" && (
-              <ReportsPage
-                monthlyStats={monthlyStats}
-                setMonthlyStats={setMonthlyStats}
-                onNotice={setNotice}
-              />
-            )}
-            {activePage === "admin" && <AdminToolsPage onNotice={setNotice} />}
-          </>
-        )}
+        <div className="main-content-wrapper"> {/* New wrapper for main content */}
+          {loading ? (
+            <div className="loading-panel">Đang tải dữ liệu hệ thống...</div>
+          ) : (
+            <>
+              {activePage === "dashboard" && (
+                <DashboardPage stats={stats} history={history} employees={employees} />
+              )}
+              {activePage === "kiosk" && (
+                <KioskPage
+                  doors={doors}
+                  onNotice={setNotice}
+                  onRefresh={() => void refreshCoreData()}
+                />
+              )}
+              {activePage === "employees" && (
+                <EmployeesPage
+                  employees={employees}
+                  departments={departments}
+                  onNotice={setNotice}
+                  onRefresh={() => void refreshCoreData()}
+                />
+              )}
+              {activePage === "register" && (
+                <RegisterPage
+                  departments={departments}
+                  onNotice={setNotice}
+                  onRefresh={() => void refreshCoreData()}
+                />
+              )}
+              {activePage === "doors" && (
+                <DoorsPage doors={doors} onNotice={setNotice} onRefresh={() => void refreshCoreData()} />
+              )}
+              {activePage === "departments" && (
+                <DepartmentsPage
+                  departments={departments}
+                  doors={doors}
+                  onNotice={setNotice}
+                  onRefresh={() => void refreshCoreData()}
+                />
+              )}
+              {activePage === "permissions" && (
+                <PermissionsPage
+                  employees={employees}
+                  departments={departments}
+                  doors={doors}
+                  onNotice={setNotice}
+                />
+              )}
+              {activePage === "monitoring" && <MonitoringPage />}
+              {activePage === "history" && (
+                <HistoryPage history={history} employees={employees} doors={doors} session={session} />
+              )}
+              {activePage === "reports" && (
+                <ReportsPage
+                  monthlyStats={monthlyStats}
+                  setMonthlyStats={setMonthlyStats}
+                  onNotice={setNotice}
+                />
+              )}
+              {activePage === "admin" && <AdminToolsPage onNotice={setNotice} />}
+            </>
+          )}
+        </div>
       </main>
     </div>
   );
