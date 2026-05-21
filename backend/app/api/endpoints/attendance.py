@@ -78,9 +78,9 @@ async def identify(door_name: str, file: UploadFile = File(...)):
         
         # 4. XỬ LÝ TRƯỜNG HỢP: NGƯỜI LẠ (Không khớp hoặc score quá thấp)
         if not results or results[0].score < 0.45:
-            # Kiểm tra xem có ai vừa check-in thành công trước đó 5 giây trên cùng cửa không (Fallback)
+            # Mở rộng cửa sổ kiểm tra thành công gần đây (10 giây) để tránh người quen bị biến thành người lạ khi đứng lâu
             try:
-                recent_success = db_service.get_recent_success_on_door(door_name, seconds=3)
+                recent_success = db_service.get_recent_success_on_door(door_name, seconds=10)
                 if recent_success and recent_success.get("employee_id"):
                     recent_emp = db_service.get_employee_by_id(recent_success.get("employee_id"))
                     if recent_emp:
@@ -89,10 +89,33 @@ async def identify(door_name: str, file: UploadFile = File(...)):
                             "employee_name": recent_emp["full_name"],
                             "employee_code": recent_emp["employee_code"],
                             "open_door": True,
-                            "message": "Đã xác nhận từ ghi nhận gần đây"
+                            "message": "Tiếp tục duy trì (Ghi nhận gần đây)"
                         }
             except Exception as e:
                 print(f"Cảnh báo: Lỗi khi kiểm tra log SUCCESS gần đây - {str(e)}")
+
+            # Logic "Tích lũy người lạ": Chỉ log nếu thấy người lạ liên tục trong > 3.5 giây
+            should_log = True
+            try:
+                redis_cache = FastAPICache.get_backend()
+                if redis_cache:
+                    stranger_timer_key = f"stranger_timer_{door_name}"
+                    first_seen = await redis_cache.get(stranger_timer_key)
+                    now_ts = datetime.now().timestamp()
+                    
+                    if not first_seen:
+                        # Lần đầu thấy người lạ ở session này, chưa log, chỉ đặt timer
+                        await redis_cache.set(stranger_timer_key, str(now_ts), expire=10)
+                        should_log = False
+                    elif now_ts - float(first_seen) < 3.5:
+                        # Chưa đủ 3.5 giây "nhìn chằm chằm", chưa log
+                        should_log = False
+                    
+                    # Nếu đã quá 30 giây kể từ log người lạ cuối cùng (Anti-spam log)
+                    if db_service.has_recent_denied_stranger(door_name, seconds=30):
+                        should_log = False
+            except Exception as e:
+                print(f"Cảnh báo: Lỗi logic tích lũy người lạ - {str(e)}")
 
             # Tải ảnh người lạ lên Storage làm bằng chứng (Snapshot)
             snapshot_name = None
@@ -105,13 +128,11 @@ async def identify(door_name: str, file: UploadFile = File(...)):
                 snapshot_name = None
             
             # GHI LOG "DENIED" - Áp dụng chống spam log Người lạ liên tục trong 5 giây
-            try:
-                if not db_service.has_recent_denied_stranger(door_name, seconds=5):
+            if should_log:
+                try:
                     db_service.log_attendance(None, door_name, "DENIED", "Người lạ", snapshot_name)
-                else:
-                    print("Bỏ qua ghi trùng log Người lạ (cooldown)")
-            except Exception as e:
-                print(f"Lỗi log attendance: {str(e)}")
+                except Exception as e:
+                    print(f"Lỗi log attendance: {str(e)}")
 
             return {
                 "match": False, 
@@ -119,6 +140,15 @@ async def identify(door_name: str, file: UploadFile = File(...)):
                 "open_door": False, 
                 "score": results[0].score if results else 0
             }
+
+        # Nếu là nhân viên hợp lệ (Match), xóa bộ đếm người lạ của cửa này
+        try:
+            redis_cache = FastAPICache.get_backend()
+            if redis_cache:
+                await redis_cache.delete(f"stranger_timer_{door_name}")
+        except:
+            pass
+
 
         # 5. XỬ LÝ TRƯỜNG HỢP: KHỚP VỚI NHÂN VIÊN
         emp_id = int(results[0].id)
@@ -333,7 +363,21 @@ async def identify_multi(door_name: str, files: List[UploadFile] = File(...)):
 
         # Kiểm tra kết quả tốt nhất
         if not best_result or best_score < 0.45:
-            # Người lạ - không match
+            # Thử kế thừa log thành công gần đây (Fallback 10s)
+            try:
+                recent_success = db_service.get_recent_success_on_door(door_name, seconds=10)
+                if recent_success and recent_success.get("employee_id"):
+                    recent_emp = db_service.get_employee_by_id(recent_success.get("employee_id"))
+                    if recent_emp:
+                        return {
+                            "match": True,
+                            "employee_name": recent_emp["full_name"],
+                            "employee_code": recent_emp["employee_code"],
+                            "open_door": True,
+                            "message": "Duy trì mở cửa (Ghi nhận gần đây)"
+                        }
+            except: pass
+
             snapshot_name = None
             if best_temp_path:
                 try:
@@ -344,12 +388,12 @@ async def identify_multi(door_name: str, files: List[UploadFile] = File(...)):
                     print(f"Cảnh báo: Không tải ảnh lên Storage cho người lạ - {str(e)}")
                     snapshot_name = None
             
-            # GHI LOG "DENIED" với chống spam
-            try:
-                if not db_service.has_recent_denied_stranger(door_name, seconds=5):
+            # Chống spam log người lạ (chỉ log mỗi 30s một lần cho cùng một cửa)
+            if not db_service.has_recent_denied_stranger(door_name, seconds=30):
+                try:
                     db_service.log_attendance(None, door_name, "DENIED", "Người lạ", snapshot_name)
-            except Exception as e:
-                print(f"Lỗi log attendance: {str(e)}")
+                except Exception as e:
+                    print(f"Lỗi log attendance: {str(e)}")
 
             return {
                 "match": False, 
@@ -358,6 +402,14 @@ async def identify_multi(door_name: str, files: List[UploadFile] = File(...)):
                 "score": best_score,
                 "images_processed": len(temp_paths)
             }
+
+        # Match nhân viên, reset timer người lạ
+        try:
+            redis_cache = FastAPICache.get_backend()
+            if redis_cache:
+                await redis_cache.delete(f"stranger_timer_{door_name}")
+        except:
+            pass
 
         # Nhân viên match - tiếp tục xử lý như endpoint /identify
         emp_id = best_emp_id
