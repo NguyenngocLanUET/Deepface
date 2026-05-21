@@ -137,11 +137,12 @@ async def get_employee_photos(id: int):
         raise HTTPException(status_code=404, detail="Không tìm thấy nhân viên")
     
     try:
+        employee_name = employee["full_name"] if isinstance(employee, dict) else employee.full_name
         # Liệt kê tất cả các object trong folder avatars/{id}/
         photos = storage_service.list_objects(f"avatars/{id}/")
         return {
             "employee_id": id,
-            "employee_name": employee.full_name,
+            "employee_name": employee_name,
             "photos": photos
         }
     except Exception as e:
