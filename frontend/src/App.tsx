@@ -177,12 +177,14 @@ async function analyzeImageQuality(file: File): Promise<{ isGood: boolean; issue
     const reader = new FileReader();
     
     reader.onerror = () => {
+      console.error("FileReader error:", reader.error);
       resolve({ isGood: false, issues: ["Lỗi đọc file"] });
     };
 
     reader.onload = (event) => {
       const img = new Image();
       img.onerror = () => {
+        console.error("Image load error");
         resolve({ isGood: false, issues: ["Không thể tải ảnh"] });
       };
       
@@ -207,6 +209,8 @@ async function analyzeImageQuality(file: File): Promise<{ isGood: boolean; issue
             brightness += (data[i] + data[i + 1] + data[i + 2]) / 3;
           }
           brightness /= data.length / 4;
+
+          console.log("Brightness:", Math.round(brightness));
 
           if (brightness < 30) {
             issues.push("Ảnh quá tối");
@@ -243,11 +247,14 @@ async function analyzeImageQuality(file: File): Promise<{ isGood: boolean; issue
           }
           laplacian = validPixels > 0 ? Math.sqrt(laplacian / validPixels) : 0;
 
+          console.log("Laplacian (sharpness):", Math.round(laplacian));
+
           if (laplacian < 25) {
             issues.push("Ảnh quá mờ/nhòe");
           }
 
           const isGood = issues.length === 0;
+          console.log("Image quality check:", { isGood, issues, brightness: Math.round(brightness), laplacian: Math.round(laplacian) });
           resolve({ isGood, issues });
         } catch (error) {
           console.error("Analysis error:", error);
@@ -262,6 +269,7 @@ async function analyzeImageQuality(file: File): Promise<{ isGood: boolean; issue
     try {
       reader.readAsDataURL(file);
     } catch (error) {
+      console.error("Read error:", error);
       resolve({ isGood: false, issues: ["Lỗi đọc ảnh"] });
     }
   });
@@ -344,6 +352,7 @@ async function preprocessImage(file: File): Promise<File> {
           (blob) => {
             if (blob) {
               const processedFile = new File([blob], `processed-${Date.now()}.jpg`, { type: "image/jpeg" });
+              console.log("Image preprocessed:", processedFile.name);
               resolve(processedFile);
             } else {
               resolve(file);
@@ -478,7 +487,6 @@ function to24HourTime({ hour12, minute, meridiem }: AmPmTime) {
   return `${String(hour).padStart(2, "0")}:${minute}`;
 }
 
-// Hàm bổ trợ kiểm tra đầu vào thời gian
 function sanitizeTimePart(value: string, maxLength: number) {
   return value.replace(/\D/g, "").slice(0, maxLength);
 }
@@ -681,6 +689,7 @@ function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
             User
           </button>
         </div>
+
       </section>
     </main>
   );
@@ -913,7 +922,7 @@ function App() {
             {activePage === "admin" && <AdminToolsPage onNotice={setNotice} />}
           </>
         )}
-      </</main>
+      </main>
     </div>
   );
 }
@@ -1094,10 +1103,9 @@ function KioskPage({
     lastSubmitTimeRef.current = now;
 
     setSubmitting(true);
+    let finalResult = null;
 
     try {
-      let finalResult = null;
-
       for (let attempt = 0; attempt < IDENTIFY_ATTEMPTS; attempt += 1) {
         const blob = await camera.captureBlob();
         if (!blob) continue;
@@ -1106,6 +1114,7 @@ function KioskPage({
 
         if (identifyResult && identifyResult.match === true) {
           finalResult = identifyResult;
+          console.log("✅ Khớp nhân viên ở lần thử:", attempt + 1);
           break;
         }
 
@@ -1233,6 +1242,7 @@ function KioskPage({
             {submitting ? "Đang gửi..." : "Đang tự động chấm công..."}
           </button>
         </div>
+
       </section>
     </div>
   );
@@ -1264,13 +1274,6 @@ function EmployeesPage({
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const [imageModalOpen, setImageModalOpen] = useState(false);
-  const [modalPhotos, setModalPhotos] = useState<Array<{ name: string; url: string }>>([]);
-  const [modalEmployeeName, setModalEmployeeName] = useState<string>("");
-  const [modalEmployeeId, setModalEmployeeId] = useState<number | null>(null);
-  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
-
-  // Đưa hàm xem lịch sử chi tiết về đúng phạm vi cấu phần quản lý nhân viên
   const openEmployeeHistory = async (employee: Employee) => {
     setHistoryLoading(true);
     try {
@@ -1287,7 +1290,7 @@ function EmployeesPage({
 
   const openSelectedHistory = async () => {
     if (!selectedEmployeeIds || selectedEmployeeIds.length === 0) {
-      onNotice({ type: "info", text: "Hãy chọn ít nhất một nhân viên từ danh sách lọc bên dưới để xem lịch sử." });
+      onNotice({ type: "info", text: "Hãy chọn ít nhất một nhân viên để xem lịch sử." });
       return;
     }
     setHistoryLoading(true);
@@ -1303,102 +1306,33 @@ function EmployeesPage({
     }
   };
 
-  const closeImageModal = () => {
-    modalPhotos.forEach((p) => {
-      try {
-        URL.revokeObjectURL(p.url);
-      } catch (_) {}
-    });
-    setModalPhotos([]);
-    setModalEmployeeName("");
-    setModalEmployeeId(null);
-    setUploadFiles([]);
-    setImageModalOpen(false);
-  };
-
-  const viewPhotos = async (employee: Employee) => {
-    setIsLoading(true);
-    try {
-      const res = await api.getEmployeePhotos(employee.id);
-      const photos: string[] = res.photos ?? [];
-      const blobs = await Promise.all(
-        photos.map((p) => api.getEmployeePhoto(employee.id, p).catch(() => null)),
-      );
-
-      const urls: Array<{ name: string; url: string }> = [];
-      for (let i = 0; i < photos.length; i += 1) {
-        const b = blobs[i];
-        if (b) {
-          const url = URL.createObjectURL(b as Blob);
-          urls.push({ name: photos[i], url });
-        }
-      }
-
-      setModalEmployeeName(res.employee_name ?? employee.full_name);
-      setModalEmployeeId(employee.id);
-      setUploadFiles([]);
-      setModalPhotos(urls);
-      setImageModalOpen(true);
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể tải ảnh nhân viên.") });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const onUploadFilesChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []).slice(0, 5);
-    setUploadFiles(files);
-  };
-
-  const uploadPhotos = async () => {
-    if (!modalEmployeeId) return;
-    if (uploadFiles.length < 1 || uploadFiles.length > 5) {
-      onNotice({ type: "error", text: "Cần chọn từ 1 đến 5 ảnh để cập nhật." });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await api.updateEmployeePhotos(modalEmployeeId, uploadFiles);
-      onNotice({ type: "success", text: "Đã cập nhật ảnh nhân viên." });
-      await search();
-      onRefresh();
-      closeImageModal();
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật ảnh.") });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const search = async (event?: FormEvent) => {
-    if (event) event.preventDefault();
-    
-    setIsLoading(true);
-    try {
-      const results = await api.searchEmployeesAdvanced({
-        query: query.trim() || undefined,
-        department_id: departmentFilter ?? undefined,
-        is_active: statusFilter ?? undefined,
-        ids: selectedEmployeeIds.length ? selectedEmployeeIds : undefined,
-      });
-      setRows(results);
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể tìm kiếm nhân viên.") });
-    } finally {
-      setIsLoading(false);
-    }
+      if (event) event.preventDefault();
+      
+      setIsLoading(true);
+      try {
+        const results = await api.searchEmployeesAdvanced({
+          query: query.trim() || undefined,
+          department_id: departmentFilter ?? undefined,
+          is_active: statusFilter ?? undefined,
+          ids: selectedEmployeeIds.length ? selectedEmployeeIds : undefined,
+        });
+        setRows(results);
+      } catch (error) {
+        onNotice({ type: "error", text: errorMessage(error, "Không thể tìm kiếm nhân viên.") });
+      } finally {
+        setIsLoading(false);
+      }
   };
 
   const toggleStatus = async (employee: Employee) => {
-    try {
-      await api.updateEmployeeStatus(employee.id, !employee.is_active);
-      onNotice({ type: "success", text: "Đã cập nhật trạng thái nhân viên." });
-      await search();
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật.") });
-    }
+      try {
+        await api.updateEmployeeStatus(employee.id, !employee.is_active);
+        onNotice({ type: "success", text: "Đã cập nhật trạng thái nhân viên." });
+        await search();
+      } catch (error) {
+        onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật.") });
+      }
   };
 
   const deleteEmployee = async (employee: Employee) => {
@@ -1469,13 +1403,13 @@ function EmployeesPage({
         <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
           <select
             multiple
-            size={3}
+            size={4}
             value={selectedEmployeeIds.map(String)}
             onChange={(e) => {
               const opts = Array.from(e.target.selectedOptions).map((o) => Number(o.value));
               setSelectedEmployeeIds(opts);
             }}
-            style={{ padding: "4px", borderRadius: "4px", border: "1px solid #ccc", minWidth: "180px", fontSize: "12px" }}
+            style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ccc", minWidth: "220px" }}
           >
             {employees.map((emp) => (
               <option key={emp.id} value={emp.id}>
@@ -1565,10 +1499,6 @@ function EmployeesPage({
                       <Lock size={15} />
                       {employee.is_active ? "Khóa" : "Mở"}
                     </button>
-                    <button className="small-button" onClick={() => void viewPhotos(employee)} type="button">
-                      <Camera size={15} />
-                      Xem ảnh
-                    </button>
                     <button className="small-button" onClick={() => void openEmployeeHistory(employee)} type="button">
                       <History size={14} />
                       Lịch sử
@@ -1584,39 +1514,7 @@ function EmployeesPage({
         </table>
         {rows.length === 0 && <EmptyState text="Không có nhân viên phù hợp." />}
       </div>
-      {imageModalOpen && (
-        <div className="image-modal-overlay" onClick={closeImageModal}>
-          <div className="image-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="image-modal-header">
-              <strong>Ảnh nhân viên: {modalEmployeeName}</strong>
-              <button className="icon-button" onClick={closeImageModal} type="button">
-                <XCircle size={18} />
-              </button>
-            </div>
 
-            <div className="image-modal-grid">
-              {modalPhotos.length === 0 ? (
-                <div>Không có ảnh hoặc đang tải...</div>
-              ) : (
-                modalPhotos.map((p) => (
-                  <figure key={p.name} className="image-tile">
-                    <img src={p.url} alt={p.name} />
-                    <figcaption>{p.name}</figcaption>
-                  </figure>
-                ))
-              )}
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <label style={{ display: "block", marginBottom: 8 }}>Cập nhật ảnh (1-5 ảnh):</label>
-              <input type="file" accept="image/*" multiple onChange={onUploadFilesChange} />
-              <div style={{ marginTop: 8, display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <button className="secondary-button" onClick={() => setUploadFiles([])} type="button">Clear</button>
-                <button className="primary-button" onClick={uploadPhotos} type="button" disabled={isLoading || uploadFiles.length === 0}>Cập nhật ảnh</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       {historyModalVisible && (
         <div className="history-modal-overlay" onClick={() => setHistoryModalVisible(false)}>
           <div className="history-modal panel" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 900, margin: "40px auto" }}>
