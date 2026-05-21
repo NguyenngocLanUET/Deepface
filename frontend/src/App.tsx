@@ -2113,14 +2113,14 @@ function DepartmentsPage({
   }, [fetchPermissions, departments]);
 
   useEffect(() => {
-    if (!selectedDoorId && doors.length > 0) {
+    if (!selectedDoorId && doors?.length > 0) {
       setSelectedDoorId(doors[0].id);
     }
   }, [doors, selectedDoorId]);
 
   const openEditPermissions = (dept: Department) => {
     setEditingDept(dept);
-    if (doors.length > 0) setSelectedDoorId(doors[0].id);
+    if (doors?.length > 0) setSelectedDoorId(doors[0].id);
   };
 
   const removePermission = async (permId: number) => {
@@ -2268,7 +2268,7 @@ function DepartmentsPage({
                   onChange={(e) => setSelectedDoorId(Number(e.target.value))}
                   required
                 >
-                  {doors.map(door => (
+                  {doors?.map(door => (
                     <option key={door.id} value={door.id}>{door.name}</option>
                   ))}
                 </select>
