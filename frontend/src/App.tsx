@@ -1009,11 +1009,6 @@ function DashboardPage({
 
   return (
     <div className="page-grid">
-      <div className="metrics-row" style={{ display: "flex", gap: "20px", marginBottom: "35px", flexWrap: "wrap", justifyContent: "space-between" }}>
-        <Metric icon={Users} label="Nhân viên" value={stats.employees} sub={`${activeEmployees} đang hoạt động`} color="#339af0" />
-        <Metric icon={Building2} label="Phòng ban" value={stats.departments} sub="Quyền kế thừa" color="#51cf66" />
-        <Metric icon={DoorOpen} label="Cửa/Khu vực" value={stats.doors} sub="Điểm kiểm soát" color="#fcc419" />
-        <Metric icon={History} label="Lượt hôm nay" value={stats.today_logs} sub="Ghi nhận mới" color="#ff922b" />
       <div style={{ gridColumn: "1 / -1", marginBottom: "20px", display: "flex", alignItems: "center", gap: "12px", background: "white", padding: "10px 15px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
         <SlidersHorizontal size={16} color="#64748b" />
         <span style={{ fontSize: "13px", fontWeight: 700, color: "#475569" }}>Kích thước thẻ:</span>
