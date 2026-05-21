@@ -314,6 +314,13 @@ button {
   gap: 14px;
   min-height: 118px;
   padding: 18px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.metric-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 25px 50px rgb(15 23 42 / 15%);
+  cursor: pointer;
 }
 
 .metric-icon {
