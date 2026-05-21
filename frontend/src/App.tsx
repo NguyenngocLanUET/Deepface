@@ -2080,6 +2080,12 @@ function DepartmentsPage({
   onRefresh: () => void;
 }) {
   const [name, setName] = useState("");
+  const [editingDept, setEditingDept] = useState<Department | null>(null);
+  const [selectedDoorId, setSelectedDoorId] = useState<number>(0);
+  const [startTime, setStartTime] = useState<AmPmTime>(() => parse24HourTime("08:00"));
+  const [endTime, setEndTime] = useState<AmPmTime>(() => parse24HourTime("17:30"));
+  const [savingPerm, setSavingPerm] = useState(false);
+
   const [permissionsMap, setPermissionsMap] = useState<Record<number, any[]>>({});
   const [loadingPerms, setLoadingPerms] = useState(false);
 
@@ -2104,6 +2110,35 @@ function DepartmentsPage({
   useEffect(() => {
     void fetchPermissions();
   }, [fetchPermissions, departments]);
+
+  useEffect(() => {
+    if (!selectedDoorId && doors.length > 0) {
+      setSelectedDoorId(doors[0].id);
+    }
+  }, [doors, selectedDoorId]);
+
+  const openEditPermissions = (dept: Department) => {
+    setEditingDept(dept);
+    if (doors.length > 0) setSelectedDoorId(doors[0].id);
+  };
+
+  const saveQuickPermission = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!editingDept) return;
+    setSavingPerm(true);
+    try {
+      const start = `${to24HourTime(startTime)}:00`;
+      const end = `${to24HourTime(endTime)}:00`;
+      await api.setDepartmentPermission(editingDept.id, selectedDoorId, start, end);
+      onNotice({ type: "success", text: `Đã cập nhật quyền cho ${editingDept.name}` });
+      setEditingDept(null);
+      void fetchPermissions();
+    } catch (error) {
+      onNotice({ type: "error", text: errorMessage(error, "Lỗi khi lưu quyền") });
+    } finally {
+      setSavingPerm(false);
+    }
+  };
 
   const deleteDepartment = async (department: Department) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa phòng ban "${department.name}"?`)) return;
@@ -2178,6 +2213,14 @@ function DepartmentsPage({
               </div>
               <div className="list-card-actions">
                 <button
+                  className="small-button"
+                  type="button"
+                  onClick={() => openEditPermissions(department)}
+                >
+                  <ShieldCheck size={14} />
+                  Sửa quyền
+                </button>
+                <button
                   className="small-button danger"
                   type="button"
                   onClick={() => void deleteDepartment(department)}
@@ -2189,6 +2232,50 @@ function DepartmentsPage({
           ))}
         </div>
       </section>
+
+      {editingDept && (
+        <div className="modal-backdrop" onClick={() => setEditingDept(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Chỉnh sửa quyền: {editingDept.name}</h3>
+              <button className="icon-button" onClick={() => setEditingDept(null)}>✕</button>
+            </div>
+            <form className="modal-body stack-form" onSubmit={(e) => void saveQuickPermission(e)}>
+              <label className="field">
+                <span>Cửa / Khu vực</span>
+                <select 
+                  value={selectedDoorId} 
+                  onChange={(e) => setSelectedDoorId(Number(e.target.value))}
+                  required
+                >
+                  {doors.map(door => (
+                    <option key={door.id} value={door.id}>{door.name}</option>
+                  ))}
+                </select>
+              </label>
+              
+              <div className="form-grid">
+                <TimeMeridiemField label="Từ giờ" value={startTime} onChange={setStartTime} />
+                <TimeMeridiemField label="Đến giờ" value={endTime} onChange={setEndTime} />
+              </div>
+
+              <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+                <button 
+                  className="primary-button" 
+                  type="submit" 
+                  disabled={savingPerm}
+                  style={{ flex: 1 }}
+                >
+                  {savingPerm ? "Đang lưu..." : "Lưu quyền"}
+                </button>
+                <button className="secondary-button" type="button" onClick={() => setEditingDept(null)}>
+                  Hủy
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

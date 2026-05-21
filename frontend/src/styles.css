@@ -1838,3 +1838,28 @@ body {
     font-size: 12px;
   }
 }
+
+.card-permissions-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.permission-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: #f0f7ff;
+  border: 1px solid #d0e5ff;
+  border-radius: 4px;
+  color: #0052cc;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.muted-text {
+  color: #8899a6;
+  font-style: italic;
+}
