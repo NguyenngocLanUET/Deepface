@@ -30,6 +30,7 @@ import { useCameraGate } from "./hooks/useCameraGate";
 import { useTinyFaceRegister } from "./hooks/useTinyFaceRegister";
 import type {
   AttendanceLog,
+  BulkImportSummary,
   Department,
   Door,
   Employee,
@@ -53,6 +54,21 @@ type PageId =
 type Notice = {
   type: "success" | "error" | "info";
   text: string;
+};
+
+type ImportLogSummary = {
+  success: number;
+  errors: number;
+  noImages: number;
+};
+
+type ImportLogEntry = {
+  id: string;
+  fileName: string;
+  message: string;
+  importedAt: string;
+  totalAdded: number;
+  summary: ImportLogSummary;
 };
 
 type UserRole = "admin" | "user";
@@ -121,6 +137,8 @@ const loginAccounts: Array<AppSession & { password: string }> = [
   },
 ];
 
+const EMPLOYEE_DEFAULT_PASSWORDS = new Set(["user123", "user 123"]);
+
 function formatDateTime(value: string) {
   // Nếu chuỗi thời gian không có ký tự múi giờ 'Z' hoặc dấu '+' (giờ UTC thô), 
   // chúng ta chủ động thêm 'Z' để JS hiểu đây là giờ UTC và tự động +7 tiếng sang giờ Việt Nam.
@@ -154,6 +172,10 @@ function countDistinctDays(items: AttendanceLog[]) {
 
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function normalizeLoginCode(value: string) {
+  return value.trim().replace(/\s+/g, "").toUpperCase();
 }
 
 // Kiểm tra chất lượng ảnh để detect blur, độ sáng, kích thước khuôn mặt
@@ -551,17 +573,57 @@ function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loginEmployees, setLoginEmployees] = useState<Employee[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    api.getEmployees()
+      .then((result) => {
+        if (!cancelled) setLoginEmployees(result.filter((employee) => employee.is_active));
+      })
+      .catch(() => {
+        if (!cancelled) setLoginEmployees([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    const normalizedUsername = username.trim();
+    const normalizedPassword = password.trim();
     const account = loginAccounts.find(
-      (item) => item.username === username.trim() && item.password === password,
+      (item) => item.username === normalizedUsername && item.password === normalizedPassword,
     );
 
-    if (!account) {
+    const employeeAccount = loginEmployees.find(
+      (employee) => normalizeLoginCode(employee.employee_code) === normalizeLoginCode(normalizedUsername),
+    );
+
+    if (!account && (!employeeAccount || !EMPLOYEE_DEFAULT_PASSWORDS.has(normalizedPassword.toLowerCase()))) {
       setError("Sai tài khoản hoặc mật khẩu.");
       return;
     }
+
+    if (employeeAccount) {
+      const session: AppSession = {
+        username: employeeAccount.employee_code,
+        displayName: employeeAccount.full_name,
+        role: "user",
+        employeeId: employeeAccount.id,
+        signedInAt: new Date().toISOString(),
+      };
+
+      window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+      setError("");
+      onLogin(session);
+      return;
+    }
+
+    if (!account) return;
 
     const session: AppSession = {
       username: account.username,
@@ -2740,8 +2802,18 @@ function ReportsPage({
   );
 }
 
+function normalizeBulkImportSummary(summary: BulkImportSummary | undefined, detailsCount: number): ImportLogSummary {
+  return {
+    success: summary?.success ?? detailsCount,
+    errors: summary?.errors ?? 0,
+    noImages: summary?.no_images ?? 0,
+  };
+}
+
 function AdminToolsPage({ onNotice }: { onNotice: (notice: Notice) => void }) {
   const [zipFile, setZipFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importLogs, setImportLogs] = useState<ImportLogEntry[]>([]);
   const [days, setDays] = useState(30);
 
   const bulkImport = async () => {
@@ -2750,10 +2822,24 @@ function AdminToolsPage({ onNotice }: { onNotice: (notice: Notice) => void }) {
       return;
     }
     try {
+      setImporting(true);
       const result = await api.bulkImport(zipFile);
-      onNotice({ type: "success", text: result.message });
+      const summary = normalizeBulkImportSummary(result.summary, result.details?.length ?? 0);
+      const totalAdded = summary.success + summary.noImages;
+      const nextLog: ImportLogEntry = {
+        id: `${Date.now()}-${zipFile.name}`,
+        fileName: zipFile.name,
+        message: result.message,
+        importedAt: new Date().toLocaleString("vi-VN", { hour12: false }),
+        totalAdded,
+        summary,
+      };
+      setImportLogs((current) => [nextLog, ...current].slice(0, 5));
+      onNotice({ type: "success", text: `Đã thêm dữ liệu: ${totalAdded} nhân viên.` });
     } catch (error) {
       onNotice({ type: "error", text: errorMessage(error, "Không thể nhập dữ liệu hàng loạt.") });
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -2789,10 +2875,36 @@ function AdminToolsPage({ onNotice }: { onNotice: (notice: Notice) => void }) {
           <input accept=".zip" type="file" onChange={(event) => setZipFile(event.target.files?.[0] ?? null)} />
           <small>{zipFile?.name ?? "Chưa chọn file"}</small>
         </label>
-        <button className="primary-button" onClick={() => void bulkImport()} type="button">
+        <button className="primary-button" disabled={importing || !zipFile} onClick={() => void bulkImport()} type="button">
           <Upload size={18} />
-          Nhập dữ liệu
+          {importing ? "Đang nhập..." : "Nhập dữ liệu"}
         </button>
+        {importLogs.length > 0 && (
+          <div className="import-log" aria-live="polite">
+            <div className="import-log-title">
+              <CheckCircle2 size={18} />
+              <span>Log nhập dữ liệu</span>
+            </div>
+            <div className="import-log-list">
+              {importLogs.map((log) => (
+                <div className="import-log-item" key={log.id}>
+                  <div>
+                    <strong>Đã thêm dữ liệu: {log.totalAdded} nhân viên</strong>
+                    <small>
+                      {log.importedAt} - {log.fileName}
+                    </small>
+                  </div>
+                  <p>{log.message}</p>
+                  <div className="import-log-stats">
+                    <span>{log.summary.success} có ảnh</span>
+                    <span>{log.summary.noImages} không ảnh</span>
+                    <span className={log.summary.errors > 0 ? "danger" : ""}>{log.summary.errors} lỗi</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="panel">
