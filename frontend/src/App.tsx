@@ -1383,6 +1383,15 @@ function EmployeesPage({
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [historyLogs, setHistoryLogs] = useState<AttendanceLog[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [selectedHistoryLog, setSelectedHistoryLog] = useState<AttendanceLog | null>(null);
+  const [historySnapshotUrl, setHistorySnapshotUrl] = useState<string | null>(null);
+  const [historySnapshotLoading, setHistorySnapshotLoading] = useState(false);
+  const [historySnapshotError, setHistorySnapshotError] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -1418,6 +1427,61 @@ function EmployeesPage({
       setPhotoLoading(false);
     }
   };
+
+  const loadHistoryForSelectedEmployees = async () => {
+    if (selectedEmployeeIds.length === 0) {
+      setHistoryError("Vui lòng chọn ít nhất một nhân viên để xem lịch sử.");
+      return;
+    }
+
+    setHistoryLoading(true);
+    setHistoryError(null);
+    setHistoryLogs([]);
+    try {
+      const logs = await api.getAttendanceHistory(1000, selectedEmployeeIds);
+      setHistoryLogs(logs);
+      setHistoryModalOpen(true);
+    } catch (error) {
+      setHistoryError(errorMessage(error, "Không thể tải lịch sử."));
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedHistoryLog?.image_snapshot) {
+      setHistorySnapshotUrl(null);
+      setHistorySnapshotLoading(false);
+      setHistorySnapshotError(null);
+      return;
+    }
+
+    let cancelled = false;
+    let nextUrl: string | null = null;
+
+    setHistorySnapshotUrl(null);
+    setHistorySnapshotLoading(true);
+    setHistorySnapshotError(null);
+
+    api.getAttendanceSnapshot(selectedHistoryLog.image_snapshot)
+      .then((blob) => {
+        if (cancelled) return;
+        nextUrl = window.URL.createObjectURL(blob);
+        setHistorySnapshotUrl(nextUrl);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setHistorySnapshotError(errorMessage(error, "Không thể tải ảnh chấm công."));
+      })
+      .finally(() => {
+        if (!cancelled) setHistorySnapshotLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      if (nextUrl) window.URL.revokeObjectURL(nextUrl);
+    };
+  }, [selectedHistoryLog?.id, selectedHistoryLog?.image_snapshot]);
 
   const closePhotoModal = () => {
     setSelectedEmployee(null);
@@ -1468,6 +1532,7 @@ function EmployeesPage({
           query: query.trim() || undefined,
           department_id: departmentFilter ?? undefined,
           is_active: statusFilter ?? undefined,
+          ids: selectedEmployeeIds.length ? selectedEmployeeIds : undefined,
         });
         setRows(results);
       } catch (error) {
@@ -1581,6 +1646,40 @@ function EmployeesPage({
           }}
         >
           Xóa bộ lọc
+        </button>
+
+        <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "13px", color: "#333" }}>Chọn NV</span>
+          <select
+            multiple
+            value={selectedEmployeeIds.map(String)}
+            onChange={(e) => {
+              const opts = Array.from(e.target.selectedOptions).map((o) => Number(o.value));
+              setSelectedEmployeeIds(opts);
+            }}
+            style={{ padding: "6px", minWidth: 180, height: 100 }}
+          >
+            {employees.map((emp) => (
+              <option key={emp.id} value={emp.id}>
+                {emp.employee_code} - {emp.full_name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <button
+          type="button"
+          onClick={() => void loadHistoryForSelectedEmployees()}
+          style={{
+            padding: "8px 14px",
+            backgroundColor: "#17a2b8",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          Xem lịch sử
         </button>
 
         <span style={{ marginLeft: "auto", fontSize: "14px", color: "#666" }}>
@@ -1718,6 +1817,67 @@ function EmployeesPage({
                       {uploadingPhotos ? "Đang cập nhật..." : "Cập nhật ảnh"}
                     </button>
                   </form>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {historyModalOpen && (
+        <div className="modal-backdrop" onClick={() => { setHistoryModalOpen(false); setHistoryLogs([]); setSelectedHistoryLog(null); }}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Lịch sử - {selectedEmployeeIds.length} nhân viên</h3>
+              <button className="icon-button" onClick={() => { setHistoryModalOpen(false); setHistoryLogs([]); setSelectedHistoryLog(null); }} type="button">✕</button>
+            </div>
+            <div className="modal-body">
+              {historyLoading ? (
+                <p>Đang tải lịch sử...</p>
+              ) : historyError ? (
+                <p className="inline-error">{historyError}</p>
+              ) : (
+                <div style={{ display: "grid", gap: 12 }}>
+                  <div className="table-wrap" style={{ maxHeight: "60vh", overflow: "auto" }}>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Thời gian</th>
+                          <th>Cửa</th>
+                          <th>Trạng thái</th>
+                          <th>Lý do</th>
+                          <th>Nhân viên</th>
+                          <th>Ảnh</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {historyLogs.map((item) => (
+                          <tr key={item.id} onClick={() => setSelectedHistoryLog(item)} style={{ cursor: "pointer" }}>
+                            <td>{formatDateTime(item.checkin_at)}</td>
+                            <td>{item.door_id ?? "-"}</td>
+                            <td><StatusBadge status={item.status} /></td>
+                            <td>{item.reason ?? "-"}</td>
+                            <td>{employees.find((e) => e.id === item.employee_id)?.full_name ?? "-"}</td>
+                            <td>{item.image_snapshot ? <button className="small-button" onClick={(ev) => { ev.stopPropagation(); setSelectedHistoryLog(item); }}>Xem ảnh</button> : "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {selectedHistoryLog && (
+                    <div style={{ display: "grid", gap: 8 }}>
+                      <strong>Chi tiết bản ghi</strong>
+                      <p><strong>Thời gian:</strong> {formatDateTime(selectedHistoryLog.checkin_at)}</p>
+                      <p><strong>Trạng thái:</strong> {selectedHistoryLog.status}</p>
+                      <div className="snapshot-frame">
+                        {historySnapshotLoading && <p className="snapshot-empty">Đang tải ảnh...</p>}
+                        {historySnapshotError && <p className="inline-error">{historySnapshotError}</p>}
+                        {historySnapshotUrl && <img className="snapshot-image" src={historySnapshotUrl} alt="Snapshot" />}
+                        {!selectedHistoryLog.image_snapshot && <p className="snapshot-empty">Không có ảnh snapshot.</p>}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
