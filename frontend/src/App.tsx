@@ -903,6 +903,7 @@ function App() {
             {activePage === "departments" && (
               <DepartmentsPage
                 departments={departments}
+                doors={doors}
                 onNotice={setNotice}
                 onRefresh={() => void refreshCoreData()}
               />
@@ -2069,14 +2070,40 @@ function DoorsPage({
 
 function DepartmentsPage({
   departments,
+  doors,
   onNotice,
   onRefresh,
 }: {
   departments: Department[];
+  doors: Door[];
   onNotice: (notice: Notice) => void;
   onRefresh: () => void;
 }) {
   const [name, setName] = useState("");
+  const [permissionsMap, setPermissionsMap] = useState<Record<number, any[]>>({});
+  const [loadingPerms, setLoadingPerms] = useState(false);
+
+  // Hàm tải danh sách quyền hạn của tất cả phòng ban
+  const fetchPermissions = useCallback(async () => {
+    setLoadingPerms(true);
+    try {
+      // Gọi endpoint lấy phòng ban kèm quyền hạn (đã định nghĩa ở backend attendance.py)
+      const response = await api.getDepartmentsWithPermissions();
+      const mapping: Record<number, any[]> = {};
+      response.forEach((dept: any) => {
+        mapping[dept.id] = dept.permissions;
+      });
+      setPermissionsMap(mapping);
+    } catch (error) {
+      console.error("Lỗi khi tải quyền hạn phòng ban:", error);
+    } finally {
+      setLoadingPerms(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchPermissions();
+  }, [fetchPermissions, departments]);
 
   const deleteDepartment = async (department: Department) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa phòng ban "${department.name}"?`)) return;
@@ -2135,6 +2162,19 @@ function DepartmentsPage({
               <div>
                 <strong>{department.name}</strong>
                 <span>ID #{department.id}</span>
+                
+                <div className="card-permissions-summary">
+                  {permissionsMap[department.id]?.length > 0 ? (
+                    permissionsMap[department.id].map((p) => (
+                      <div key={p.id} className="permission-tag">
+                        <ShieldCheck size={12} />
+                        <span>{p.door_name}: {p.allowed_start_time?.slice(0, 5)} - {p.allowed_end_time?.slice(0, 5)}</span>
+                      </div>
+                    ))
+                  ) : (
+                    !loadingPerms && <small className="muted-text">Chưa cấu hình quyền truy cập</small>
+                  )}
+                </div>
               </div>
               <div className="list-card-actions">
                 <button
