@@ -5,6 +5,8 @@ import shutil, uuid, os, io, tempfile
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 import pandas as pd
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 from app.services.vision import FaceDetectionError, VisionService
 from app.services.vector_db import VectorDBService
@@ -19,6 +21,9 @@ vision_service = VisionService()
 vector_db = VectorDBService()
 db_service = DBService()
 storage_service = StorageService()
+
+# Executor để chạy các tác vụ CPU-bound (DeepFace) song song, tránh block event loop
+executor = ThreadPoolExecutor(max_workers=4)
 
 COOLDOWN_SECONDS = 60
 WORK_START = time(8, 30)  # Updated work start time
@@ -41,6 +46,10 @@ def build_attendance_message(checkin_time: time, is_allowed: bool, default_msg: 
         return "Chấm công thành công (muộn)"
     return "Chấm công thành công"
 
+def _get_embedding_sync(path: str):
+    """Hàm wrapper để chạy trích xuất embedding trong ThreadPool"""
+    return vision_service.get_embedding(path)
+
 @router.post("/identify")
 async def identify(door_name: str, file: UploadFile = File(...)):
     temp_id = str(uuid.uuid4())
@@ -48,6 +57,7 @@ async def identify(door_name: str, file: UploadFile = File(...)):
     
     try:
         # 1. Ghi file ảnh tạm thời
+        loop = asyncio.get_event_loop()
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as buffer:
                 temp_path = buffer.name
@@ -57,7 +67,7 @@ async def identify(door_name: str, file: UploadFile = File(...)):
         
         # 2. Trích xuất khuôn mặt lấy Embedding
         try:
-            embedding = vision_service.get_embedding(temp_path)
+            embedding = await loop.run_in_executor(executor, _get_embedding_sync, temp_path)
         except FaceDetectionError as e:
             try:
                 db_service.log_attendance(None, door_name, "UNKNOWN", str(e))
@@ -323,42 +333,37 @@ async def identify_multi(door_name: str, files: List[UploadFile] = File(...)):
     best_emp_id = None
     best_temp_path = None
     
+    loop = asyncio.get_event_loop()
+    
     try:
-        # Xử lý từng ảnh và lấy embedding
+        # 1. Ghi file ảnh tạm thời cho tất cả các file trước
         for file in files:
-            temp_path = None
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+                temp_paths.append(buffer.name)
+
+        # 2. XỬ LÝ SONG SONG: Trích xuất embedding cho toàn bộ ảnh cùng lúc
+        tasks = [loop.run_in_executor(executor, _get_embedding_sync, path) for path in temp_paths]
+        embeddings = await asyncio.gather(*tasks)
+
+        # 3. Tìm kiếm kết quả tốt nhất
+        for i, embedding in enumerate(embeddings):
+            if not embedding:
+                continue
+            
             try:
-                # Ghi file ảnh tạm thời
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as buffer:
-                    temp_path = buffer.name
-                    shutil.copyfileobj(file.file, buffer)
-                temp_paths.append(temp_path)
+                results = vector_db.search(embedding, collection_name=settings.COLLECTION_NAME)
+                if results and results[0].score > best_score:
+                    best_score = results[0].score
+                    best_result = results[0]
+                    best_emp_id = int(results[0].id)
+                    best_temp_path = temp_paths[i]
                 
-                # Trích xuất embedding
-                try:
-                    embedding = vision_service.get_embedding(temp_path)
-                except Exception as e:
-                    print(f"Cảnh báo: Không thể trích xuất embedding từ ảnh - {str(e)}")
-                    continue
-                
-                if not embedding:
-                    print(f"Cảnh báo: Embedding rỗng từ ảnh")
-                    continue
-                
-                # Tìm kiếm trong Vector DB
-                try:
-                    results = vector_db.search(embedding, collection_name=settings.COLLECTION_NAME)
-                    if results and results[0].score > best_score:
-                        best_score = results[0].score
-                        best_result = results[0]
-                        best_emp_id = int(results[0].id)
-                        best_temp_path = temp_path
-                except Exception as e:
-                    print(f"Cảnh báo: Lỗi tìm kiếm Vector DB - {str(e)}")
-                    continue
-                    
+                # TỐI ƯU: Nếu tìm thấy một ảnh có độ tin cậy cực cao (>0.8), dừng xử lý các ảnh còn lại
+                if best_score > 0.8:
+                    break
             except Exception as e:
-                print(f"Cảnh báo: Lỗi xử lý ảnh - {str(e)}")
+                print(f"Cảnh báo: Lỗi tìm kiếm Vector DB - {str(e)}")
                 continue
 
         # Kiểm tra kết quả tốt nhất

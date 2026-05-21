@@ -1,5 +1,6 @@
 ﻿import {
   BarChart3,
+  Activity,
   Building2,
   Camera,
   CheckCircle2,
@@ -48,7 +49,8 @@ type PageId =
   | "permissions"
   | "history"
   | "reports"
-  | "admin";
+  | "admin"
+  | "monitoring";
 
 type Notice = {
   type: "success" | "error" | "info";
@@ -106,6 +108,7 @@ const navItems: Array<{
   { id: "history", label: "Lịch sử", icon: History },
   { id: "reports", label: "Báo cáo", icon: BarChart3 },
   { id: "admin", label: "Công cụ quản trị", icon: SlidersHorizontal },
+  { id: "monitoring", label: "Giám sát hệ thống", icon: Activity },
 ];
 
 const rolePages: Record<UserRole, PageId[]> = {
@@ -708,6 +711,31 @@ function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
   );
 }
 
+function MonitoringPage() {
+  // Thay URL này bằng link Dashboard Grafana của bạn
+  const GRAFANA_URL = import.meta.env.VITE_GRAFANA_URL || 
+    "http://localhost:3000/public-dashboards/02cfa22c5984442da6652f2237d2c79c";
+
+  return (
+    <section className="panel full monitoring-panel" style={{ height: "calc(100vh - 120px)", padding: "0", overflow: "hidden" }}>
+      <div className="section-heading" style={{ padding: "20px" }}>
+        <div>
+          <h2>Hệ thống giám sát</h2>
+          <p>Dữ liệu tài nguyên thời gian thực từ Prometheus & Grafana.</p>
+        </div>
+      </div>
+      <iframe
+        src={GRAFANA_URL}
+        width="100%"
+        height="100%"
+        frameBorder="0"
+        title="Grafana Dashboard"
+        style={{ borderRadius: "0 0 12px 12px" }}
+      />
+    </section>
+  );
+}
+
 function App() {
   const [activePage, setActivePage] = useState<PageId>("dashboard");
   const [session, setSession] = useState<AppSession | null>(() => readStoredSession());
@@ -917,6 +945,7 @@ function App() {
                 onNotice={setNotice}
               />
             )}
+            {activePage === "monitoring" && <MonitoringPage />}
             {activePage === "history" && (
               <HistoryPage history={history} employees={employees} doors={doors} session={session} />
             )}
@@ -950,14 +979,14 @@ function DashboardPage({
 
   return (
     <div className="page-grid">
-      <section className="metrics-grid">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px", marginBottom: "25px" }}>
         <Metric icon={Users} label="Nhân viên" value={stats.employees} sub={`${activeEmployees} đang hoạt động`} />
-        <Metric icon={Building2} label="Phòng ban" value={stats.departments} sub="Quyền có thể kế thừa" />
+        <Metric icon={Building2} label="Phòng ban" value={stats.departments} sub="Quyền kế thừa" />
         <Metric icon={DoorOpen} label="Cửa/Khu vực" value={stats.doors} sub="Điểm kiểm soát" />
-        <Metric icon={History} label="Lượt hôm nay" value={stats.today_logs} sub="Ghi nhận vào log" />
-      </section>
+        <Metric icon={History} label="Lượt hôm nay" value={stats.today_logs} sub="Ghi nhận mới" />
+      </div>
 
-      <section className="panel wide">
+      <section className="panel wide" style={{ border: "1px solid #edf2f7", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)" }}>
         <div className="section-heading">
           <div>
             <h2>Tình trạng nhận diện</h2>
