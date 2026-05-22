@@ -95,7 +95,6 @@ database/
       ```http
       Frontend API: https://faceaccess.vercel.app
       Backend API Docs: http://localhost:8000/docs
-      Public API (Ngrok): https://graffiti-fit-error.ngrok-free.dev/docs
       MinIO Console: http://localhost:9001
       Grafana: http://localhost:3000
       Prometheus: http://localhost:9090
