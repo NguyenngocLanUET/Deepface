@@ -875,11 +875,11 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
+    <div className="app-shell" style={{ backgroundColor: "#020408", color: "#e6edf3", minHeight: "100vh" }}>
+      <aside className="sidebar" style={{ background: "#05070a", borderRight: "1px solid #30363d" }}>
         <div className="brand">
-          <div className="brand-mark">
-            <ShieldCheck size={24} />
+          <div className="brand-mark" style={{ background: "linear-gradient(135deg, #2f81f7, #a371f7)", boxShadow: "0 0 15px rgba(47, 129, 247, 0.4)" }}>
+            <ShieldCheck size={24} color="white" />
           </div>
           <div>
             <strong>FaceAccess AI</strong>
@@ -894,6 +894,7 @@ function App() {
               <button
                 key={item.id}
                 className={activePage === item.id ? "nav-item active" : "nav-item"}
+                style={activePage === item.id ? { background: "rgba(47, 129, 247, 0.15)", color: "#58a6ff", borderLeft: "3px solid #58a6ff" } : { color: "#8b949e" }}
                 onClick={() => setActivePage(item.id)}
                 type="button"
               >
@@ -905,14 +906,14 @@ function App() {
         </nav>
       </aside>
 
-      <main className="workspace">
-        <header className="topbar">
+      <main className="workspace" style={{ background: "radial-gradient(circle at top right, #0d1117, #020408)" }}>
+        <header className="topbar" style={{ background: "rgba(13, 17, 23, 0.8)", borderBottom: "1px solid #30363d", backdropFilter: "blur(12px)" }}>
           <div>
-            <h1>{pageTitle}</h1>
+            <h1 style={{ color: "#f0f6fc", letterSpacing: "-0.5px" }}>{pageTitle}</h1>
           </div>
           <div className="topbar-actions">
-            <span className="pill user-pill">
-              <UserRound size={16} />
+            <span className="pill user-pill" style={{ background: "#161b22", border: "1px solid #30363d", color: "#c9d1d9" }}>
+              <UserRound size={16} color="#58a6ff" />
               {session.displayName}
             </span>
             <button className="icon-button" onClick={() => void refreshCoreData()} type="button">
@@ -1019,18 +1020,18 @@ function DashboardPage({
 
   return (
     <div className="page-grid" style={{ width: "100%", display: "flex", flexDirection: "column", gap: "24px" }}>
-      <div style={{ gridColumn: "1 / -1", marginBottom: "20px", display: "flex", alignItems: "center", gap: "12px", background: "white", padding: "10px 15px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+      <div style={{ gridColumn: "1 / -1", marginBottom: "20px", display: "flex", alignItems: "center", gap: "12px", background: "#0d1117", padding: "10px 15px", borderRadius: "8px", border: "1px solid #30363d" }}>
         <SlidersHorizontal size={16} color="#64748b" />
-        <span style={{ fontSize: "13px", fontWeight: 700, color: "#475569" }}>Kích thước thẻ:</span>
+        <span style={{ fontSize: "13px", fontWeight: 700, color: "#8b949e" }}>Kích thước thẻ:</span>
         <input 
           type="range" 
           min="200" 
           max="450" 
           value={cardWidth} 
           onChange={(e) => setCardWidth(Number(e.target.value))} 
-          style={{ cursor: "pointer", accentColor: "#339af0" }}
+          style={{ cursor: "pointer", accentColor: "#2f81f7" }}
         />
-        <span style={{ fontSize: "12px", color: "#64748b", minWidth: "40px" }}>{cardWidth}px</span>
+        <span style={{ fontSize: "12px", color: "#8b949e", minWidth: "40px" }}>{cardWidth}px</span>
       </div>
 
       <div className="metrics-row" style={{ 
@@ -1042,17 +1043,17 @@ function DashboardPage({
         paddingBottom: "10px",
         width: "100%"
       }}>
-        <Metric icon={Users} label="Nhân viên" value={stats.employees} sub={`${activeEmployees} đang hoạt động`} color="#339af0" width={cardWidth} />
-        <Metric icon={Building2} label="Phòng ban" value={stats.departments} sub="Quyền kế thừa" color="#51cf66" width={cardWidth} />
-        <Metric icon={DoorOpen} label="Cửa/Khu vực" value={stats.doors} sub="Điểm kiểm soát" color="#fcc419" width={cardWidth} />
-        <Metric icon={History} label="Lượt hôm nay" value={stats.today_logs} sub="Ghi nhận mới" color="#ff922b" width={cardWidth} />
+        <Metric icon={Users} label="Nhân viên" value={stats.employees} sub={`${activeEmployees} đang hoạt động`} color="#58a6ff" width={cardWidth} />
+        <Metric icon={Building2} label="Phòng ban" value={stats.departments} sub="Quyền kế thừa" color="#3fb1ff" width={cardWidth} />
+        <Metric icon={DoorOpen} label="Cửa/Khu vực" value={stats.doors} sub="Điểm kiểm soát" color="#a371f7" width={cardWidth} />
+        <Metric icon={History} label="Lượt hôm nay" value={stats.today_logs} sub="Ghi nhận mới" color="#f778ba" width={cardWidth} />
       </div>
 
-      <section className="panel wide" style={{ border: "1px solid #edf2f7", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)", width: "100%" }}>
+      <section className="panel wide" style={{ background: "#0d1117", border: "1px solid #30363d", boxShadow: "0 8px 24px rgba(0,0,0,0.2)", width: "100%" }}>
         <div className="section-heading">
           <div>
-            <h2>Tình trạng nhận diện</h2>
-            <p>Tỷ lệ thành công và từ chối trong tập log gần nhất.</p>
+            <h2 style={{ color: "#f0f6fc" }}>Tình trạng nhận diện</h2>
+            <p style={{ color: "#8b949e" }}>Tỷ lệ thành công và từ chối trong tập log gần nhất.</p>
           </div>
           <Database size={22} />
         </div>
@@ -1075,21 +1076,21 @@ function DashboardPage({
         </div>
       </section>
 
-      <section className="panel" style={{ width: "100%" }}>
+      <section className="panel" style={{ background: "#0d1117", border: "1px solid #30363d", width: "100%" }}>
         <div className="section-heading">
           <div>
-            <h2>Lịch sử ra vào gần đây</h2>
+            <h2 style={{ color: "#f0f6fc" }}>Lịch sử ra vào gần đây</h2>
           </div>
         </div>
         <div className="activity-list">
           {history.slice(0, 5).map((item) => (
-            <div className="activity-row" key={item.id}>
+            <div className="activity-row" key={item.id} style={{ borderBottom: "1px solid #21262d" }}>
               <StatusBadge status={item.status} />
               <div>
-                <strong>Nhân viên #{item.employee_id ?? "không rõ"}</strong>
-                <span>{item.reason ?? "Không có lý do"}</span>
+                <strong style={{ color: "#c9d1d9" }}>Nhân viên #{item.employee_id ?? "không rõ"}</strong>
+                <span style={{ color: "#8b949e" }}>{item.reason ?? "Không có lý do"}</span>
               </div>
-              <time>{formatDateTime(item.checkin_at)}</time>
+              <time style={{ color: "#7d8590" }}>{formatDateTime(item.checkin_at)}</time>
             </div>
           ))}
         </div>
@@ -1114,14 +1115,14 @@ function Metric({
   width?: number;
 }) {
   return (
-    <article className="metric-card" style={{ flex: `0 0 ${width}px`, minWidth: `${width}px`, borderTop: color ? `4px solid ${color}` : "none" }}>
-      <div className="metric-icon" style={{ backgroundColor: color ? `${color}15` : undefined, color: color }}>
+    <article className="metric-card" style={{ flex: `0 0 ${width}px`, minWidth: `${width}px`, background: "#0d1117", border: "1px solid #30363d", borderTop: color ? `3px solid ${color}` : "none" }}>
+      <div className="metric-icon" style={{ backgroundColor: color ? `${color}20` : undefined, color: color }}>
         <Icon size={24} />
       </div>
       <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-        <small>{sub}</small>
+        <span style={{ color: "#8b949e" }}>{label}</span>
+        <strong style={{ color: "#f0f6fc" }}>{value}</strong>
+        <small style={{ color: "#7d8590" }}>{sub}</small>
       </div>
     </article>
   );
@@ -1614,12 +1615,12 @@ function EmployeesPage({
   };
 
   return (
-    <section className="panel full" style={{ width: "100%", maxWidth: "100%" }}>
+    <section className="panel full" style={{ width: "100%", maxWidth: "100%", background: "#0d1117", border: "1px solid #30363d" }}>
       <div className="section-heading">
         <div>
-          <h2>Quản lý nhân viên</h2>
+          <h2 style={{ color: "#f0f6fc" }}>Quản lý nhân viên</h2>
         </div>
-        <form className="search-box" onSubmit={(event) => void search(event)}>
+        <form className="search-box" onSubmit={(event) => void search(event)} style={{ background: "#161b22", border: "1px solid #30363d" }}>
           <Search size={17} />
           <input
             placeholder="Tìm tên hoặc mã NV"
@@ -1651,7 +1652,7 @@ function EmployeesPage({
             else if (e.target.value === "active") setStatusFilter(true);
             else setStatusFilter(false);
           }}
-          style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ccc" }}
+          style={{ padding: "8px", borderRadius: "4px", border: "1px solid #30363d", background: "#0d1117", color: "#c9d1d9" }}
         >
           <option value="">-- Tất cả trạng thái --</option>
           <option value="active">Đang hoạt động</option>
