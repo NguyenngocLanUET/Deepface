@@ -29,6 +29,7 @@ export function useTinyFaceRegister() {
   const [cameraOn, setCameraOn] = useState(false);
   const faceApiRef = useRef<FaceApiGlobal | null>(null);
   const modelLoadedRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -41,7 +42,13 @@ export function useTinyFaceRegister() {
     setStatus(modelLoadedRef.current ? "ready" : "idle");
   }, []);
 
-  useEffect(() => stop, [stop]);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      stop();
+    };
+  }, [stop]);
 
   const ensureFaceApi = useCallback(async () => {
     if (window.faceapi && modelLoadedRef.current) {
@@ -97,6 +104,13 @@ export function useTinyFaceRegister() {
     try {
       await ensureFaceApi();
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      
+      // Kiểm tra nếu component đã unmount trong lúc đợi getUserMedia
+      if (!isMountedRef.current) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
+
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;

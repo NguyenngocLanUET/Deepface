@@ -1156,11 +1156,26 @@ function KioskPage({
   }, [doors, selectedDoor]);
 
   useEffect(() => {
-    void camera.start().catch((error) => {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể bật camera ra vào.") });
-    });
+    let isMounted = true;
+
+    const initCamera = async () => {
+      try {
+        await camera.start();
+        // Nếu người dùng đã chuyển trang trong lúc đang đợi bật camera, thì tắt nó ngay lập tức
+        if (!isMounted) {
+          camera.stop();
+        }
+      } catch (error) {
+        if (isMounted) {
+          onNotice({ type: "error", text: errorMessage(error, "Không thể bật camera ra vào.") });
+        }
+      }
+    };
+
+    void initCamera();
 
     return () => {
+      isMounted = false;
       camera.stop();
     };
   }, [camera.start, camera.stop, onNotice]);
