@@ -926,7 +926,15 @@ function App() {
 
         <NoticeBar notice={notice} />
 
-        <div className="main-content-wrapper"> {/* New wrapper for main content */}
+        <div 
+          className="main-content-wrapper" 
+          style={{ 
+            width: "100%", 
+            maxWidth: "100%", 
+            padding: "20px", 
+            boxSizing: "border-box" 
+          }}
+        > {/* New wrapper for main content */}
           {loading ? (
             <div className="loading-panel">Đang tải dữ liệu hệ thống...</div>
           ) : (
@@ -1010,7 +1018,7 @@ function DashboardPage({
   const [cardWidth, setCardWidth] = useState(260);
 
   return (
-    <div className="page-grid">
+    <div className="page-grid" style={{ width: "100%", display: "flex", flexDirection: "column", gap: "24px" }}>
       <div style={{ gridColumn: "1 / -1", marginBottom: "20px", display: "flex", alignItems: "center", gap: "12px", background: "white", padding: "10px 15px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
         <SlidersHorizontal size={16} color="#64748b" />
         <span style={{ fontSize: "13px", fontWeight: 700, color: "#475569" }}>Kích thước thẻ:</span>
@@ -1030,9 +1038,9 @@ function DashboardPage({
         display: "flex", 
         gap: "20px", 
         marginBottom: "35px", 
-        flexWrap: "nowrap", 
-        overflowX: "auto",
-        paddingBottom: "10px"
+        flexWrap: "wrap", // Cho phép các thẻ nhảy dòng để lấp đầy không gian ngang
+        paddingBottom: "10px",
+        width: "100%"
       }}>
         <Metric icon={Users} label="Nhân viên" value={stats.employees} sub={`${activeEmployees} đang hoạt động`} color="#339af0" width={cardWidth} />
         <Metric icon={Building2} label="Phòng ban" value={stats.departments} sub="Quyền kế thừa" color="#51cf66" width={cardWidth} />
@@ -1040,7 +1048,7 @@ function DashboardPage({
         <Metric icon={History} label="Lượt hôm nay" value={stats.today_logs} sub="Ghi nhận mới" color="#ff922b" width={cardWidth} />
       </div>
 
-      <section className="panel wide" style={{ border: "1px solid #edf2f7", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)" }}>
+      <section className="panel wide" style={{ border: "1px solid #edf2f7", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)", width: "100%" }}>
         <div className="section-heading">
           <div>
             <h2>Tình trạng nhận diện</h2>
@@ -1067,7 +1075,7 @@ function DashboardPage({
         </div>
       </section>
 
-      <section className="panel">
+      <section className="panel" style={{ width: "100%" }}>
         <div className="section-heading">
           <div>
             <h2>Lịch sử ra vào gần đây</h2>
@@ -1606,7 +1614,7 @@ function EmployeesPage({
   };
 
   return (
-    <section className="panel full">
+    <section className="panel full" style={{ width: "100%", maxWidth: "100%" }}>
       <div className="section-heading">
         <div>
           <h2>Quản lý nhân viên</h2>
@@ -1960,7 +1968,7 @@ function RegisterPage({
   };
 
   return (
-    <section className="panel form-panel">
+    <section className="panel form-panel" style={{ width: "100%", maxWidth: "100%" }}>
       <div className="section-heading">
         <div>
           <h2>Đăng ký khuôn mặt</h2>
@@ -2103,7 +2111,7 @@ function DoorsPage({
   };
 
   return (
-    <div className="two-column">
+    <div className="two-column" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: "24px", width: "100%" }}>
       {/* Section for listing existing doors (moved to left) */}
       <section className="panel">
         <div className="section-heading">
@@ -2284,7 +2292,7 @@ function DepartmentsPage({
   };
 
   return (
-    <div className="two-column">
+    <div className="two-column" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: "24px", width: "100%" }}>
       {/* Section for listing existing departments (moved to left) */}
       <section className="panel">
         <div className="section-heading">
@@ -2441,7 +2449,7 @@ function PermissionsPage({
   };
 
   return (
-    <section className="panel form-panel">
+    <section className="panel form-panel" style={{ width: "100%", maxWidth: "100%" }}>
       <div className="section-heading">
         <div>
           <h2>Phân quyền ra vào</h2>
@@ -2608,7 +2616,7 @@ function HistoryPage({
   }, [selectedLog?.id, selectedLog?.image_snapshot]);
 
   return (
-    <section className="panel full">
+    <section className="panel full" style={{ width: "100%", maxWidth: "100%" }}>
       <div className="section-heading">
         <div>
           <h2>{isSelfView ? "Lịch sử chấm công của tôi" : "Lịch sử ra vào"}</h2>
@@ -2839,7 +2847,7 @@ function ReportsPage({
   };
 
   return (
-    <section className="panel full">
+    <section className="panel full" style={{ width: "100%", maxWidth: "100%" }}>
       <div className="section-heading">
         <div>
           <h2>Báo cáo chấm công</h2>
@@ -2953,7 +2961,7 @@ function AdminToolsPage({ onNotice }: { onNotice: (notice: Notice) => void }) {
   };
 
   return (
-    <div className="admin-grid">
+    <div className="admin-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: "24px", width: "100%" }}>
       <section className="panel">
         <div className="section-heading">
           <div>
