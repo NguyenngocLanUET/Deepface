@@ -2,23 +2,10 @@
 
 This project uses GitHub Actions for CI/CD.
 
-## GitHub Actions Workflows
+## GitHub Actions (Quality Control Only)
 
 ### 1. **CI Pipeline** (`.github/workflows/ci.yml`)
-
-Runs on every push and pull request:
-
-- **Lint Backend**: Checks code style with Black and isort
-- **Test Backend**: Runs pytest with coverage
-- **Build Backend**: Creates Docker image
-- **Security Scan**: Trivy vulnerability scanning
-
-### 2. **Deploy** (`.github/workflows/deploy.yml`)
-
-Deploys to staging/production:
-
-- **Staging**: On develop branch
-- **Production**: On main branch with tags
+Giữ vai trò kiểm tra lỗi code (Linting) và chạy các unit test khi bạn đẩy code lên GitHub để đảm bảo code không bị lỗi logic. Không tham gia vào quá trình cài đặt (Deployment).
 
 ### 3. **Code Quality** (`.github/workflows/code-quality.yml`)
 
@@ -28,27 +15,13 @@ Analyzes code quality:
 - Bandit security checks
 - SonarCloud integration
 
-## Secrets Configuration
+## Deployment Strategy
 
-Add these secrets in GitHub repository settings (**Settings > Secrets and variables > Actions**):
-**Lưu ý:** `DEPLOY_KEY` và `DEPLOY_HOST` chỉ dùng nếu bạn deploy Backend/Docker lên VPS riêng. Vercel không cần các biến này.
+Dự án này sử dụng mô hình **Hybrid Cloud**:
 
-```
-DEPLOY_KEY              # SSH private key for deployment
-DEPLOY_HOST_STAGING     # Staging server hostname
-DEPLOY_HOST_PROD        # Production server hostname
-DEPLOY_USER            # Deployment user
-SONAR_TOKEN            # SonarCloud token
-SLACK_WEBHOOK          # Slack notification webhook
-NGROK_AUTHTOKEN         # Token Ngrok (Lấy từ dashboard.ngrok.com)
-NGROK_DOMAIN            # Static Domain (vd: your-app.ngrok-free.dev)
-DATABASE_URL            # Định dạng: postgresql://user:pass@db:5432/attendance
-POSTGRES_USER           # Username cho Postgres
-POSTGRES_PASSWORD       # Password cho Postgres
-MINIO_ROOT_USER         # Username cho MinIO
-MINIO_ROOT_PASSWORD     # Password cho MinIO
-GF_SECURITY_ADMIN_PASSWORD # Mật khẩu quản trị Grafana
-```
+1. **Backend (Local)**: Chạy trên máy tính cá nhân của bạn thông qua `docker-compose`. Kết nối ra ngoài bằng Ngrok.
+2. **Frontend (Cloud)**: Deploy tự động lên Vercel. Vercel kết nối trực tiếp với GitHub nên không cần cấu hình Secrets phức tạp trên GitHub Actions.
+3. **Bảo mật**: Chỉ cần cấu hình biến môi trường (`VITE_API_BASE_URL`) trên Dashboard của Vercel.
 
 ## Local Development
 
