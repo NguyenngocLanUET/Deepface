@@ -1,5 +1,4 @@
-﻿import { motion, AnimatePresence } from "framer-motion";
-import {
+﻿import {
   BarChart3,
   Activity,
   Building2,
@@ -26,7 +25,6 @@ import {
   XCircle,
 } from "lucide-react";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast, Toaster } from "react-hot-toast";
 import { api } from "./api/client";
 import { useCameraGate } from "./hooks/useCameraGate";
 import { useTinyFaceRegister } from "./hooks/useTinyFaceRegister";
@@ -819,31 +817,6 @@ function App() {
     }
   }, [session]);
 
-  // Real-time notification via WebSocket (Moved below refreshCoreData to fix ReferenceError)
-  useEffect(() => {
-    const wsUrl = import.meta.env.VITE_API_BASE_URL.replace("http", "ws") + "/attendance/ws/monitoring";
-    const socket = new WebSocket(wsUrl);
-
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "ATTENDANCE_EVENT") {
-        if (data.status === "SUCCESS") {
-          toast.success(`${data.employee_name} vừa vào tại ${data.door_name}`, {
-            icon: '🚪',
-            duration: 4000
-          });
-        } else {
-          toast.error(`Cảnh báo: ${data.reason} tại ${data.door_name}`, {
-            duration: 5000
-          });
-        }
-        void refreshCoreData(); // Auto refresh history
-      }
-    };
-
-    return () => socket.close();
-  }, [refreshCoreData]);
-
   useEffect(() => {
     if (session) {
       void refreshCoreData(true);
@@ -903,7 +876,6 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Toaster position="top-right" />
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">
@@ -966,14 +938,6 @@ function App() {
           {loading ? (
             <div className="loading-panel">Đang tải dữ liệu hệ thống...</div>
           ) : (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activePage}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-              >
             <>
               {activePage === "dashboard" && (
                 <DashboardPage stats={stats} history={history} employees={employees} />
@@ -1032,8 +996,6 @@ function App() {
               )}
               {activePage === "admin" && <AdminToolsPage onNotice={setNotice} />}
             </>
-              </motion.div>
-            </AnimatePresence>
           )}
         </div>
       </main>
@@ -3074,4 +3036,4 @@ function AdminToolsPage({ onNotice }: { onNotice: (notice: Notice) => void }) {
   );
 }
 
-export default App; 
+export default App;
