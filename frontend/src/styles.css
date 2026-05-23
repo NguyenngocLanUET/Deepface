@@ -1659,10 +1659,6 @@ body {
   border-color: var(--success-accent);
 }
 
-.camera-frame.late {
-  border-color: var(--warning-accent);
-}
-
 .camera-frame.denied {
   border-color: var(--danger-accent);
 }
@@ -1738,10 +1734,6 @@ body {
 
 .camera-result-overlay.allowed {
   border-color: rgb(34 197 94 / 45%);
-}
-
-.camera-result-overlay.late {
-  border-color: rgb(245 158 11 / 45%);
 }
 
 .camera-result-overlay.denied {
