@@ -31,6 +31,7 @@ Analyzes code quality:
 ## Secrets Configuration
 
 Add these secrets in GitHub repository settings (**Settings > Secrets and variables > Actions**):
+**Lưu ý:** `DEPLOY_KEY` và `DEPLOY_HOST` chỉ dùng nếu bạn deploy Backend/Docker lên VPS riêng. Vercel không cần các biến này.
 
 ```
 DEPLOY_KEY              # SSH private key for deployment
@@ -39,13 +40,14 @@ DEPLOY_HOST_PROD        # Production server hostname
 DEPLOY_USER            # Deployment user
 SONAR_TOKEN            # SonarCloud token
 SLACK_WEBHOOK          # Slack notification webhook
-NGROK_AUTHTOKEN         # Ngrok Auth Token từ dashboard.ngrok.com
-NGROK_DOMAIN            # Domain cố định (ví dụ: your-app.ngrok-free.dev)
-DATABASE_URL            # postgresql://admin:123@db:5432/attendance
-POSTGRES_USER           # admin
-POSTGRES_PASSWORD       # 123
-MINIO_ROOT_USER         # admin
-MINIO_ROOT_PASSWORD     # password123
+NGROK_AUTHTOKEN         # Token Ngrok (Lấy từ dashboard.ngrok.com)
+NGROK_DOMAIN            # Static Domain (vd: your-app.ngrok-free.dev)
+DATABASE_URL            # Định dạng: postgresql://user:pass@db:5432/attendance
+POSTGRES_USER           # Username cho Postgres
+POSTGRES_PASSWORD       # Password cho Postgres
+MINIO_ROOT_USER         # Username cho MinIO
+MINIO_ROOT_PASSWORD     # Password cho MinIO
+GF_SECURITY_ADMIN_PASSWORD # Mật khẩu quản trị Grafana
 ```
 
 ## Local Development

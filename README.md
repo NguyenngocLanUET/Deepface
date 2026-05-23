@@ -46,8 +46,8 @@
 ## <span style="color: #059669;">4. Tài khoản mặc định</span>
 ```yaml
 Admin:
-  username: admin
-  password: admin123
+  username: admin (Thiết lập trong POSTGRES_USER)
+  password: admin123 (Thiết lập trong POSTGRES_PASSWORD)
 
 User:
   username: user

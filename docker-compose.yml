@@ -101,7 +101,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
       - GF_PATHS_PLUGINS=/var/lib/grafana/plugins
       - GF_SECURITY_ALLOW_EMBEDDING=true # Đảm bảo Grafana cài plugin vào volume
     depends_on:
