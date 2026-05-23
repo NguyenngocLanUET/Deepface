@@ -43,7 +43,8 @@
 - Hệ điều hành: Đã được thử nghiệm trên Windows.
 - Network: Cần có kết nối Internet trong lần đầu tiên chạy.
 
-## <span style="color: #059669;">4. Tài khoản mặc định</span>
+## <span style="color: #059669;">4. Tài khoản </span>
+### <span style="color: #D97706;">4.1. Tài khoản mặc định </span> 
 ```yaml
 Admin:
   username: admin (Thiết lập trong POSTGRES_USER)
@@ -54,7 +55,12 @@ User:
   password: user123
 ```
 *Các giá trị này nằm trong `.env` và có thể đổi trước khi chạy.*
-
+### <span style="color: #D97706;">4.2. Tài khoản cho nhân viên ( hoạt động sau khi đăng ký khuôn mặt thành công ) </span> 
+```yaml
+Nhân viên:
+  username: <điền mã nhân viên>
+  passwword: user123
+```
 ## <span style="color: #059669;">5. Model AI và Dataset</span>
 
 ### <span style="color: #D97706;">5.1. Model AI</span> 
