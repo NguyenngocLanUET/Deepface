@@ -195,6 +195,7 @@ async def identify(door_name: str, file: UploadFile = File(...)):
 
         # 5. XỬ LÝ TRƯỜNG HỢP: KHỚP VỚI NHÂN VIÊN
         emp_id = int(results[0].id)
+        score = results[0].score
         
         # Lấy thông tin nhân viên từ Database
         try:
@@ -313,6 +314,7 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             "status": status,
             "employee_name": user_info["full_name"] if status == "SUCCESS" else "Người lạ",
             "door_name": door_name,
+            "score": float(score) if 'score' in locals() else 0,
             "timestamp": datetime.now(VN_TZ).isoformat(),
             "reason": attendance_message
         })
