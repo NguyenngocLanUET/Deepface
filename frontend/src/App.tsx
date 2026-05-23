@@ -779,6 +779,7 @@ function App() {
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // 1. Move refreshCoreData up to avoid "ReferenceError" in CI/CD
   const refreshCoreData = useCallback(async (showLoading = false) => {
     if (!session) return;
     if (showLoading) setLoading(true);
@@ -819,9 +820,9 @@ function App() {
     }
   }, [session]);
 
-  // Real-time notification via WebSocket (Moved below refreshCoreData to fix ReferenceError)
+  // 2. Real-time notification via WebSocket
   useEffect(() => {
-    const wsUrl = import.meta.env.VITE_API_BASE_URL.replace("http", "ws") + "/attendance/ws/monitoring";
+    const wsUrl = import.meta.env.VITE_API_BASE_URL.replace("http", "ws").replace("/api/v1", "") + "/attendance/ws/monitoring";
     const socket = new WebSocket(wsUrl);
 
     socket.onmessage = (event) => {
@@ -837,7 +838,7 @@ function App() {
             duration: 5000
           });
         }
-        void refreshCoreData(); // Auto refresh history
+        void refreshCoreData(); 
       }
     };
 
@@ -903,7 +904,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Toaster position="top-right" />
+      <Toaster position="top-right" reverseOrder={false} />
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">
@@ -3074,4 +3075,4 @@ function AdminToolsPage({ onNotice }: { onNotice: (notice: Notice) => void }) {
   );
 }
 
-export default App; 
+export default App;
