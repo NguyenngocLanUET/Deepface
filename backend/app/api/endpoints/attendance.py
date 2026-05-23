@@ -177,17 +177,6 @@ async def identify(door_name: str, file: UploadFile = File(...)):
                 except Exception as e:
                     print(f"Lỗi log attendance: {str(e)}")
 
-            # Broadcast ngay cả khi là người lạ để dashboard cập nhật
-            await manager.broadcast({
-                "type": "ATTENDANCE_EVENT",
-                "status": "DENIED",
-                "employee_name": "Người lạ",
-                "door_name": door_name,
-                "score": float(results[0].score) if results else 0,
-                "timestamp": datetime.now(VN_TZ).isoformat(),
-                "reason": "Người lạ"
-            })
-
             return {
                 "match": False, 
                 "message": "Người lạ", 
@@ -206,7 +195,6 @@ async def identify(door_name: str, file: UploadFile = File(...)):
 
         # 5. XỬ LÝ TRƯỜNG HỢP: KHỚP VỚI NHÂN VIÊN
         emp_id = int(results[0].id)
-        score = results[0].score
         
         # Lấy thông tin nhân viên từ Database
         try:
@@ -281,17 +269,6 @@ async def identify(door_name: str, file: UploadFile = File(...)):
                 db_service.log_attendance(emp_id, door_name, "DENIED", "Tài khoản bị khóa", snapshot_name)
             except Exception as e:
                 print(f"Lỗi log attendance: {str(e)}")
-                
-            await manager.broadcast({
-                "type": "ATTENDANCE_EVENT",
-                "status": "DENIED",
-                "employee_name": user_info["full_name"],
-                "door_name": door_name,
-                "score": float(score),
-                "timestamp": datetime.now(VN_TZ).isoformat(),
-                "reason": "Tài khoản bị khóa"
-            })
-
             return {"match": False, "message": "Tài khoản bị khóa", "open_door": False}
 
         # 8. KIỂM TRA QUYỀN TRUY CẬP CỦA NHÂN VIÊN (Thời gian & Khu vực)
@@ -330,13 +307,12 @@ async def identify(door_name: str, file: UploadFile = File(...)):
         except Exception as e:
             print(f"❌ Lỗi ghi log attendance: {str(e)}")
 
-        # 10.5 BROADCAST REAL-TIME (Casting score to float for JSON compatibility)
+        # 10.5 BROADCAST REAL-TIME (Cải tiến mới)
         await manager.broadcast({
             "type": "ATTENDANCE_EVENT",
             "status": status,
-            "employee_name": user_info["full_name"],
+            "employee_name": user_info["full_name"] if status == "SUCCESS" else "Người lạ",
             "door_name": door_name,
-            "score": float(score) if score is not None else 0.0,
             "timestamp": datetime.now(VN_TZ).isoformat(),
             "reason": attendance_message
         })
@@ -467,17 +443,6 @@ async def identify_multi(door_name: str, files: List[UploadFile] = File(...)):
                 except Exception as e:
                     print(f"Lỗi log attendance: {str(e)}")
 
-            # Broadcast người lạ trong Identify-multi
-            await manager.broadcast({
-                "type": "ATTENDANCE_EVENT",
-                "status": "DENIED",
-                "employee_name": "Người lạ",
-                "door_name": door_name,
-                "score": float(best_score),
-                "timestamp": datetime.now(VN_TZ).isoformat(),
-                "reason": "Người lạ (Phát hiện hàng loạt)"
-            })
-
             return {
                 "match": False, 
                 "message": "Người lạ", 
@@ -552,19 +517,6 @@ async def identify_multi(door_name: str, files: List[UploadFile] = File(...)):
         except Exception as e:
             print(f"Cảnh báo: Lỗi kiểm tra cooldown - {str(e)}")
 
-        # Kiểm tra tài khoản bị khóa trong Identify-multi
-        if not user_info.get("is_active", False):
-             await manager.broadcast({
-                "type": "ATTENDANCE_EVENT",
-                "status": "DENIED",
-                "employee_name": user_info["full_name"],
-                "door_name": door_name,
-                "score": float(best_score),
-                "timestamp": datetime.now(VN_TZ).isoformat(),
-                "reason": "Tài khoản bị khóa"
-            })
-             return {"match": False, "message": "Tài khoản bị khóa", "open_door": False}
-
         # Kiểm tra quyền truy cập
         try:
             is_allowed, msg = db_service.check_access_permission(emp_id, door_name)
@@ -602,17 +554,6 @@ async def identify_multi(door_name: str, files: List[UploadFile] = File(...)):
                 print(f"⚠️ Cảnh báo: Không thể lưu log chấm công.")
         except Exception as e:
             print(f"❌ Lỗi ghi log attendance: {str(e)}")
-
-        # Broadcast sự kiện SUCCESS/DENIED trong Identify-multi
-        await manager.broadcast({
-            "type": "ATTENDANCE_EVENT",
-            "status": status,
-            "employee_name": user_info["full_name"],
-            "door_name": door_name,
-            "score": float(best_score),
-            "timestamp": datetime.now(VN_TZ).isoformat(),
-            "reason": attendance_message
-        })
 
         # Dọn dẹp log rác
         if is_allowed:
