@@ -779,31 +779,6 @@ function App() {
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Real-time notification via WebSocket
-  useEffect(() => {
-    const wsUrl = import.meta.env.VITE_API_BASE_URL.replace("http", "ws") + "/attendance/ws/monitoring";
-    const socket = new WebSocket(wsUrl);
-
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "ATTENDANCE_EVENT") {
-        if (data.status === "SUCCESS") {
-          toast.success(`${data.employee_name} vừa vào tại ${data.door_name}`, {
-            icon: '🚪',
-            duration: 4000
-          });
-        } else {
-          toast.error(`Cảnh báo: ${data.reason} tại ${data.door_name}`, {
-            duration: 5000
-          });
-        }
-        void refreshCoreData(); // Auto refresh history
-      }
-    };
-
-    return () => socket.close();
-  }, [refreshCoreData]);
-
   const refreshCoreData = useCallback(async (showLoading = false) => {
     if (!session) return;
     if (showLoading) setLoading(true);
@@ -843,6 +818,31 @@ function App() {
       setLoading(false);
     }
   }, [session]);
+
+  // Real-time notification via WebSocket (Moved below refreshCoreData to fix ReferenceError)
+  useEffect(() => {
+    const wsUrl = import.meta.env.VITE_API_BASE_URL.replace("http", "ws") + "/attendance/ws/monitoring";
+    const socket = new WebSocket(wsUrl);
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "ATTENDANCE_EVENT") {
+        if (data.status === "SUCCESS") {
+          toast.success(`${data.employee_name} vừa vào tại ${data.door_name}`, {
+            icon: '🚪',
+            duration: 4000
+          });
+        } else {
+          toast.error(`Cảnh báo: ${data.reason} tại ${data.door_name}`, {
+            duration: 5000
+          });
+        }
+        void refreshCoreData(); // Auto refresh history
+      }
+    };
+
+    return () => socket.close();
+  }, [refreshCoreData]);
 
   useEffect(() => {
     if (session) {
