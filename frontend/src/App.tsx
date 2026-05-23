@@ -446,7 +446,7 @@ function detectorLabel(value: string) {
 function NoticeBar({ notice }: { notice: Notice | null }) {
   if (!notice) return null;
   return (
-    <div className={`notice ${notice.type}`}>{notice.text}</div>
+    <div className={`notice ${notice.type} animate-fade-in`}>{notice.text}</div>
   );
 }
 
@@ -1033,19 +1033,19 @@ function DashboardPage({
         <span style={{ fontSize: "12px", color: "#64748b", minWidth: "40px" }}>{cardWidth}px</span>
       </div>
 
-      <div className="metrics-row" style={{ 
+      <div className="metrics-grid" style={{ 
         gridColumn: "1 / -1", 
-        display: "flex", 
-        gap: "20px", 
+        display: "grid", 
+        gridTemplateColumns: `repeat(auto-fill, minmax(${cardWidth}px, 1fr))`,
+        gap: "24px", 
         marginBottom: "35px", 
-        flexWrap: "wrap", // Cho phép các thẻ nhảy dòng để lấp đầy không gian ngang
         paddingBottom: "10px",
         width: "100%"
       }}>
-        <Metric icon={Users} label="Nhân viên" value={stats.employees} sub={`${activeEmployees} đang hoạt động`} color="#339af0" width={cardWidth} />
-        <Metric icon={Building2} label="Phòng ban" value={stats.departments} sub="Quyền kế thừa" color="#51cf66" width={cardWidth} />
-        <Metric icon={DoorOpen} label="Cửa/Khu vực" value={stats.doors} sub="Điểm kiểm soát" color="#fcc419" width={cardWidth} />
-        <Metric icon={History} label="Lượt hôm nay" value={stats.today_logs} sub="Ghi nhận mới" color="#ff922b" width={cardWidth} />
+        <Metric icon={Users} label="Nhân viên" value={stats.employees} sub={`${activeEmployees} đang hoạt động`} color="#4f46e5" width={cardWidth} />
+        <Metric icon={Building2} label="Phòng ban" value={stats.departments} sub="Quyền kế thừa" color="#10b981" width={cardWidth} />
+        <Metric icon={DoorOpen} label="Cửa/Khu vực" value={stats.doors} sub="Điểm kiểm soát" color="#f59e0b" width={cardWidth} />
+        <Metric icon={History} label="Lượt hôm nay" value={stats.today_logs} sub="Ghi nhận mới" color="#ec4899" width={cardWidth} />
       </div>
 
       <section className="panel wide" style={{ border: "1px solid #edf2f7", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)", width: "100%" }}>
@@ -1114,14 +1114,14 @@ function Metric({
   width?: number;
 }) {
   return (
-    <article className="metric-card" style={{ flex: `0 0 ${width}px`, minWidth: `${width}px`, borderTop: color ? `4px solid ${color}` : "none" }}>
-      <div className="metric-icon" style={{ backgroundColor: color ? `${color}15` : undefined, color: color }}>
-        <Icon size={24} />
-      </div>
-      <div>
+    <article className="metric-card-new" style={{ minWidth: `${width}px`, borderLeft: color ? `6px solid ${color}` : "none" }}>
+      <div className="metric-content">
         <span>{label}</span>
-        <strong>{value}</strong>
+        <strong>{value.toLocaleString()}</strong>
         <small>{sub}</small>
+      </div>
+      <div className="metric-icon-box" style={{ backgroundColor: color ? `${color}10` : undefined, color: color }}>
+        <Icon size={24} />
       </div>
     </article>
   );
@@ -1351,7 +1351,7 @@ function KioskPage({
     "camera-frame",
     camera.canSubmit ? "ready" : "",
     submitting ? "sending" : "",
-    result?.open_door ? "allowed" : result ? "denied" : "",
+    (result as any)?.is_late ? "late" : (result?.open_door ? "allowed" : result ? "denied" : ""),
   ]
     .filter(Boolean)
     .join(" ");
@@ -1386,10 +1386,10 @@ function KioskPage({
           <strong>Hướng dẫn chấm công</strong>
           {!camera.faceBox ? (
             <>
-              <p>📍 Hãy nhìn thẳng vào camera</p>
-              <p>🔆 Đảm bảo đủ ánh sáng</p>
-              <p>📐 Giữ mặt trong khung xanh</p>
-              <p>⏱️ Đứng yên trong 5 giây để xác nhận</p>
+              <p className="guidance-step"><span>1</span> Hãy nhìn thẳng vào camera</p>
+              <p className="guidance-step"><span>2</span> Đảm bảo đủ ánh sáng</p>
+              <p className="guidance-step"><span>3</span> Giữ mặt trong khung xanh</p>
+              <p className="guidance-step"><span>4</span> Đứng yên để xác nhận</p>
             </>
           ) : (
             <>
@@ -1412,6 +1412,9 @@ function KioskPage({
               disablePictureInPicture
               disableRemotePlayback
             />
+            {camera.faceBox && (
+              <div className="scanning-line"></div>
+            )}
             <canvas ref={camera.canvasRef} hidden />
             {camera.faceBox && (
               <div className={camera.canSubmit ? "face-box ready" : "face-box"} style={faceBoxStyle}>
@@ -1420,9 +1423,9 @@ function KioskPage({
             )}
           </div>
           {result && (
-            <div className={result.open_door ? "camera-result-overlay allowed" : "camera-result-overlay denied"}>
-              {result.open_door ? <CheckCircle2 size={34} /> : <XCircle size={34} />}
-              <strong>{result.open_door ? "Mở cửa" : "Từ chối"}</strong>
+            <div className={(result as any).is_late ? "camera-result-overlay late" : result.open_door ? "camera-result-overlay allowed" : "camera-result-overlay denied"}>
+              {(result as any).is_late ? <Activity size={34} /> : result.open_door ? <CheckCircle2 size={34} /> : <XCircle size={34} />}
+              <strong>{(result as any).is_late ? "Đi muộn" : result.open_door ? "Mở cửa" : "Từ chối"}</strong>
               <span>{result.employee_name ?? "Không xác định"}</span>
               {result.employee_code && <small>Mã nhân viên: {result.employee_code}</small>}
               <p>{result.message}</p>

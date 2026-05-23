@@ -314,6 +314,9 @@ async def identify(door_name: str, file: UploadFile = File(...)):
         attendance_message = build_attendance_message(checkin_time, is_allowed, msg)
         status = "SUCCESS" if is_allowed else "DENIED"
 
+        grace_end = (datetime.combine(datetime.today(), WORK_START) + timedelta(minutes=GRACE_PERIOD)).time()
+        is_late = is_allowed and checkin_time > grace_end
+
         # 10. GHI NHẬN LỊCH SỬ VÀO DATABASE
         try:
             log_result = db_service.log_attendance(
@@ -366,7 +369,8 @@ async def identify(door_name: str, file: UploadFile = File(...)):
             "employee_name": user_info["full_name"],
             "employee_code": user_info["employee_code"],
             "open_door": is_allowed,
-            "message": attendance_message
+            "message": attendance_message,
+            "is_late": is_late
         }
         
     except HTTPException:
@@ -587,6 +591,9 @@ async def identify_multi(door_name: str, files: List[UploadFile] = File(...)):
         attendance_message = build_attendance_message(checkin_time, is_allowed, msg)
         status = "SUCCESS" if is_allowed else "DENIED"
 
+        grace_end = (datetime.combine(datetime.today(), WORK_START) + timedelta(minutes=GRACE_PERIOD)).time()
+        is_late = is_allowed and checkin_time > grace_end
+
         # Ghi nhận lịch sử
         try:
             log_result = db_service.log_attendance(
@@ -639,7 +646,8 @@ async def identify_multi(door_name: str, files: List[UploadFile] = File(...)):
             "open_door": is_allowed,
             "message": attendance_message,
             "score": best_score,
-            "images_processed": len(temp_paths)
+            "images_processed": len(temp_paths),
+            "is_late": is_late
         }
         
     except HTTPException:
