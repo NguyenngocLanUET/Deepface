@@ -30,7 +30,7 @@ Analyzes code quality:
 
 ## Secrets Configuration
 
-Add these secrets in GitHub repository settings:
+Add these secrets in GitHub repository settings (**Settings > Secrets and variables > Actions**):
 
 ```
 DEPLOY_KEY              # SSH private key for deployment
@@ -39,6 +39,8 @@ DEPLOY_HOST_PROD        # Production server hostname
 DEPLOY_USER            # Deployment user
 SONAR_TOKEN            # SonarCloud token
 SLACK_WEBHOOK          # Slack notification webhook
+NGROK_AUTHTOKEN         # Ngrok Auth Token từ dashboard.ngrok.com
+NGROK_DOMAIN            # Domain cố định (ví dụ: your-app.ngrok-free.dev)
 ```
 
 ## Local Development

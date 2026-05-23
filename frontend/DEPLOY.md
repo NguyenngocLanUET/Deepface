@@ -2,9 +2,10 @@
 
 Project nay la React + Vite, output la `dist`.
 
-Bien moi truong can set:
+**Lưu ý bảo mật:** Không bao giờ commit các file `.env` chứa token thật lên GitHub.
 
-- `VITE_API_BASE_URL=https://graffiti-fit-error.ngrok-free.dev/api/v1`
+Biến môi trường cần cấu hình trong bảng điều khiển (Dashboard) của nhà cung cấp hosting:
+- `VITE_API_BASE_URL`: URL của backend API.
 
 ## Vercel
 
@@ -16,7 +17,7 @@ Nhanh nhat cho project nay.
 4. Framework preset: `Vite`.
 5. Build Command: `npm run build`.
 6. Output Directory: `dist`.
-7. Them environment variable:
+7. **Environment Variables**: Thêm key/value vào phần cài đặt của Vercel thay vì file code.
    - `VITE_API_BASE_URL=https://graffiti-fit-error.ngrok-free.dev/api/v1`
 8. Bam `Deploy`.
 

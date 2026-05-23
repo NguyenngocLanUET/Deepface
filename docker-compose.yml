@@ -113,10 +113,10 @@ services:
     image: ngrok/ngrok:latest
     restart: always
     environment:
-      - NGROK_AUTHTOKEN=3DUke8S1i89v6Y3Gw9HKrXQBpl7_35BDPsmaxGCkL7MreGzp3
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
     command:
       - "http"
-      - "--url=graffiti-fit-error.ngrok-free.dev" # THÊM DÒNG NÀY ĐỂ DÙNG DOMAIN CỐ ĐỊNH
+      - "--url=${NGROK_DOMAIN}"
       - "backend:8000"
     depends_on:
       - backend

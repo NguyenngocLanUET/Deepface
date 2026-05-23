@@ -1,0 +1,42 @@
+name: CD - Deploy to Server
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DEPLOY_HOST_PROD }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            # Di chuyển vào thư mục project
+            cd /home/${{ secrets.DEPLOY_USER }}/PTHTTTNT
+            
+            # Cập nhật code mới nhất
+            git pull origin main
+            
+            # Tự động tạo file .env từ GitHub Secrets
+            # Lưu ý: Dấu > sẽ ghi đè file cũ, đảm bảo các token luôn mới nhất
+            echo "NGROK_AUTHTOKEN=${{ secrets.NGROK_AUTHTOKEN }}" > .env
+            echo "NGROK_DOMAIN=${{ secrets.NGROK_DOMAIN }}" >> .env
+            
+            # Bạn có thể thêm các biến nhạy cảm khác ở đây
+            # echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+            
+            # Restart container với cấu hình mới
+            docker compose down
+            docker compose up -d --build
+            
+            # Dọn dẹp các image cũ để tiết kiệm dung lượng
+            docker image prune -f
+            echo "Deployment successfully!"
