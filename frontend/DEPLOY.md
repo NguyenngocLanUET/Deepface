@@ -18,7 +18,7 @@ Nhanh nhat cho project nay.
 5. Build Command: `npm run build`.
 6. Output Directory: `dist`.
 7. **Environment Variables**: Thêm key/value vào phần cài đặt của Vercel thay vì file code.
-   - `VITE_API_BASE_URL=https://graffiti-fit-error.ngrok-free.dev/api/v1`
+   - `VITE_API_BASE_URL`: Link ngrok của backend (ví dụ: https://your-name.ngrok-free.dev/api/v1)
 8. Bam `Deploy`.
 
 Neu can deploy bang CLI:

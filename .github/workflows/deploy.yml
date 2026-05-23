@@ -29,9 +29,12 @@ jobs:
             # Lưu ý: Dấu > sẽ ghi đè file cũ, đảm bảo các token luôn mới nhất
             echo "NGROK_AUTHTOKEN=${{ secrets.NGROK_AUTHTOKEN }}" > .env
             echo "NGROK_DOMAIN=${{ secrets.NGROK_DOMAIN }}" >> .env
-            
-            # Bạn có thể thêm các biến nhạy cảm khác ở đây
-            # echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+            echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
+            echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
+            echo "MINIO_ROOT_USER=${{ secrets.MINIO_ROOT_USER }}" >> .env
+            echo "MINIO_ROOT_PASSWORD=${{ secrets.MINIO_ROOT_PASSWORD }}" >> .env
+            echo "GF_SECURITY_ADMIN_PASSWORD=${{ secrets.GF_SECURITY_ADMIN_PASSWORD }}" >> .env
             
             # Restart container với cấu hình mới
             docker compose down

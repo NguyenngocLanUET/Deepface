@@ -41,6 +41,11 @@ SONAR_TOKEN            # SonarCloud token
 SLACK_WEBHOOK          # Slack notification webhook
 NGROK_AUTHTOKEN         # Ngrok Auth Token từ dashboard.ngrok.com
 NGROK_DOMAIN            # Domain cố định (ví dụ: your-app.ngrok-free.dev)
+DATABASE_URL            # postgresql://admin:123@db:5432/attendance
+POSTGRES_USER           # admin
+POSTGRES_PASSWORD       # 123
+MINIO_ROOT_USER         # admin
+MINIO_ROOT_PASSWORD     # password123
 ```
 
 ## Local Development
