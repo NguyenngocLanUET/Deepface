@@ -64,7 +64,7 @@ Nhân viên:
 ## <span style="color: #059669;">5. Model AI và Dataset</span>
 
 ### <span style="color: #D97706;">5.1. Model AI</span> 
-- **Mô hình phát hiện khuôn mặt**: `RetinaFace`.
+- **Mô hình phát hiện khuôn mặt**: `RetinaFace`/`opencv`.
 - **Mô hình nhận diện khuôn mặt**: `ArcFace` (512 chiều).
 - **Chuẩn hóa vector**: L2 Normalization.
 - **Tải mô hình**: Khi hệ thống được khởi chạy bằng Docker/Docker Compose, các trọng số pretrained của mô hình sẽ tự động được tải xuống nếu chưa tồn tại trong hệ thống.
