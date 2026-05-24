@@ -1448,6 +1448,64 @@ body {
   outline: 0;
 }
 
+.input-with-icon .input-icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color 0.2s;
+}
+
+.input-with-icon .input-icon-button:hover {
+  color: var(--text-color);
+}
+
+/* Password field with absolute positioned toggle */
+.input-with-icon.password-field {
+  position: relative;
+  padding-right: 40px;
+}
+
+.input-with-icon.password-field input {
+  padding-right: 4px;
+}
+
+/* Hide browser default password reveal icon */
+.input-with-icon.password-field input::-ms-reveal,
+.input-with-icon.password-field input::-webkit-credentials-auto-fill-button {
+  display: none !important;
+}
+.input-with-icon.password-field input::-webkit-caps-lock-indicator {
+  filter: invert(100%);
+}
+
+.input-with-icon .password-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color 0.2s;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.input-with-icon .password-toggle:hover {
+  color: var(--text-color);
+}
+
 .login-shortcuts {
   display: flex;
   gap: 10px;

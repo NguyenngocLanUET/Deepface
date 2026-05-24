@@ -23,6 +23,8 @@
   UserRound,
   Users,
   XCircle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api/client";
@@ -603,8 +605,10 @@ function TimeMeridiemField({
 function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loginEmployees, setLoginEmployees] = useState<Employee[]>([]);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -706,15 +710,32 @@ function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
 
           <label className="field">
             <span>Mật khẩu</span>
-            <div className="input-with-icon">
+            <div className="input-with-icon password-field">
               <KeyRound size={18} />
               <input
+                ref={passwordInputRef}
                 autoComplete="current-password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
               />
+              {password && (
+                <div
+                  className="password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === "Enter" && setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                >
+                  {showPassword ? (
+                    <EyeOff size={18} />
+                  ) : (
+                    <Eye size={18} />
+                  )}
+                </div>
+              )}
             </div>
           </label>
 

@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "admin")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "123")
     POSTGRES_DB: str = os.getenv("POSTGRES_DB", "attendance")
-    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "db")
+    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
     POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", 5432))
 
     SQLALCHEMY_DATABASE_URL: str = (
@@ -22,12 +22,12 @@ class Settings(BaseSettings):
     )
     
     # --- Qdrant (Vector DB) ---
-    QDRANT_HOST: str = os.getenv("QDRANT_HOST", "qdrant")
+    QDRANT_HOST: str = os.getenv("QDRANT_HOST", "localhost")
     QDRANT_PORT: int = 6333
     COLLECTION_NAME: str = "employees"
     
     # --- Redis (Sử dụng chung cho cả Celery và Cache) ---
-    REDIS_HOST: str = os.getenv("REDIS_HOST", "redis")
+    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
     REDIS_PORT: int = 6379
     
     # Celery sử dụng DB số 0
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
 
     # --- MinIO (S3 Storage) ---
-    MINIO_ENDPOINT: str = os.getenv("MINIO_ENDPOINT", "minio:9000")
+    MINIO_ENDPOINT: str = os.getenv("MINIO_ENDPOINT", "localhost:9000")
     MINIO_ACCESS_KEY: str = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
     MINIO_SECRET_KEY: str = os.getenv("MINIO_SECRET_KEY", "minioadmin")
     MINIO_BUCKET_NAME: str = "face-access-storage"
