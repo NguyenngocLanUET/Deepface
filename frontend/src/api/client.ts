@@ -126,6 +126,12 @@ export const api = {
   getSystemStats: () => request<SystemStats>(["/admin/system-stats", "/admin/admin/system-stats"]),
 
   getEmployees: () => request<Employee[]>(["/employees/", "/employees/employees/"]),
+  getEmployeePhotos: (id: number) =>
+    request<{ employee_id: number; employee_name: string; photos: string[] }>(
+      [`/employees/${id}/photos`, `/employees/employees/${id}/photos`]
+    ),
+  getEmployeePhotoUrl: (id: number, photoName: string) =>
+    `${API_BASE_URL}/employees/${id}/photo/${encodeURIComponent(photoName)}`,
   searchEmployees: (query: string) =>
     request<Employee[]>([
       `/employees/search?query=${encodeURIComponent(query)}`,

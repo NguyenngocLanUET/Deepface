@@ -40,15 +40,14 @@ class DBService:
     def create_employee(self, full_name: str, employee_code: str, department_name: str):
         db = SessionLocal()
         try:
-            # Tự động Tìm hoặc Tạo phòng ban theo Tên
-            dept_name_clean = department_name.strip().title()
-            dept = db.query(Department).filter(Department.name == dept_name_clean).first()
+            # Tìm phòng ban theo tên (so sánh không phân biệt hoa thường)
+            dept_name_clean = department_name.strip()
+            dept = db.query(Department).filter(
+                func.lower(Department.name) == func.lower(dept_name_clean)
+            ).first()
             
             if not dept:
-                dept = Department(name=dept_name_clean)
-                db.add(dept)
-                db.commit()
-                db.refresh(dept)
+                raise ValueError(f"Không tìm thấy phòng ban: {dept_name_clean}. Vui lòng tạo phòng ban trước.")
 
             new_emp = Employee(
                 full_name=full_name, 
@@ -58,7 +57,19 @@ class DBService:
             db.add(new_emp)
             db.commit()
             db.refresh(new_emp)
-            return new_emp
+
+            # Return a dict to avoid DetachedInstanceError when serializing
+            return DBService.AttrDict({
+                "id": new_emp.id,
+                "full_name": new_emp.full_name,
+                "employee_code": new_emp.employee_code,
+                "role": "user",
+                "is_active": new_emp.is_active,
+                "department_id": new_emp.department_id,
+                "department_name": dept.name,
+                "photos": [],
+                "permissions": [],
+            })
         finally:
             db.close()
 
@@ -67,12 +78,49 @@ class DBService:
         try:
             emp = db.query(Employee).filter(Employee.id == employee_id).first()
             if emp:
+                # Get department name
+                dept_name = None
+                if emp.department_id:
+                    dept = db.query(Department).filter(Department.id == emp.department_id).first()
+                    if dept:
+                        dept_name = dept.name
+
+                # Get personal permissions
+                personal_perms = db.query(AccessPermission).filter(AccessPermission.employee_id == emp.id).all()
+                personal_perm_list = []
+                for p in personal_perms:
+                    door = db.query(Door).filter(Door.id == p.door_id).first()
+                    personal_perm_list.append({
+                        "id": p.id,
+                        "door_name": door.name if door else "Cửa",
+                        "allowed_start_time": p.allowed_start_time.strftime("%H:%M") if p.allowed_start_time else None,
+                        "allowed_end_time": p.allowed_end_time.strftime("%H:%M") if p.allowed_end_time else None,
+                        "type": "personal",
+                    })
+
+                # Get department permissions
+                dept_perm_list = []
+                if emp.department_id:
+                    dept_perms = db.query(DepartmentPermission).filter(DepartmentPermission.department_id == emp.department_id).all()
+                    for dp in dept_perms:
+                        door = db.query(Door).filter(Door.id == dp.door_id).first()
+                        dept_perm_list.append({
+                            "id": dp.id,
+                            "door_name": door.name if door else "Cửa",
+                            "allowed_start_time": dp.allowed_start_time.strftime("%H:%M") if dp.allowed_start_time else None,
+                            "allowed_end_time": dp.allowed_end_time.strftime("%H:%M") if dp.allowed_end_time else None,
+                            "type": "department",
+                        })
+
                 return DBService.AttrDict({
                     "id": emp.id,
                     "full_name": emp.full_name,
                     "is_active": emp.is_active,
                     "employee_code": emp.employee_code,
                     "department_id": emp.department_id,
+                    "department_name": dept_name,
+                    "photos": [],  # Photos are loaded separately from storage
+                    "permissions": personal_perm_list + dept_perm_list,
                 })
             return None
         finally:
@@ -81,7 +129,55 @@ class DBService:
     def get_all_employees(self):
         db = SessionLocal()
         try:
-            return db.query(Employee).all()
+            employees = db.query(Employee).all()
+            result = []
+            for emp in employees:
+                # Get department name
+                dept_name = None
+                if emp.department_id:
+                    dept = db.query(Department).filter(Department.id == emp.department_id).first()
+                    if dept:
+                        dept_name = dept.name
+
+                # Get personal permissions
+                personal_perms = db.query(AccessPermission).filter(AccessPermission.employee_id == emp.id).all()
+                personal_perm_list = []
+                for p in personal_perms:
+                    door = db.query(Door).filter(Door.id == p.door_id).first()
+                    personal_perm_list.append({
+                        "id": p.id,
+                        "door_name": door.name if door else "Cửa",
+                        "allowed_start_time": p.allowed_start_time.strftime("%H:%M") if p.allowed_start_time else None,
+                        "allowed_end_time": p.allowed_end_time.strftime("%H:%M") if p.allowed_end_time else None,
+                        "type": "personal",
+                    })
+
+                # Get department permissions
+                dept_perm_list = []
+                if emp.department_id:
+                    dept_perms = db.query(DepartmentPermission).filter(DepartmentPermission.department_id == emp.department_id).all()
+                    for dp in dept_perms:
+                        door = db.query(Door).filter(Door.id == dp.door_id).first()
+                        dept_perm_list.append({
+                            "id": dp.id,
+                            "door_name": door.name if door else "Cửa",
+                            "allowed_start_time": dp.allowed_start_time.strftime("%H:%M") if dp.allowed_start_time else None,
+                            "allowed_end_time": dp.allowed_end_time.strftime("%H:%M") if dp.allowed_end_time else None,
+                            "type": "department",
+                        })
+
+                result.append(DBService.AttrDict({
+                    "id": emp.id,
+                    "full_name": emp.full_name,
+                    "employee_code": emp.employee_code,
+                    "role": "user",
+                    "is_active": emp.is_active,
+                    "department_id": emp.department_id,
+                    "department_name": dept_name,
+                    "photos": [],
+                    "permissions": personal_perm_list + dept_perm_list,
+                }))
+            return result
         finally:
             db.close()
 

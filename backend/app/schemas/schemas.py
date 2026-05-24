@@ -32,10 +32,19 @@ class EmployeeBase(BaseModel):
 class EmployeeCreate(EmployeeBase):
     department_name: str  # Dùng tên thay vì ID
 
+class PermissionData(BaseModel):
+    id: int
+    door_name: Optional[str] = None
+    allowed_start_time: Optional[str] = None
+    allowed_end_time: Optional[str] = None
+
 class EmployeeOut(EmployeeBase):
     id: int
     is_active: bool
     department_id: Optional[int] = None
+    department_name: Optional[str] = None
+    photos: list = []
+    permissions: list[PermissionData] = []
     class Config: 
         from_attributes = True
 

@@ -25,6 +25,8 @@ async def register(
 
     try:
         new_user = db_service.create_employee(full_name, employee_code, department_name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi tạo nhân viên: {str(e)}")
     

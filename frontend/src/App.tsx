@@ -81,6 +81,7 @@ type AppSession = {
   displayName: string;
   role: UserRole;
   employeeId?: number;
+  isMockUser?: boolean;
   signedInAt: string;
 };
 
@@ -137,6 +138,7 @@ const loginAccounts: Array<AppSession & { password: string }> = [
     displayName: "Nguyễn Văn An",
     role: "user",
     employeeId: 1,
+    isMockUser: true,
     signedInAt: "",
   },
 ];
@@ -402,6 +404,7 @@ function readStoredSession() {
         ...session,
         displayName: session.displayName === "Nhân viên" ? "Nguyễn Văn An" : session.displayName,
         employeeId: 1,
+        isMockUser: true,
       };
     }
     return session;
@@ -663,6 +666,7 @@ function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
         displayName: employeeAccount.full_name,
         role: "user",
         employeeId: employeeAccount.id,
+        isMockUser: false,
         signedInAt: new Date().toISOString(),
       };
 
@@ -679,6 +683,7 @@ function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
       displayName: account.displayName,
       role: account.role,
       employeeId: account.employeeId,
+      isMockUser: account.isMockUser ?? false,
       signedInAt: new Date().toISOString(),
     };
 
@@ -826,15 +831,40 @@ function App() {
 
     try {
       if (session.role === "user") {
-        const [doorResult, historyResult] = await Promise.all([
+        // Check if this is a mock user - skip employee API for mock users
+        const isMock = session.isMockUser === true;
+
+        if (isMock) {
+          // Mock user: only fetch doors and history, no employee data
+          const [doorResult, historyResult] = await Promise.all([
+            api.getDoors(),
+            api.getAttendanceHistory(1000, session.employeeId),
+          ]);
+
+          setStats(initialStats);
+          setEmployees([]);
+          setDoors(doorResult);
+          setDepartments([]);
+          setHistory(historyResult);
+          return;
+        }
+
+        // Real user: fetch employee details with departments for department_name lookup
+        const [employeeResult, doorResult, departmentResult, historyResult] = await Promise.all([
+          api.getEmployees(),
           api.getDoors(),
+          api.getDepartments(),
           api.getAttendanceHistory(1000, session.employeeId),
         ]);
 
+        // Find current user's employee data
+        const currentEmployeeData = employeeResult.find((e) => e.id === session.employeeId);
+
         setStats(initialStats);
-        setEmployees([]);
+        // Set employees list including current user's data
+        setEmployees(currentEmployeeData ? [currentEmployeeData] : []);
         setDoors(doorResult);
-        setDepartments([]);
+        setDepartments(departmentResult);
         setHistory(historyResult);
         return;
       }
@@ -1558,7 +1588,7 @@ function EmployeesPage({
   const deleteEmployee = async (employee: Employee) => {
     try {
       await api.deleteEmployee(employee.id);
-      onNotice({ type: "success", text: `Đã gửi yêu cầu xóa ${employee.full_name}.` });
+      onNotice({ type: "success", text: `Đã xóa nhân viên ${employee.full_name} mã nhân viên ${employee.employee_code}.` });
       onRefresh();
     } catch (error) {
       onNotice({ type: "error", text: errorMessage(error, "Không thể xóa nhân viên.") });
@@ -2029,17 +2059,18 @@ function RegisterPage({
         </label>
         <label className="field">
           <span>Phòng ban</span>
-          <input
-            list="department-suggestions"
+          <select
             value={departmentName}
             onChange={(event) => setDepartmentName(event.target.value)}
             required
-          />
-          <datalist id="department-suggestions">
+          >
+            <option value="">-- Chọn phòng ban --</option>
             {departments.map((department) => (
-              <option key={department.id} value={department.name} />
+              <option key={department.id} value={department.name}>
+                {department.name}
+              </option>
             ))}
-          </datalist>
+          </select>
         </label>
         <label className="field file-field">
           <span>Ảnh khuôn mặt</span>
@@ -2584,6 +2615,45 @@ function HistoryPage({
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
   const [snapshotLoading, setSnapshotLoading] = useState(false);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
+  const [employeePhotos, setEmployeePhotos] = useState<string[]>([]);
+
+  // Check if this is a mock user (Nguyễn Văn An)
+  const isMockUser = session.isMockUser === true;
+
+  // Employee data from API (only for real users)
+  const currentEmployee = !session.isMockUser && isSelfView && session.employeeId
+    ? employees.find((e) => e.id === session.employeeId) ?? null
+    : null;
+
+  // Fetch employee photos from storage (only for real users)
+  useEffect(() => {
+    if (session.isMockUser || !isSelfView || !session.employeeId) return;
+
+    api.getEmployeePhotos(session.employeeId)
+      .then((result) => {
+        setEmployeePhotos(result.photos || []);
+      })
+      .catch(() => {
+        setEmployeePhotos([]);
+      });
+  }, [session.isMockUser, isSelfView, session.employeeId]);
+
+  // Display name logic: use real name from session, never use "Nguyễn Văn An"
+  const displayName = session.displayName || "—";
+  // Mock user shows fallback "—", real users show actual employee data
+  const employeeCode = session.isMockUser ? "—" : (currentEmployee?.employee_code ?? "—");
+  const departmentName = session.isMockUser ? "—" : (currentEmployee?.department_name ?? "—");
+  const employeePermissions = session.isMockUser ? [] : (currentEmployee?.permissions ?? []);
+
+  // Build permission string
+  const permissionDisplay = employeePermissions.length > 0
+    ? employeePermissions.map((p: any) => p.door_name ?? "Cửa").join(", ")
+    : "—";
+
+  // Avatar logic: use real photo or placeholder (only for real users)
+  const avatarUrl = !session.isMockUser && employeePhotos.length > 0 && session.employeeId
+    ? api.getEmployeePhotoUrl(session.employeeId, employeePhotos[0])
+    : null;
 
   const scopedHistory = history.filter((item) => {
     if (isSelfView && session.employeeId) {
@@ -2605,10 +2675,6 @@ function HistoryPage({
   const successCount = filteredHistory.filter((item) => item.status === "SUCCESS").length;
   const deniedCount = filteredHistory.filter((item) => item.status === "DENIED").length;
   const workDays = countDistinctDays(filteredHistory);
-  const selectedEmployee =
-    session.employeeId && isSelfView
-      ? employees.find((employee) => employee.id === session.employeeId) ?? null
-      : null;
 
   const employeeName = (id: number | null) => {
     if (isSelfView && id === session.employeeId) return session.displayName;
@@ -2666,72 +2732,118 @@ function HistoryPage({
         </div>
       </div>
 
-      <div className="history-toolbar">
-        {isSelfView && (
-          <div className="history-profile user-history-profile">
-            <div>
-              <strong>{session.displayName}</strong>
+      {isSelfView && (
+        <div className="employee-info-card">
+          <div className="employee-info-grid">
+            <div className="employee-info-avatar">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="avatar-image"
+                />
+              ) : (
+                <div className="avatar-placeholder">
+                  <UserRound size={32} />
+                </div>
+              )}
+              <div className="employee-info-name">
+                <h3>{displayName}</h3>
+                <span>Nhân viên</span>
+              </div>
             </div>
-            <div className="history-profile-metrics">
-              <article>
-                <span>Ngày công</span>
-                <strong>{workDays}</strong>
-              </article>
-              <article>
-                <span>Bản ghi</span>
-                <strong>{filteredHistory.length}</strong>
-              </article>
+            <div className="employee-info-item">
+              <span className="info-label">Mã nhân viên</span>
+              <span className="info-value">{employeeCode}</span>
+            </div>
+            <div className="employee-info-item">
+              <span className="info-label">Phòng ban</span>
+              <span className="info-value">{departmentName}</span>
+            </div>
+            <div className="employee-info-item">
+              <span className="info-label">Quyền ra vào</span>
+              <span className="info-value">{permissionDisplay}</span>
             </div>
           </div>
-        )}
+          <div className="employee-stats-row">
+            <div className="employee-stat-item">
+              <span className="stat-label">Ngày công trong tháng</span>
+              <span className="stat-value">{workDays}</span>
+            </div>
+            <div className="employee-stat-item">
+              <span className="stat-label">Số lượt ra vào</span>
+              <span className="stat-value">{filteredHistory.length}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
-        <div className="history-filter-bar">
-          <div className="history-filter-grid">
+      <div className="history-filter-bar">
+        <div className="history-filter-grid">
+          <label className="field">
+            <span>Từ ngày</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(event) => setFromDate(event.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>Đến ngày</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(event) => setToDate(event.target.value)}
+            />
+          </label>
+          {!isSelfView && (
             <label className="field">
-              <span>Từ ngày</span>
-              <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
-            </label>
-            <label className="field">
-              <span>Đến ngày</span>
-              <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
-            </label>
-            {!isSelfView && (
-              <label className="field">
-                <span>Nhân viên</span>
-                <select value={employeeFilter} onChange={(event) => setEmployeeFilter(event.target.value)}>
-                  <option value="ALL">Tất cả nhân viên</option>
-                  {employees.map((employee) => (
-                    <option key={employee.id} value={employee.id}>
-                      {employee.employee_code} - {employee.full_name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <label className="field">
-              <span>Khu vực</span>
-              <select value={doorFilter} onChange={(event) => setDoorFilter(event.target.value)}>
-                <option value="ALL">Tất cả cửa</option>
-                {doors.map((door) => (
-                  <option key={door.id} value={door.id}>
-                    {door.name}
+              <span>Nhân viên</span>
+              <select
+                value={employeeFilter}
+                onChange={(event) => setEmployeeFilter(event.target.value)}
+              >
+                <option value="ALL">Tất cả nhân viên</option>
+                {employees.map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.employee_code} - {employee.full_name}
                   </option>
                 ))}
               </select>
             </label>
-            <label className="field">
-              <span>Trạng thái</span>
-              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                <option value="ALL">Tất cả trạng thái</option>
-                <option value="SUCCESS">Thành công</option>
-                <option value="DENIED">Từ chối</option>
-                <option value="UNKNOWN">Không xác định</option>
-              </select>
-            </label>
-          </div>
-
+          )}
+          <label className="field">
+            <span>Khu vực</span>
+            <select
+              value={doorFilter}
+              onChange={(event) => setDoorFilter(event.target.value)}
+            >
+              <option value="ALL">Tất cả cửa</option>
+              {doors.map((door) => (
+                <option key={door.id} value={door.id}>
+                  {door.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Trạng thái</span>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+            >
+              <option value="ALL">Tất cả trạng thái</option>
+              <option value="SUCCESS">Thành công</option>
+              <option value="DENIED">Từ chối</option>
+              <option value="UNKNOWN">Không xác định</option>
+            </select>
+          </label>
           <div className="history-actions">
-            <button className="secondary-button" onClick={resetFilters} type="button">
+            <button
+              className="reset-filter-btn"
+              onClick={resetFilters}
+              type="button"
+            >
               Đặt lại bộ lọc
             </button>
           </div>
@@ -2741,7 +2853,7 @@ function HistoryPage({
       {!isSelfView && (
         <div className="history-summary-grid">
           <article className="history-stat">
-            <span>Tổng bản ghi</span>
+            <span>Số lượt ra vào</span>
             <strong>{filteredHistory.length}</strong>
           </article>
           <article className="history-stat">
@@ -2753,7 +2865,7 @@ function HistoryPage({
             <strong>{deniedCount}</strong>
           </article>
           <article className="history-stat">
-            <span>Ngày công</span>
+            <span>Ngày công trong tháng</span>
             <strong>{workDays}</strong>
           </article>
         </div>

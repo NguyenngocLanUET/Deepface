@@ -12,6 +12,14 @@ export type Employee = {
   role?: string;
   is_active: boolean;
   department_id?: number | null;
+  department_name?: string | null;
+  photos?: string[];
+  permissions?: Array<{
+    id: number;
+    door_name?: string;
+    allowed_start_time?: string;
+    allowed_end_time?: string;
+  }>;
 };
 
 export type Door = {
