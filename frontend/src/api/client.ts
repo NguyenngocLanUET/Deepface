@@ -317,20 +317,6 @@ export const api = {
       jsonRequest("DELETE"),
     ),
 
-  getEmployeePhotos: (employeeId: number) =>
-    request<{ employee_id: number; employee_name: string; photos: string[] }>(
-      [
-        `/employees/${employeeId}/photos`,
-        `/employees/employees/${employeeId}/photos`,
-      ],
-    ),
-  getEmployeePhoto: (employeeId: number, photoName: string) =>
-    requestBlob(
-      [
-        `/employees/${employeeId}/photo/${encodeURIComponent(photoName)}`,
-        `/employees/employees/${employeeId}/photo/${encodeURIComponent(photoName)}`,
-      ],
-    ),
   updateEmployeePhotos: (employeeId: number, files: File[]) => {
     const formData = new FormData();
     files.forEach((file) => formData.append("files", file));

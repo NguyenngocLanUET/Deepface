@@ -1620,7 +1620,9 @@ function EmployeesPage({
 
       const photos = await Promise.all(
         result.photos.map(async (photoName) => {
-          const blob = await api.getEmployeePhoto(employee.id, photoName);
+          const url = api.getEmployeePhotoUrl(employee.id, photoName);
+          const response = await fetch(url);
+          const blob = await response.blob();
           return { name: photoName, url: URL.createObjectURL(blob) };
         }),
       );
