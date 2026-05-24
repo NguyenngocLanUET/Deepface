@@ -607,6 +607,7 @@ function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [lockedEmployeeCode, setLockedEmployeeCode] = useState<string | null>(null);
   const [loginEmployees, setLoginEmployees] = useState<Employee[]>([]);
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
@@ -615,7 +616,7 @@ function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
 
     api.getEmployees()
       .then((result) => {
-        if (!cancelled) setLoginEmployees(result.filter((employee) => employee.is_active));
+        if (!cancelled) setLoginEmployees(result);
       })
       .catch(() => {
         if (!cancelled) setLoginEmployees([]);
@@ -628,6 +629,9 @@ function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    setError("");
+    setLockedEmployeeCode(null);
+
     const normalizedUsername = username.trim();
     const normalizedPassword = password.trim();
     const account = loginAccounts.find(
@@ -644,6 +648,16 @@ function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
     }
 
     if (employeeAccount) {
+      // Kiểm tra tài khoản có bị khóa không
+      if (!employeeAccount.is_active) {
+        const code = employeeAccount.employee_code || normalizedUsername;
+        setLockedEmployeeCode(code);
+        setError(`Nhân viên mã ${code} đã bị khóa tài khoản`);
+        // Xóa session nếu có
+        window.localStorage.removeItem(SESSION_STORAGE_KEY);
+        return;
+      }
+
       const session: AppSession = {
         username: employeeAccount.employee_code,
         displayName: employeeAccount.full_name,
@@ -679,6 +693,7 @@ function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
     setUsername(account.username);
     setPassword(account.password);
     setError("");
+    setLockedEmployeeCode(null);
   };
 
   return (
@@ -739,7 +754,14 @@ function LoginPage({ onLogin }: { onLogin: (session: AppSession) => void }) {
             </div>
           </label>
 
-          {error && <div className="inline-error">{error}</div>}
+          {lockedEmployeeCode ? (
+            <div className="locked-alert">
+              <span className="locked-alert-icon">🔒</span>
+              <span>Nhân viên mã <strong>{lockedEmployeeCode}</strong> đã bị khóa tài khoản</span>
+            </div>
+          ) : error ? (
+            <div className="inline-error">{error}</div>
+          ) : null}
 
           <button className="primary-button" type="submit">
             <ShieldCheck size={18} />
