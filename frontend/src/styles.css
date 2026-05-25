@@ -324,6 +324,36 @@ body {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
+@keyframes slideDownNotification {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideUpNotification {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+
+.animate-notification-show {
+  animation: slideDownNotification 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards !important;
+}
+
+.animate-notification-hide {
+  animation: slideUpNotification 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards !important;
+}
+
 .notice.success {
   border-color: #9ed9c4;
   background: #ebfbf5;

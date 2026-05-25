@@ -449,9 +449,30 @@ function detectorLabel(value: string) {
 }
 
 function NoticeBar({ notice }: { notice: Notice | null }) {
-  if (!notice) return null;
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (notice) {
+      setIsOpen(true);
+      const timer = window.setTimeout(() => setIsOpen(false), NOTICE_AUTO_HIDE_MS);
+      return () => window.clearTimeout(timer);
+    } else {
+      setIsOpen(false);
+    }
+  }, [notice]);
+
   return (
-    <div className={`notice ${notice.type}`}>{notice.text}</div>
+    <div
+      className={`notice ${notice?.type ?? ""} ${isOpen ? "animate-notification-show" : "animate-notification-hide"}`}
+      style={{
+        visibility: "visible",
+        backfaceVisibility: "hidden",
+        transformStyle: "preserve-3d",
+        pointerEvents: isOpen ? "auto" : "none",
+      }}
+    >
+      {notice?.text ?? ""}
+    </div>
   );
 }
 
@@ -895,12 +916,6 @@ function App() {
       void refreshCoreData(true);
     }
   }, [refreshCoreData, session]);
-
-  useEffect(() => {
-    if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(null), NOTICE_AUTO_HIDE_MS);
-    return () => window.clearTimeout(timer);
-  }, [notice]);
 
   const visibleNavItems = useMemo(() => {
     if (!session) return [];
