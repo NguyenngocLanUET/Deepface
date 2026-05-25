@@ -2384,7 +2384,7 @@ function DepartmentsPage({
         <div className="section-heading">
           <div>
             <h2>Danh sách phòng ban</h2>
-            <p>Quyền của phòng ban sẽ được kế thừa khi nhân viên không có quyền riêng.</p>
+            <p>Quyền ra vào của phòng ban sẽ được kế thừa khi nhân viên không có quyền riêng.</p>
           </div>
         </div>
         <div className="item-list">
