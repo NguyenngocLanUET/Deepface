@@ -979,23 +979,25 @@ function App() {
       </aside>
 
       <main className="workspace">
-        <header className="topbar">
-          <h1>{pageTitle}</h1>
-          <div className="topbar-actions">
-            <span className="pill user-pill">
-              <UserRound size={16} />
-              {session.displayName}
-            </span>
-            <button className="icon-button" onClick={() => void refreshCoreData()} type="button">
-              <RefreshCw size={18} />
-            </button>
-            <button className="icon-button" onClick={handleLogout} type="button" title="Đăng xuất">
-              <LogOut size={18} />
-            </button>
-          </div>
-        </header>
+        <div className="sticky-header-container">
+          <header className="topbar">
+            <h1>{pageTitle}</h1>
+            <div className="topbar-actions">
+              <span className="pill user-pill">
+                <UserRound size={16} />
+                {session.displayName}
+              </span>
+              <button className="icon-button" onClick={() => void refreshCoreData()} type="button">
+                <RefreshCw size={18} />
+              </button>
+              <button className="icon-button" onClick={handleLogout} type="button" title="Đăng xuất">
+                <LogOut size={18} />
+              </button>
+            </div>
+          </header>
 
-        <NoticeBar notice={notice} />
+          <NoticeBar notice={notice} />
+        </div>
 
         <div className="main-content-wrapper"> {/* New wrapper for main content */}
           {loading ? (
@@ -2223,21 +2225,24 @@ function DoorsPage({
 // Helper component for Door Card to reduce repetition
 function DoorCard({ door, onDelete }: { door: Door; onDelete: (door: Door) => void }) {
   return (
-    <article className="list-card" key={door.id}>
-      <DoorOpen size={20} />
-      <div>
-        <strong>{door.name}</strong>
-        <span>{door.description || "Không có mô tả"}</span>
+    <article
+      className="list-card flex items-center justify-between"
+      key={door.id}
+    >
+      <div className="flex items-center gap-4">
+        <DoorOpen size={20} />
+        <div className="flex flex-col">
+          <strong className="text-base font-semibold text-slate-800 capitalize">{door.name}</strong>
+          <span className="text-xs text-slate-400">{door.description || "Không có mô tả"}</span>
+        </div>
       </div>
-      <div className="list-card-actions">
-        <button
-          className="small-button danger"
-          type="button"
-          onClick={() => onDelete(door)}
-        >
-          Xóa
-        </button>
-      </div>
+      <button
+        className="small-button danger"
+        type="button"
+        onClick={() => onDelete(door)}
+      >
+        Xóa
+      </button>
     </article>
   );
 }
@@ -2369,33 +2374,45 @@ function DepartmentsPage({
         </div>
         <div className="item-list">
           {departments.map((department) => (
-            <article className="list-card" key={department.id}>
-              <Building2 size={20} />
-              <div>
-                <strong>{department.name}</strong>
-                <span>ID #{department.id}</span>
-                
-                <div className="card-permissions-summary">
-                  {permissionsMap[department.id]?.length > 0 ? (
-                    permissionsMap[department.id].map((p) => (
-                      <div key={p.id} className="permission-tag">
-                        <ShieldCheck size={12} />
-                        <span>{p.door_name}: {p.allowed_start_time?.slice(0, 5)} - {p.allowed_end_time?.slice(0, 5)}</span>
-                        <button 
-                          className="tag-remove-btn" 
-                          onClick={(e) => { e.stopPropagation(); void removePermission(p.id); }}
-                          title="Xóa quyền này"
-                        >
-                          <X size={10} />
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    !loadingPerms && <small className="muted-text">Chưa cấu hình quyền truy cập</small>
-                  )}
+            <article
+              className="list-card flex items-center justify-between"
+              key={department.id}
+            >
+              <div className="flex items-center gap-4 min-w-0 flex-1">
+                <Building2 size={20} className="shrink-0" />
+                <div className="flex flex-col gap-1 min-w-0">
+                  <strong className="text-base font-semibold text-slate-800">{department.name}</strong>
+
+                  <div className="card-permissions-summary">
+                    {permissionsMap[department.id]?.length > 0 ? (
+                      permissionsMap[department.id].map((p) => (
+                        <div key={p.id} className="permission-tag">
+                          <ShieldCheck size={12} />
+                          <span>{p.door_name}: {p.allowed_start_time?.slice(0, 5)} - {p.allowed_end_time?.slice(0, 5)}</span>
+                          <button
+                            className="tag-remove-btn"
+                            onClick={(e) => { e.stopPropagation(); void removePermission(p.id); }}
+                            title="Xóa quyền này"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      !loadingPerms && <small className="muted-text">Chưa cấu hình quyền truy cập</small>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="list-card-actions">
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "nowrap",
+                  flexShrink: 0,
+                  gap: "8px",
+                  alignItems: "center",
+                }}
+              >
                 <button className="small-button" type="button" onClick={() => openEditPermissions(department)}>
                   <ShieldCheck size={14} /> Sửa quyền
                 </button>

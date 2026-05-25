@@ -157,7 +157,15 @@ body {
   overflow-y: auto;
 }
 
+.sticky-header-container {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: #ffffff;
+}
+
 .main-content-wrapper {
+  position: relative;
   flex: 1;
   width: 100%;
   padding: 24px;
@@ -299,15 +307,21 @@ body {
 }
 
 .notice {
+  position: absolute !important;
+  top: 100%;
+  left: 0;
+  right: 0;
+  width: 100% !important;
+  z-index: 40 !important;
   display: block;
-  width: 100%;
-  margin: 0 0 16px;
+  margin: 0;
   padding: 12px 14px;
   color: #1b2a38;
   background: #ffffff;
   border: 1px solid #d7e1eb;
-  border-radius: 8px;
+  border-radius: 0;
   text-align: left;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
 .notice.success {
@@ -491,16 +505,25 @@ body {
 .list-card {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   min-height: 64px;
   padding: 12px;
   background: #f7f9fb;
   border: 1px solid #e2e9f0;
   border-radius: 8px;
+  width: 100%;
 }
 
-.activity-row div,
-.list-card div {
+.activity-row > div,
+.list-card > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.activity-row div:not(:last-child),
+.list-card > div:first-child > div {
   display: grid;
   gap: 2px;
   min-width: 0;
@@ -2248,8 +2271,8 @@ body {
 
 .card-permissions-summary {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-direction: column;
+  gap: 4px;
   margin-top: 8px;
 }
 
