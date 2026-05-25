@@ -980,9 +980,7 @@ function App() {
 
       <main className="workspace">
         <header className="topbar">
-          <div>
-            <h1>{pageTitle}</h1>
-          </div>
+          <h1>{pageTitle}</h1>
           <div className="topbar-actions">
             <span className="pill user-pill">
               <UserRound size={16} />
@@ -999,15 +997,7 @@ function App() {
 
         <NoticeBar notice={notice} />
 
-        <div 
-          className="main-content-wrapper" 
-          style={{ 
-            width: "100%", 
-            maxWidth: "100%", 
-            padding: "20px", 
-            boxSizing: "border-box" 
-          }}
-        > {/* New wrapper for main content */}
+        <div className="main-content-wrapper"> {/* New wrapper for main content */}
           {loading ? (
             <div className="loading-panel">Đang tải dữ liệu hệ thống...</div>
           ) : (

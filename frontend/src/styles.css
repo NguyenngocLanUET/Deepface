@@ -1,16 +1,45 @@
 :root {
   color-scheme: light;
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: 'Crimson Pro', Georgia, serif;
   color: #18212f;
   background: #eef2f6;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-* {
+html {
+  font-size: 110% !important;
+}
+
+/* Force Crimson Pro on absolutely everything */
+*, *::before, *::after {
+  font-family: 'Crimson Pro', Georgia, serif !important;
   box-sizing: border-box;
+}
+
+/* Ensure stubborn form elements also reflect this 10% baseline increase */
+body, input, select, textarea, button, font, option {
+  font-family: 'Crimson Pro', Georgia, serif !important;
+  font-size: 1rem !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+input,
+select,
+textarea,
+button,
+optgroup,
+option {
+  font-family: 'Crimson Pro', Georgia, serif !important;
+  font-size: 1rem !important;
+}
+
+button {
+  cursor: pointer;
+  font-family: 'Crimson Pro', Georgia, serif !important;
 }
 
 body {
@@ -19,30 +48,22 @@ body {
   min-height: 100vh;
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
 .app-shell {
-  display: grid;
-  grid-template-columns: clamp(240px, 22vw, 280px) minmax(0, 1fr);
-  min-height: 100vh;
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .sidebar {
   position: sticky;
   top: 0;
+  left: 0;
   display: flex;
   flex-direction: column;
   gap: 22px;
   height: 100vh;
+  flex-shrink: 0;
   overflow-y: auto;
   padding: 24px 18px;
   color: #f8fafc;
@@ -129,16 +150,37 @@ button {
 }
 
 .workspace {
-  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.main-content-wrapper {
+  flex: 1;
+  width: 100%;
   padding: 24px;
+  box-sizing: border-box;
 }
 
 .topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 50 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
   gap: 18px;
-  margin-bottom: 18px;
+  width: 100% !important;
+  min-height: 64px !important;
+  height: 64px !important;
+  padding: 0 24px !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
 }
 
 .topbar p,
@@ -149,9 +191,14 @@ button {
 }
 
 .topbar h1 {
-  margin: 4px 0 0;
-  font-size: 30px;
-  font-weight: 760;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 31px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  height: 100% !important;
 }
 
 .topbar-actions {
@@ -167,7 +214,7 @@ button {
   min-height: 36px;
   padding: 8px 12px;
   border-radius: 999px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -311,9 +358,9 @@ button {
 .metric-card {
   display: flex;
   align-items: center;
-  gap: 14px;
-  min-height: 118px;
-  padding: 18px;
+  gap: 12px;
+  min-height: 90px;
+  padding: 14px;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -341,7 +388,7 @@ button {
 .metric-card strong {
   display: block;
   margin: 4px 0;
-  font-size: 30px;
+  font-size: 26px;
 }
 
 .panel {
@@ -364,7 +411,7 @@ button {
 
 .section-heading h2 {
   margin: 0 0 4px;
-  font-size: 19px;
+  font-size: 21px;
 }
 
 .split-chart {
@@ -1470,13 +1517,39 @@ td {
 
 @media (max-width: 1120px) {
   .app-shell {
-    grid-template-columns: 240px minmax(0, 1fr);
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
   }
 
   .sidebar {
     position: sticky;
+    left: 0;
+    top: 0;
+    width: 240px;
     height: 100vh;
+    flex-shrink: 0;
     padding: 20px 14px;
+    overflow-y: auto;
+  }
+
+  .workspace {
+    flex: 1;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    flex-shrink: 0;
+  }
+
+  .main-content-wrapper {
+    flex: 1;
+    padding: 20px;
   }
 
   .metrics-grid,
@@ -1501,12 +1574,22 @@ td {
 
 @media (max-width: 720px) {
   .app-shell {
-    grid-template-columns: 86px minmax(0, 1fr);
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
   }
 
   .sidebar {
+    position: sticky;
+    left: 0;
+    top: 0;
+    width: 86px;
+    height: 100vh;
+    flex-shrink: 0;
     gap: 18px;
     padding: 16px 10px;
+    overflow-y: auto;
   }
 
   .brand {
@@ -1531,14 +1614,16 @@ td {
   }
 
   .workspace {
-    padding: 14px;
+    flex: 1;
+    height: 100vh;
+    overflow-y: auto;
   }
 
-  .topbar,
-  .section-heading,
-  .split-chart {
-    align-items: stretch;
-    flex-direction: column;
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    flex-shrink: 0;
   }
 
   .topbar h1 {
@@ -1562,7 +1647,20 @@ td {
   }
 
   .metric-card {
-    min-height: 96px;
+    min-height: 80px;
+    padding: 12px;
+  }
+
+  .main-content-wrapper {
+    flex: 1;
+    padding: 14px;
+  }
+
+  .topbar,
+  .section-heading,
+  .split-chart {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 
@@ -1812,18 +1910,6 @@ body {
   background: var(--primary-pastel);
 }
 
-.workspace {
-  background: transparent;
-}
-
-.topbar {
-  padding: 16px;
-  background: rgb(255 255 255 / 82%);
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
-  box-shadow: 0 14px 34px rgb(15 23 42 / 5%);
-}
-
 .metric-card,
 .panel,
 .notice,
@@ -1930,6 +2016,8 @@ body {
 .topbar h1 {
   min-width: 0;
   word-break: break-word;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 .dot.blue {
   background: var(--primary-accent);
