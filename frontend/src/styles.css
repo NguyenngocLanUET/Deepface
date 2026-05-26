@@ -59,22 +59,30 @@ body {
   position: sticky;
   top: 0;
   left: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
   height: 100vh;
   flex-shrink: 0;
-  overflow-y: auto;
+  overflow: hidden;
+  padding: 0;
+}
+
+.sidebar-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
   padding: 24px 18px;
-  color: #f8fafc;
-  background: #12343b;
 }
 
 .brand {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 50 !important;
+  width: 100% !important;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 4px 6px 12px;
+  flex-shrink: 0;
 }
 
 .brand-mark {
@@ -85,6 +93,7 @@ body {
   color: #06242b;
   background: #9ce3d1;
   border-radius: 8px;
+  flex-shrink: 0;
 }
 
 .brand strong,
@@ -106,6 +115,8 @@ body {
 .nav-list {
   display: grid;
   gap: 6px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .nav-item {
@@ -1583,8 +1594,12 @@ td {
     width: 240px;
     height: 100vh;
     flex-shrink: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .sidebar-inner {
     padding: 20px 14px;
-    overflow-y: auto;
   }
 
   .workspace {
@@ -1640,9 +1655,12 @@ td {
     width: 86px;
     height: 100vh;
     flex-shrink: 0;
-    gap: 18px;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .sidebar-inner {
     padding: 16px 10px;
-    overflow-y: auto;
   }
 
   .brand {
@@ -1650,10 +1668,6 @@ td {
     padding: 0 0 8px;
   }
 
-  .brand > div:last-child,
-  .nav-item span {
-    display: none;
-  }
 
   .brand-mark {
     width: 48px;
@@ -1919,14 +1933,20 @@ body {
 
 .sidebar {
   color: var(--text-main);
-  background: var(--card-white);
-  border-right: 1px solid var(--border-soft);
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
   box-shadow: 12px 0 34px rgb(15 23 42 / 5%);
 }
 
 .brand-mark {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
   color: #0369a1;
-  background: var(--primary-pastel);
+  background: #e0f2fe;
+  border-radius: 8px;
+  flex-shrink: 0;
 }
 
 .brand strong,
@@ -1960,7 +1980,7 @@ body {
 
 .nav-item.active {
   color: #0369a1;
-  background: var(--primary-pastel);
+  background: #e0f2fe;
 }
 
 .metric-card,

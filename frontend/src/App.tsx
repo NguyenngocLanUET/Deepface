@@ -1,4 +1,4 @@
-﻿import {
+import {
   BarChart3,
   Activity,
   Building2,
@@ -965,32 +965,33 @@ function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark">
-            <ShieldCheck size={24} />
+        <div className="sidebar-inner">
+          <div className="brand">
+            <div className="brand-mark">
+              <ShieldCheck size={24} />
+            </div>
+            <div>
+              <strong>FaceAccess AI</strong>
+            </div>
           </div>
-          <div>
-            <strong>FaceAccess AI</strong>
-            <span>Bảng điều khiển</span>
-          </div>
-        </div>
 
-        <nav className="nav-list" aria-label="Điều hướng chính">
-          {visibleNavItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                className={activePage === item.id ? "nav-item active" : "nav-item"}
-                onClick={() => setActivePage(item.id)}
-                type="button"
-              >
-                <Icon size={18} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+          <nav className="nav-list" aria-label="Điều hướng chính">
+            {visibleNavItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  className={activePage === item.id ? "nav-item active" : "nav-item"}
+                  onClick={() => setActivePage(item.id)}
+                  type="button"
+                >
+                  <Icon size={18} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
       </aside>
 
       <main className="workspace">
