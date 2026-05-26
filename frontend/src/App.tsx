@@ -975,18 +975,18 @@ function App() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="sidebar-inner">
-          <div className="brand">
+      <aside className="mini-sidebar">
+        <div className="mini-sidebar-inner">
+          <div className="mini-brand">
             <div className="brand-mark">
               <ShieldCheck size={24} />
             </div>
-            <div>
+            <div className="brand-text">
               <strong>FaceAccess AI</strong>
             </div>
           </div>
 
-          <nav className="nav-list" aria-label="Điều hướng chính">
+          <nav className="mini-nav-list" aria-label="Điều hướng chính">
             {visibleNavItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -997,7 +997,7 @@ function App() {
                   type="button"
                 >
                   <Icon size={18} />
-                  <span>{item.label}</span>
+                  <span className="nav-label">{item.label}</span>
                 </button>
               );
             })}
@@ -1114,11 +1114,13 @@ function DashboardPage({
 
   return (
     <div className="page-grid" style={{ width: "100%", display: "flex", flexDirection: "column", gap: "24px" }}>
-      <div style={{
+      <div className="stats-grid-container" style={{
         display: "flex",
         flexWrap: "nowrap",
         gap: "16px",
-        width: "100%"
+        width: "100%",
+        maxWidth: "100%",
+        overflow: "hidden"
       }}>
         <NavCard icon={Users} label="Nhân viên" value={stats.employees} sub={`${activeEmployees} đang hoạt động`} color="#339af0" onClick={() => onNavigate("employees")} hideIcon={isHighZoom} />
         <NavCard icon={Building2} label="Phòng ban" value={stats.departments} sub="Quản lý phòng ban" color="#51cf66" onClick={() => onNavigate("departments")} hideIcon={isHighZoom} />
@@ -1198,11 +1200,11 @@ function NavCard({
       onClick={onClick}
       style={{
         flex: "1 1 0",
-        minWidth: 0,
+        minWidth: "0",
         display: "flex",
         alignItems: "center",
-        gap: "14px",
-        padding: "16px",
+        gap: "12px",
+        padding: "12px",
         background: "#ffffff",
         border: "1px solid #dce5ee",
         borderTop: `4px solid ${color}`,
@@ -1210,6 +1212,7 @@ function NavCard({
         boxShadow: "0 18px 40px rgb(30 48 72 / 7%)",
         cursor: "pointer",
         transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        overflow: "hidden",
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = "translateY(-4px)";
