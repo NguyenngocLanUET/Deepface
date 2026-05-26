@@ -1095,24 +1095,9 @@ function DashboardPage({
   const successCount = history.filter((item) => item.status === "SUCCESS").length;
   const deniedCount = history.filter((item) => item.status === "DENIED").length;
   const activeEmployees = employees.filter((item) => item.is_active).length;
-  const [cardWidth, setCardWidth] = useState(260);
 
   return (
     <div className="page-grid" style={{ width: "100%", display: "flex", flexDirection: "column", gap: "24px" }}>
-      <div style={{ gridColumn: "1 / -1", marginBottom: "20px", display: "flex", alignItems: "center", gap: "12px", background: "white", padding: "10px 15px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-        <SlidersHorizontal size={16} color="#64748b" />
-        <span style={{ fontSize: "13px", fontWeight: 700, color: "#475569" }}>Kích thước thẻ:</span>
-        <input 
-          type="range" 
-          min="200" 
-          max="450" 
-          value={cardWidth} 
-          onChange={(e) => setCardWidth(Number(e.target.value))} 
-          style={{ cursor: "pointer", accentColor: "#339af0" }}
-        />
-        <span style={{ fontSize: "12px", color: "#64748b", minWidth: "40px" }}>{cardWidth}px</span>
-      </div>
-
       <div className="metrics-row" style={{ 
         gridColumn: "1 / -1", 
         display: "flex", 
@@ -1122,10 +1107,10 @@ function DashboardPage({
         paddingBottom: "10px",
         width: "100%"
       }}>
-        <Metric icon={Users} label="Nhân viên" value={stats.employees} sub={`${activeEmployees} đang hoạt động`} color="#339af0" width={cardWidth} />
-        <Metric icon={Building2} label="Phòng ban" value={stats.departments} sub="Quyền kế thừa" color="#51cf66" width={cardWidth} />
-        <Metric icon={DoorOpen} label="Cửa/Khu vực" value={stats.doors} sub="Điểm kiểm soát" color="#fcc419" width={cardWidth} />
-        <Metric icon={History} label="Lượt hôm nay" value={stats.today_logs} sub="Ghi nhận mới" color="#ff922b" width={cardWidth} />
+        <Metric icon={Users} label="Nhân viên" value={stats.employees} sub={`${activeEmployees} đang hoạt động`} color="#339af0" />
+        <Metric icon={Building2} label="Phòng ban" value={stats.departments} sub="Quyền kế thừa" color="#51cf66" />
+        <Metric icon={DoorOpen} label="Cửa/Khu vực" value={stats.doors} sub="Điểm kiểm soát" color="#fcc419" />
+        <Metric icon={History} label="Lượt hôm nay" value={stats.today_logs} sub="Ghi nhận mới" color="#ff922b" />
       </div>
 
       <section className="panel wide" style={{ border: "1px solid #edf2f7", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)", width: "100%" }}>
@@ -1184,17 +1169,15 @@ function Metric({
   value,
   sub,
   color,
-  width,
 }: {
   icon: typeof Gauge;
   label: string;
   value: number;
   sub: string;
   color?: string;
-  width?: number;
 }) {
   return (
-    <article className="metric-card" style={{ flex: `0 0 ${width}px`, minWidth: `${width}px`, borderTop: color ? `4px solid ${color}` : "none" }}>
+    <article className="metric-card" style={{ borderTop: color ? `4px solid ${color}` : "none" }}>
       <div className="metric-icon" style={{ backgroundColor: color ? `${color}15` : undefined, color: color }}>
         <Icon size={24} />
       </div>
