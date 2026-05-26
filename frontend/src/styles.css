@@ -166,12 +166,24 @@ body {
 
 .nav-label {
   opacity: 0;
-  transition: opacity 0.2s ease-in-out;
+  transition: opacity 0.3s ease-in-out;
   overflow: hidden;
+  white-space: nowrap;
+  color: #374151;
 }
 
 .mini-sidebar:hover .nav-label {
-  opacity: 1;
+  opacity: 0.5 !important;
+}
+
+.mini-sidebar:hover .nav-item.active .nav-label {
+  opacity: 1 !important;
+  color: #0369a1;
+  font-weight: 600;
+}
+
+.mini-sidebar:hover .nav-item:not(.active):hover .nav-label {
+  opacity: 0.9 !important;
 }
 
 /* Workspace - offset for mini sidebar */
