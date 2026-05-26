@@ -14,12 +14,23 @@ from app.core.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    StorageService()._ensure_bucket_exists()
-    VectorDBService().init_collection(collection_name=settings.COLLECTION_NAME, vector_size=512)
+    try:
+        StorageService()._ensure_bucket_exists()
+    except Exception:
+        pass
     
-    redis_url = f"redis://{settings.REDIS_HOST}:6379/1"
-    redis = aioredis.from_url(redis_url)
-    FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
+    try:
+        VectorDBService().init_collection(collection_name=settings.COLLECTION_NAME, vector_size=512)
+    except Exception:
+        pass
+    
+    # Skip Redis cache if not available
+    try:
+        redis_url = f"redis://{settings.REDIS_HOST}:6379/1"
+        redis = aioredis.from_url(redis_url)
+        FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
+    except Exception:
+        pass
     
     yield
 

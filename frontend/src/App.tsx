@@ -27,6 +27,7 @@
   EyeOff,
 } from "lucide-react";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { api } from "./api/client";
 import { useCameraGate } from "./hooks/useCameraGate";
 import { useTinyFaceRegister } from "./hooks/useTinyFaceRegister";
@@ -56,7 +57,7 @@ type PageId =
 
 type Notice = {
   type: "success" | "error" | "info";
-  text: string;
+  text: string | React.ReactNode;
 };
 
 type ImportLogSummary = {
@@ -846,6 +847,28 @@ function App() {
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [isHighZoom, setIsHighZoom] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "employee" | "department" | "door"; item: Employee | Department | Door } | null>(null);
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      if (deleteTarget.type === "employee") {
+        await api.deleteEmployee((deleteTarget.item as Employee).id);
+        setNotice({ type: "success", text: `Đã xóa nhân viên ${(deleteTarget.item as Employee).full_name || ''}.` });
+      } else if (deleteTarget.type === "department") {
+        await api.deleteDepartment((deleteTarget.item as Department).id);
+        setNotice({ type: "success", text: `Đã xóa phòng ban ${(deleteTarget.item as Department).name || ''}.` });
+      } else if (deleteTarget.type === "door") {
+        await api.deleteDoor((deleteTarget.item as Door).id);
+        setNotice({ type: "success", text: `Đã xóa cửa/khu vực ${(deleteTarget.item as Door).name || ''}.` });
+      }
+      setDeleteTarget(null);
+      refreshCoreData();
+    } catch (error) {
+      setNotice({ type: "error", text: errorMessage(error, "Không thể tiến hành xóa dữ liệu.") });
+      setDeleteTarget(null);
+    }
+  };
 
   useEffect(() => {
     const checkZoom = () => {
@@ -1047,6 +1070,7 @@ function App() {
                   departments={departments}
                   onNotice={setNotice}
                   onRefresh={() => void refreshCoreData()}
+                  onDeleteRequest={(type, item) => setDeleteTarget({ type, item } as any)}
                 />
               )}
               {activePage === "register" && (
@@ -1057,7 +1081,7 @@ function App() {
                 />
               )}
               {activePage === "doors" && (
-                <DoorsPage doors={doors} onNotice={setNotice} onRefresh={() => void refreshCoreData()} />
+                <DoorsPage doors={doors} onNotice={setNotice} onRefresh={() => void refreshCoreData()} onDeleteRequest={(type, item) => setDeleteTarget({ type, item } as any)} />
               )}
               {activePage === "departments" && (
                 <DepartmentsPage
@@ -1065,6 +1089,7 @@ function App() {
                   doors={doors}
                   onNotice={setNotice}
                   onRefresh={() => void refreshCoreData()}
+                  onDeleteRequest={(type, item) => setDeleteTarget({ type, item } as any)}
                 />
               )}
               {activePage === "permissions" && (
@@ -1090,6 +1115,7 @@ function App() {
             </>
           )}
         </div>
+        <DeleteConfirmModal target={deleteTarget} onConfirm={confirmDelete} onCancel={() => setDeleteTarget(null)} />
       </main>
     </div>
   );
@@ -1606,11 +1632,13 @@ function EmployeesPage({
   departments,
   onNotice,
   onRefresh,
+  onDeleteRequest,
 }: {
   employees: Employee[];
   departments: Department[];
   onNotice: (notice: Notice) => void;
   onRefresh: () => void;
+  onDeleteRequest: (type: "employee", item: Employee) => void;
 }) {
   const [query, setQuery] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<number | null>(null);
@@ -1656,16 +1684,6 @@ function EmployeesPage({
       } catch (error) {
         onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật.") });
       }
-  };
-
-  const deleteEmployee = async (employee: Employee) => {
-    try {
-      await api.deleteEmployee(employee.id);
-      onNotice({ type: "success", text: `Đã xóa nhân viên ${employee.full_name} mã nhân viên ${employee.employee_code}.` });
-      onRefresh();
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể xóa nhân viên.") });
-    }
   };
 
   useEffect(() => {
@@ -1893,7 +1911,7 @@ function EmployeesPage({
                       className="small-button danger"
                       onClick={(event) => {
                         event.stopPropagation();
-                        void deleteEmployee(employee);
+                        onDeleteRequest("employee", employee);
                       }}
                       type="button"
                     >
@@ -1995,6 +2013,12 @@ function RegisterPage({
   const [isAutoCaptureActive, setIsAutoCaptureActive] = useState(false);
   const [captureAttempts, setCaptureAttempts] = useState(0);
   const [lastQualityIssues, setLastQualityIssues] = useState<string[]>([]);
+  
+  // Force re-render khi departments thay đổi để cập nhật dropdown
+  const [deptKey, setDeptKey] = useState(0);
+  useEffect(() => {
+    setDeptKey(prev => prev + 1);
+  }, [departments.length]);
 
   const totalFiles = files.length;
 
@@ -2020,10 +2044,10 @@ function RegisterPage({
       setFiles([]);
       registerCamera.stop();
       setIsAutoCaptureActive(false);
-      onNotice({ type: "success", text: "Đã gửi đăng ký." });
+      onNotice({ type: "success", text: <>Đã đăng ký thành công khuôn mặt cho nhân viên <strong>{fullName}</strong> mã nhân viên <strong>{employeeCode}</strong>.</> });
       onRefresh();
     } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể đăng ký nhân viên.") });
+      onNotice({ type: "error", text: `Đăng ký khuôn mặt không thành công. ${errorMessage(error, "")}` });
     } finally {
       setSubmitting(false);
     }
@@ -2135,6 +2159,7 @@ function RegisterPage({
         <label className="field">
           <span>Phòng ban</span>
           <select
+            key={deptKey}
             value={departmentName}
             onChange={(event) => setDepartmentName(event.target.value)}
             required
@@ -2225,24 +2250,19 @@ function DoorsPage({
   doors,
   onNotice,
   onRefresh,
+  onDeleteRequest,
 }: {
   doors: Door[];
   onNotice: (notice: Notice) => void;
   onRefresh: () => void;
+  onDeleteRequest: (type: "door", item: Door) => void;
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
   // Function to handle deleting a door
   const deleteDoor = async (door: Door) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa cửa "${door.name}"?`)) return;
-    try {
-      await api.deleteDoor(door.id);
-      onNotice({ type: "success", text: "Đã xóa cửa/khu vực." });
-      onRefresh();
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể xóa cửa/khu vực.") });
-    }
+    onDeleteRequest("door", door);
   };
 
   // Function to handle submitting the new door form
@@ -2333,11 +2353,13 @@ function DepartmentsPage({
   doors,
   onNotice,
   onRefresh,
+  onDeleteRequest,
 }: {
   departments: Department[];
   doors: Door[];
   onNotice: (notice: Notice) => void;
   onRefresh: () => void;
+  onDeleteRequest: (type: "department", item: Department) => void;
 }) {
   const [name, setName] = useState("");
   const [editingDept, setEditingDept] = useState<Department | null>(null);
@@ -2420,14 +2442,7 @@ function DepartmentsPage({
 
   // Function to delete a department
   const deleteDepartment = async (department: Department) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa phòng ban "${department.name}"?`)) return;
-    try {
-      await api.deleteDepartment(department.id);
-      onNotice({ type: "success", text: "Đã xóa phòng ban." });
-      onRefresh();
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể xóa phòng ban.") });
-    }
+    onDeleteRequest("department", department);
   };
 
   // Function to submit the new department form
@@ -3278,6 +3293,73 @@ function AdminToolsPage({ onNotice }: { onNotice: (notice: Notice) => void }) {
         </button>
       </section>
     </div>
+  );
+}
+
+function DeleteConfirmModal({ target, onConfirm, onCancel }: { target: { type: "employee" | "department" | "door"; item: Employee | Department | Door } | null; onConfirm: () => void; onCancel: () => void }) {
+  if (!target) return null;
+
+  const itemName = target.type === "employee" 
+    ? (target.item as Employee).full_name 
+    : (target.item as Department | Door).name;
+
+  const typeLabel = target.type === "employee" ? "nhân viên" : target.type === "department" ? "phòng ban" : "cửa/khu vực";
+
+  return createPortal(
+    <div 
+      className="fixed inset-0 w-screen h-screen bg-black/60 flex items-center justify-center"
+      style={{ 
+        position: 'fixed', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        bottom: 0, 
+        zIndex: 99999,
+        width: '100vw',
+        height: '100vh'
+      }}
+      onClick={onCancel}
+    >
+      <div 
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative flex flex-col mx-4"
+        style={{ zIndex: 100000 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button 
+          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer p-1" 
+          onClick={onCancel} 
+          type="button"
+        >
+          <X size={20} />
+        </button>
+
+        <h3 className="text-lg font-semibold text-gray-900 mb-2 text-center">Xác nhận xóa</h3>
+        <p className="text-sm text-gray-600 mb-6 text-center leading-relaxed">
+          Bạn có chắc chắn muốn xóa {typeLabel} <span className="font-semibold text-gray-800">"{itemName}"</span> không?<br/>
+          Hành động này không thể hoàn tác.
+        </p>
+
+        <div className="flex items-center justify-center gap-3 w-full">
+          <div className="bg-blue-900 rounded-lg p-1 flex items-center gap-2">
+            <button 
+              className="px-6 py-2 bg-white text-gray-800 font-medium rounded-md hover:bg-gray-100 transition-colors cursor-pointer" 
+              onClick={onCancel} 
+              type="button"
+            >
+              Hủy
+            </button>
+            <button 
+              className="px-6 py-2 bg-white text-red-600 font-medium rounded-md hover:bg-gray-100 transition-colors cursor-pointer" 
+              onClick={onConfirm} 
+              type="button"
+            >
+              Xác nhận
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
 

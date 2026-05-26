@@ -44,10 +44,18 @@ class DBService:
         db = SessionLocal()
         try:
             # Tìm phòng ban theo tên (so sánh không phân biệt hoa thường)
-            dept_name_clean = department_name.strip()
-            dept = db.query(Department).filter(
-                func.lower(Department.name) == func.lower(dept_name_clean)
-            ).first()
+            # Chuẩn hóa: xóa khoảng trắng đầu/cuối và thay thế khoảng trắng kép bằng 1 khoảng trắng
+            dept_name_clean = " ".join(department_name.strip().split())
+            dept_name_normalized = "".join(dept_name_clean.lower().split())  # bỏ hết khoảng trắng
+            
+            # Lấy tất cả departments và so sánh đã chuẩn hóa
+            all_depts = db.query(Department).all()
+            dept = None
+            for d in all_depts:
+                db_name_normalized = "".join(d.name.lower().split())
+                if db_name_normalized == dept_name_normalized:
+                    dept = d
+                    break
             
             if not dept:
                 raise ValueError(f"Không tìm thấy phòng ban: {dept_name_clean}. Vui lòng tạo phòng ban trước.")
