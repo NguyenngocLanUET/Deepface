@@ -197,9 +197,6 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
 }
-  overflow-y: auto;
-  overflow-x: hidden;
-}
 
 /* NORMAL SCREEN STATE (ZOOM < 150%) */
 @media screen and (min-width: 1025px) {
