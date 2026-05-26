@@ -848,7 +848,6 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [isHighZoom, setIsHighZoom] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ type: "employee" | "department" | "door" | "permission"; item: any } | null>(null);
-  const [permissionDeleted, setPermissionDeleted] = useState(false);
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
@@ -865,6 +864,7 @@ function App() {
       } else if (deleteTarget.type === "permission") {
         const item = deleteTarget.item as any;
         await api.deleteDepartmentPermission(item.id);
+        window.dispatchEvent(new Event("permission-deleted"));
         setNotice({ type: "success", text: `Đã xóa quyền truy cập thành công.` });
       }
       setDeleteTarget(null);
@@ -1094,14 +1094,7 @@ function App() {
                   doors={doors}
                   onNotice={setNotice}
                   onRefresh={() => void refreshCoreData()}
-                  onDeleteRequest={(type, item) => {
-                    if (type === "permission") {
-                      setDeleteTarget({ type, item });
-                    } else {
-                      setDeleteTarget({ type, item } as any);
-                    }
-                  }}
-                  permissionRefreshKey={permissionRefreshKey}
+                  onDeleteRequest={(type, item) => setDeleteTarget({ type, item } as any)}
                 />
               )}
               {activePage === "permissions" && (
@@ -2383,11 +2376,6 @@ function DepartmentsPage({
   const [permissionsMap, setPermissionsMap] = useState<Record<number, any[]>>({});
   const [loadingPerms, setLoadingPerms] = useState(false);
 
-  // useRef to track when a permission is deleted (avoids re-render in deps)
-  const permDeletedRef = useRef(false);
-  // Track prev permission deleted state to detect changes
-  const [permDeletedTick, setPermDeletedTick] = useState(0);
-
   // Effect to fetch permissions when component mounts or departments change
   // Hàm tải danh sách quyền hạn của tất cả phòng ban
   const fetchPermissions = useCallback(async () => {
@@ -2414,12 +2402,12 @@ function DepartmentsPage({
 
   // Effect to refetch permissions when a permission was deleted via modal
   useEffect(() => {
-    if (permDeletedTick > 0) {
-      permDeletedRef.current = false;
+    const handlePermissionDeleted = () => {
       void fetchPermissions();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [permDeletedTick]);
+    };
+    window.addEventListener("permission-deleted", handlePermissionDeleted);
+    return () => window.removeEventListener("permission-deleted", handlePermissionDeleted);
+  }, [fetchPermissions]);
 
   // Effect to set default selected door when doors are loaded
   useEffect(() => {
