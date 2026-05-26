@@ -8,9 +8,8 @@ from app.core.config import settings
 
 VN_TZ = ZoneInfo(settings.TIMEZONE)
 
-# Use DATABASE_URL env if provided, otherwise use settings from config
-DATABASE_URL = os.getenv("DATABASE_URL", settings.SQLALCHEMY_DATABASE_URL)
-engine = create_engine(DATABASE_URL)
+# Sử dụng URL đã được cấu hình tập trung trong settings
+engine = create_engine(settings.SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # FastAPI dependency injection for database session
@@ -24,7 +23,11 @@ def get_db():
 
 class DBService:
     def __init__(self):
-        Base.metadata.create_all(bind=engine)
+        """Khởi tạo các bảng nếu chưa có"""
+        try:
+            Base.metadata.create_all(bind=engine)
+        except Exception as e:
+            print(f"⚠️ Cảnh báo: Chưa thể khởi tạo DB (có thể DB đang khởi động): {e}")
 
     class AttrDict(dict):
         """Dictionary that allows attribute access for keys (e.g. obj.key)."""

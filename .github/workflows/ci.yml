@@ -18,8 +18,8 @@ jobs:
       - name: Build Docker Image
         uses: docker/build-push-action@v4
         with:
-          context: .
-          file: ./backend/Dockerfile
+          context: ./backend
+          file: backend/Dockerfile
           push: false
           tags: my-face-app:latest
           cache-from: type=gha
