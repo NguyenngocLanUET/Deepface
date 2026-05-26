@@ -847,7 +847,8 @@ function App() {
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [isHighZoom, setIsHighZoom] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ type: "employee" | "department" | "door"; item: Employee | Department | Door } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "employee" | "department" | "door" | "permission"; item: any } | null>(null);
+  const [permissionDeleted, setPermissionDeleted] = useState(false);
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
@@ -861,6 +862,10 @@ function App() {
       } else if (deleteTarget.type === "door") {
         await api.deleteDoor((deleteTarget.item as Door).id);
         setNotice({ type: "success", text: `Đã xóa cửa/khu vực ${(deleteTarget.item as Door).name || ''}.` });
+      } else if (deleteTarget.type === "permission") {
+        const item = deleteTarget.item as any;
+        await api.deleteDepartmentPermission(item.id);
+        setNotice({ type: "success", text: `Đã xóa quyền truy cập thành công.` });
       }
       setDeleteTarget(null);
       refreshCoreData();
@@ -1089,7 +1094,14 @@ function App() {
                   doors={doors}
                   onNotice={setNotice}
                   onRefresh={() => void refreshCoreData()}
-                  onDeleteRequest={(type, item) => setDeleteTarget({ type, item } as any)}
+                  onDeleteRequest={(type, item) => {
+                    if (type === "permission") {
+                      setDeleteTarget({ type, item });
+                    } else {
+                      setDeleteTarget({ type, item } as any);
+                    }
+                  }}
+                  permissionRefreshKey={permissionRefreshKey}
                 />
               )}
               {activePage === "permissions" && (
@@ -2359,7 +2371,7 @@ function DepartmentsPage({
   doors: Door[];
   onNotice: (notice: Notice) => void;
   onRefresh: () => void;
-  onDeleteRequest: (type: "department", item: Department) => void;
+  onDeleteRequest: (type: "department" | "permission", item: any) => void;
 }) {
   const [name, setName] = useState("");
   const [editingDept, setEditingDept] = useState<Department | null>(null);
@@ -2370,6 +2382,11 @@ function DepartmentsPage({
 
   const [permissionsMap, setPermissionsMap] = useState<Record<number, any[]>>({});
   const [loadingPerms, setLoadingPerms] = useState(false);
+
+  // useRef to track when a permission is deleted (avoids re-render in deps)
+  const permDeletedRef = useRef(false);
+  // Track prev permission deleted state to detect changes
+  const [permDeletedTick, setPermDeletedTick] = useState(0);
 
   // Effect to fetch permissions when component mounts or departments change
   // Hàm tải danh sách quyền hạn của tất cả phòng ban
@@ -2394,6 +2411,15 @@ function DepartmentsPage({
   useEffect(() => {
     void fetchPermissions();
   }, [fetchPermissions, departments]);
+
+  // Effect to refetch permissions when a permission was deleted via modal
+  useEffect(() => {
+    if (permDeletedTick > 0) {
+      permDeletedRef.current = false;
+      void fetchPermissions();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [permDeletedTick]);
 
   // Effect to set default selected door when doors are loaded
   useEffect(() => {
@@ -2487,7 +2513,7 @@ function DepartmentsPage({
                           <span>{p.door_name}: {p.allowed_start_time?.slice(0, 5)} - {p.allowed_end_time?.slice(0, 5)}</span>
                           <button
                             className="tag-remove-btn"
-                            onClick={(e) => { e.stopPropagation(); void removePermission(p.id); }}
+                            onClick={(e) => { e.stopPropagation(); onDeleteRequest("permission", p); }}
                             title="Xóa quyền này"
                           >
                             <X size={10} />
@@ -3296,66 +3322,120 @@ function AdminToolsPage({ onNotice }: { onNotice: (notice: Notice) => void }) {
   );
 }
 
-function DeleteConfirmModal({ target, onConfirm, onCancel }: { target: { type: "employee" | "department" | "door"; item: Employee | Department | Door } | null; onConfirm: () => void; onCancel: () => void }) {
+function DeleteConfirmModal({ 
+  target, 
+  onConfirm, 
+  onCancel 
+}: { 
+  target: { type: "employee" | "department" | "door" | "permission"; item: any } | null; 
+  onConfirm: () => void; 
+  onCancel: () => void 
+}) {
   if (!target) return null;
-
   const itemName = target.type === "employee" 
-    ? (target.item as Employee).full_name 
-    : (target.item as Department | Door).name;
-
-  const typeLabel = target.type === "employee" ? "nhân viên" : target.type === "department" ? "phòng ban" : "cửa/khu vực";
-
+    ? target.item.full_name 
+    : target.type === "permission" ? (target.item.employee_name || target.item.department_name || "đối tượng này")
+    : target.item.name;
+    
+  const typeLabel = target.type === "employee" ? "nhân viên" 
+    : target.type === "department" ? "phòng ban" 
+    : target.type === "permission" ? "quyền truy cập của"
+    : "cửa/khu vực";
   return createPortal(
     <div 
-      className="fixed inset-0 w-screen h-screen bg-black/60 flex items-center justify-center"
-      style={{ 
-        position: 'fixed', 
-        top: 0, 
-        left: 0, 
-        right: 0, 
-        bottom: 0, 
-        zIndex: 99999,
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
         width: '100vw',
-        height: '100vh'
+        height: '100vh',
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2147483647
       }}
       onClick={onCancel}
     >
       <div 
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative flex flex-col mx-4"
-        style={{ zIndex: 100000 }}
+        style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          padding: '32px',
+          width: '100%',
+          maxWidth: '450px',
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center',
+          margin: '0 16px'
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <button 
-          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer p-1" 
-          onClick={onCancel} 
-          type="button"
+          style={{
+            position: 'absolute',
+            top: '16px',
+            right: '16px',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            color: '#9CA3AF'
+          }}
+          onClick={onCancel}
         >
-          <X size={20} />
+          <X size={24} />
         </button>
-
-        <h3 className="text-lg font-semibold text-gray-900 mb-2 text-center">Xác nhận xóa</h3>
-        <p className="text-sm text-gray-600 mb-6 text-center leading-relaxed">
-          Bạn có chắc chắn muốn xóa {typeLabel} <span className="font-semibold text-gray-800">"{itemName}"</span> không?<br/>
-          Hành động này không thể hoàn tác.
+        <h3 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0 0 12px 0' }}>Xác nhận xóa</h3>
+        <p style={{ fontSize: '16px', color: '#4B5563', margin: '0 0 32px 0', lineHeight: '1.5' }}>
+          Bạn có chắc chắn muốn xóa {typeLabel} <strong style={{ color: '#1F2937' }}>{itemName}</strong> không? Hành động này không thể hoàn tác.
         </p>
-
-        <div className="flex items-center justify-center gap-3 w-full">
-          <div className="bg-blue-900 rounded-lg p-1 flex items-center gap-2">
-            <button 
-              className="px-6 py-2 bg-white text-gray-800 font-medium rounded-md hover:bg-gray-100 transition-colors cursor-pointer" 
-              onClick={onCancel} 
-              type="button"
-            >
-              Hủy
-            </button>
-            <button 
-              className="px-6 py-2 bg-white text-red-600 font-medium rounded-md hover:bg-gray-100 transition-colors cursor-pointer" 
-              onClick={onConfirm} 
-              type="button"
-            >
-              Xác nhận
-            </button>
-          </div>
+        {/* ACTION CONTAINER - Removed blue background */}
+        <div 
+          style={{
+            width: '100%',
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '16px'
+          }}
+        >
+          {/* CANCEL BUTTON - Blue Background */}
+          <button 
+            style={{
+              flex: 1,
+              padding: '12px 0',
+              backgroundColor: '#0047AB',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+            onClick={onCancel}
+          >
+            Hủy
+          </button>
+          
+          {/* CONFIRM BUTTON - Blue Background */}
+          <button 
+            style={{
+              flex: 1,
+              padding: '12px 0',
+              backgroundColor: '#0047AB',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+            onClick={onConfirm}
+          >
+            Xác nhận
+          </button>
         </div>
       </div>
     </div>,
