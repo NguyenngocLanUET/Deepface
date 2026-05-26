@@ -1,4 +1,4 @@
-import {
+﻿import {
   BarChart3,
   Activity,
   Building2,
@@ -845,6 +845,17 @@ function App() {
   const [history, setHistory] = useState<AttendanceLog[]>([]);
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isHighZoom, setIsHighZoom] = useState(false);
+
+  useEffect(() => {
+    const checkZoom = () => {
+      const zoom = Math.round((window.outerWidth / window.innerWidth) * 100);
+      setIsHighZoom(zoom >= 150);
+    };
+    checkZoom();
+    window.addEventListener("resize", checkZoom);
+    return () => window.removeEventListener("resize", checkZoom);
+  }, []);
 
   const refreshCoreData = useCallback(async (showLoading = false) => {
     if (!session) return;
@@ -1021,7 +1032,7 @@ function App() {
           ) : (
             <>
               {activePage === "dashboard" && (
-                <DashboardPage stats={stats} history={history} employees={employees} />
+                <DashboardPage stats={stats} history={history} employees={employees} onNavigate={setActivePage} isHighZoom={isHighZoom} />
               )}
               {activePage === "kiosk" && (
                 <KioskPage
@@ -1088,10 +1099,14 @@ function DashboardPage({
   stats,
   history,
   employees,
+  onNavigate,
+  isHighZoom,
 }: {
   stats: SystemStats;
   history: AttendanceLog[];
   employees: Employee[];
+  onNavigate: (page: PageId) => void;
+  isHighZoom: boolean;
 }) {
   const successCount = history.filter((item) => item.status === "SUCCESS").length;
   const deniedCount = history.filter((item) => item.status === "DENIED").length;
@@ -1099,19 +1114,16 @@ function DashboardPage({
 
   return (
     <div className="page-grid" style={{ width: "100%", display: "flex", flexDirection: "column", gap: "24px" }}>
-      <div className="metrics-row" style={{ 
-        gridColumn: "1 / -1", 
-        display: "flex", 
-        gap: "20px", 
-        marginBottom: "35px", 
-        flexWrap: "wrap", // Cho phép các thẻ nhảy dòng để lấp đầy không gian ngang
-        paddingBottom: "10px",
+      <div style={{
+        display: "flex",
+        flexWrap: "nowrap",
+        gap: "16px",
         width: "100%"
       }}>
-        <Metric icon={Users} label="Nhân viên" value={stats.employees} sub={`${activeEmployees} đang hoạt động`} color="#339af0" />
-        <Metric icon={Building2} label="Phòng ban" value={stats.departments} sub="Quyền kế thừa" color="#51cf66" />
-        <Metric icon={DoorOpen} label="Cửa/Khu vực" value={stats.doors} sub="Điểm kiểm soát" color="#fcc419" />
-        <Metric icon={History} label="Lượt hôm nay" value={stats.today_logs} sub="Ghi nhận mới" color="#ff922b" />
+        <NavCard icon={Users} label="Nhân viên" value={stats.employees} sub={`${activeEmployees} đang hoạt động`} color="#339af0" onClick={() => onNavigate("employees")} hideIcon={isHighZoom} />
+        <NavCard icon={Building2} label="Phòng ban" value={stats.departments} sub="Quản lý phòng ban" color="#51cf66" onClick={() => onNavigate("departments")} hideIcon={isHighZoom} />
+        <NavCard icon={DoorOpen} label="Cửa/Khu vực" value={stats.doors} sub="Điểm kiểm soát" color="#fcc419" onClick={() => onNavigate("doors")} hideIcon={isHighZoom} />
+        <NavCard icon={History} label="Lượt hôm nay" value={stats.today_logs} sub="Ghi nhận mới" color="#ff922b" onClick={() => onNavigate("history")} hideIcon={isHighZoom} />
       </div>
 
       <section className="panel wide" style={{ border: "1px solid #edf2f7", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)", width: "100%" }}>
@@ -1161,6 +1173,73 @@ function DashboardPage({
         </div>
       </section>
     </div>
+  );
+}
+
+function NavCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  color,
+  onClick,
+  hideIcon,
+}: {
+  icon: typeof Gauge;
+  label: string;
+  value: number;
+  sub: string;
+  color: string;
+  onClick: () => void;
+  hideIcon?: boolean;
+}) {
+  return (
+    <article
+      onClick={onClick}
+      style={{
+        flex: "1 1 0",
+        minWidth: 0,
+        display: "flex",
+        alignItems: "center",
+        gap: "14px",
+        padding: "16px",
+        background: "#ffffff",
+        border: "1px solid #dce5ee",
+        borderTop: `4px solid ${color}`,
+        borderRadius: "8px",
+        boxShadow: "0 18px 40px rgb(30 48 72 / 7%)",
+        cursor: "pointer",
+        transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-4px)";
+        e.currentTarget.style.boxShadow = "0 25px 50px rgb(15 23 42 / 15%)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "0 18px 40px rgb(30 48 72 / 7%)";
+      }}
+    >
+      {!hideIcon && (
+        <div style={{
+          display: "grid",
+          width: "44px",
+          height: "44px",
+          placeItems: "center",
+          color: color,
+          backgroundColor: `${color}15`,
+          borderRadius: "8px",
+          flexShrink: 0,
+        }}>
+          <Icon size={24} />
+        </div>
+      )}
+      <div style={{ minWidth: 0 }}>
+        <span style={{ display: "block", fontSize: "12px", color: "#667789" }}>{label}</span>
+        <strong style={{ display: "block", fontSize: "22px", margin: "2px 0", color: "#223144" }}>{value}</strong>
+        <small style={{ display: "block", fontSize: "11px", color: "#667789" }}>{sub}</small>
+      </div>
+    </article>
   );
 }
 
