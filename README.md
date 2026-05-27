@@ -261,13 +261,13 @@ Content-Type: application/json
 
 <table>
 <tr>
-<th>📦 API Group</th>
-<th>🔗 Endpoint</th>
-<th>📝 Description</th>
+<th>API Group</th>
+<th>Endpoint</th>
+<th>Description</th>
 </tr>
 
 <tr>
-<td><b>🔐 Authentication</b></td>
+<td><b>Authentication</b></td>
 <td><code>POST /api/v1/auth/login</code></td>
 <td>Đăng nhập</td>
 </tr>
@@ -285,7 +285,7 @@ Content-Type: application/json
 </tr>
 
 <tr>
-<td><b>📸 Attendance</b></td>
+<td><b>Attendance</b></td>
 <td><code>POST /api/v1/attendance/identify</code></td>
 <td>Nhận diện khuôn mặt và điểm danh</td>
 </tr>
@@ -309,7 +309,7 @@ Content-Type: application/json
 </tr>
 
 <tr>
-<td><b>👨‍💼 Employees</b></td>
+<td><b>Employees</b></td>
 <td><code>POST /api/v1/employees/register</code></td>
 <td>Đăng ký nhân viên và khuôn mặt</td>
 </tr>
@@ -339,7 +339,7 @@ Content-Type: application/json
 </tr>
 
 <tr>
-<td><b>🏢 Departments & Doors</b></td>
+<td><b>Departments & Doors</b></td>
 <td><code>GET /api/v1/departments/</code></td>
 <td>Lấy danh sách phòng ban</td>
 </tr>
@@ -363,7 +363,7 @@ Content-Type: application/json
 </tr>
 
 <tr>
-<td><b>🛠️ Admin Tools</b></td>
+<td><b>Admin Tools</b></td>
 <td><code>POST /admin/bulk-import</code></td>
 <td>Import hàng loạt bằng ZIP</td>
 </tr>
@@ -375,7 +375,7 @@ Content-Type: application/json
 </tr>
 
 <tr>
-<td><b>⚙️ System</b></td>
+<td><b>System</b></td>
 <td><code>GET /health</code></td>
 <td>Health Check</td>
 </tr>
