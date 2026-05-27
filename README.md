@@ -138,7 +138,7 @@ database/
   
   3. Các dịch vụ chính:
   ```http
-  Frontend: deepface-azure.vercel.app
+  Frontend: https://deepface-azure.vercel.app
   Backend Docs: http://localhost:8000/docs
   MinIO: http://localhost:9001
   Grafana: http://localhost:3000
