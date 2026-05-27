@@ -268,121 +268,241 @@ Content-Type: application/json
 
 <tr>
 <td><b>Authentication</b></td>
-<td><code>POST /api/v1/auth/login</code></td>
+<td>
+
+```diff
++ POST /api/v1/auth/login
+```
+
+</td>
 <td>Đăng nhập</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>POST /api/v1/auth/register</code></td>
+<td>
+
+```yaml
+POST: /api/v1/auth/register
+```
+
+</td>
 <td>Tạo tài khoản</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>GET /api/v1/auth/me</code></td>
+<td>
+
+```ini
+GET = /api/v1/auth/me
+```
+
+</td>
 <td>Lấy thông tin tài khoản hiện tại</td>
 </tr>
 
 <tr>
 <td><b>Attendance</b></td>
-<td><code>POST /api/v1/attendance/identify</code></td>
+<td>
+
+```diff
++ POST /api/v1/attendance/identify
+```
+
+</td>
 <td>Nhận diện khuôn mặt và điểm danh</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>GET /api/v1/attendance/history</code></td>
+<td>
+
+```ini
+GET = /api/v1/attendance/history
+```
+
+</td>
 <td>Xem lịch sử điểm danh</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>GET /api/v1/attendance/stats/monthly</code></td>
+<td>
+
+```yaml
+GET: /api/v1/attendance/stats/monthly
+```
+
+</td>
 <td>Thống kê điểm danh theo tháng</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>GET /api/v1/attendance/export/excel</code></td>
+<td>
+
+```yaml
+GET: /api/v1/attendance/export/excel
+```
+
+</td>
 <td>Xuất báo cáo Excel</td>
 </tr>
 
 <tr>
 <td><b>Employees</b></td>
-<td><code>POST /api/v1/employees/register</code></td>
+<td>
+
+```diff
++ POST /api/v1/employees/register
+```
+
+</td>
 <td>Đăng ký nhân viên và khuôn mặt</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>GET /api/v1/employees/</code></td>
+<td>
+
+```ini
+GET = /api/v1/employees/
+```
+
+</td>
 <td>Lấy danh sách nhân viên</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>PATCH /api/v1/employees/{id}/status</code></td>
+<td>
+
+```diff
+! PATCH /api/v1/employees/{id}/status
+```
+
+</td>
 <td>Khóa/Mở tài khoản</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>PUT /api/v1/employees/{id}/permissions</code></td>
+<td>
+
+```yaml
+PUT: /api/v1/employees/{id}/permissions
+```
+
+</td>
 <td>Cấp quyền truy cập cửa</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>DELETE /api/v1/employees/{id}</code></td>
+<td>
+
+```diff
+- DELETE /api/v1/employees/{id}
+```
+
+</td>
 <td>Xóa nhân viên</td>
 </tr>
 
 <tr>
 <td><b>Departments & Doors</b></td>
-<td><code>GET /api/v1/departments/</code></td>
+<td>
+
+```ini
+GET = /api/v1/departments/
+```
+
+</td>
 <td>Lấy danh sách phòng ban</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>POST /api/v1/departments/permissions</code></td>
+<td>
+
+```diff
++ POST /api/v1/departments/permissions
+```
+
+</td>
 <td>Cấp quyền theo phòng ban</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>POST /api/v1/departments/{dept_id}/quick-setup</code></td>
+<td>
+
+```yaml
+POST: /api/v1/departments/{dept_id}/quick-setup
+```
+
+</td>
 <td>Phân quyền nhanh hàng loạt</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>GET /api/v1/doors/</code></td>
+<td>
+
+```ini
+GET = /api/v1/doors/
+```
+
+</td>
 <td>Lấy danh sách cửa</td>
 </tr>
 
 <tr>
 <td><b>Admin Tools</b></td>
-<td><code>POST /admin/bulk-import</code></td>
+<td>
+
+```diff
++ POST /admin/bulk-import
+```
+
+</td>
 <td>Import hàng loạt bằng ZIP</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>GET /admin/system-stats</code></td>
+<td>
+
+```yaml
+GET: /admin/system-stats
+```
+
+</td>
 <td>Thống kê tổng quan hệ thống</td>
 </tr>
 
 <tr>
 <td><b>System</b></td>
-<td><code>GET /health</code></td>
+<td>
+
+```ini
+GET = /health
+```
+
+</td>
 <td>Health Check</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>GET /metrics</code></td>
+<td>
+
+```yaml
+GET: /metrics
+```
+
+</td>
 <td>Metrics cho Prometheus</td>
 </tr>
 
@@ -391,16 +511,6 @@ Content-Type: application/json
 </div>
 
 ---
-
-<div align="center">
-
-![API](https://img.shields.io/badge/API-FastAPI-059669?style=for-the-badge&logo=fastapi)
-![Database](https://img.shields.io/badge/Database-PostgreSQL-0ea5e9?style=for-the-badge&logo=postgresql)
-![VectorDB](https://img.shields.io/badge/VectorDB-Qdrant-9333ea?style=for-the-badge)
-![Monitoring](https://img.shields.io/badge/Monitoring-Grafana-orange?style=for-the-badge&logo=grafana)
-
-</div>
-
 ## <span style="color: #059669;">9. Quản lý dữ liệu (Volumes)</span>
 
 - `postgres_data`: User, Employee, Attendance Log.
