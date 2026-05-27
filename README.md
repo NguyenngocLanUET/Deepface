@@ -208,8 +208,8 @@ Nhân viên:
 ### 1. Clone project
 
 ```bash
-git clone <your-repository>
-cd deepface-attendance-system
+git clone https://github.com/NguyenngocLanUET/Deepface.git
+cd Deepface
 ```
 
 ### 2. Cấu hình môi trường
@@ -255,18 +255,17 @@ docker compose down
 ### <span style="color: #D97706;">10.1. Luồng xác minh</span>
 
 ```text
-Quản trị viên gửi ảnh + tên cửa
--> backend FastAPI tiếp nhận, lưu tạm ảnh
--> DeepFace trích xuất vector khuôn mặt
--> Qdrant tìm kiếm vector tương tự 
--> Nhận diện được ID nhân viên
--> Kiểm tra logic Quyền truy cập (db_service.check_access_permission):
-     1. Nhân viên có bị khóa không?
-     2. Có quyền qua cửa này không?
-     3. Khung giờ hiện tại hợp lệ không?
--> FastAPI lưu ảnh sự kiện lên MinIO, ghi Log (SUCCESS/DENIED) vào PostgreSQL
--> Redis set Cooldown (60s) chống spam
--> Trả về kết quả đóng/mở cửa.
+Admin gửi ảnh + tên cửa
+→ FastAPI nhận request, lưu ảnh tạm
+→ DeepFace trích xuất embedding khuôn mặt
+→ Qdrant tìm vector gần nhất → nhận diện nhân viên
+→ Kiểm tra quyền truy cập:
+   - Tài khoản bị khóa?
+   - Có quyền qua cửa?
+   - Đúng khung giờ?
+→ Lưu ảnh sự kiện lên MinIO, ghi log vào PostgreSQL
+→ Redis tạo cooldown 60s chống spam
+→ Trả kết quả mở/từ chối cửa
 ```
 **API chính:**
 ```http
@@ -278,15 +277,18 @@ file=<image_binary>
 
 ### <span style="color: #D97706;">10.2. Luồng đăng ký khuôn mặt nhân viên mới</span> 
 ```text
-Admin gửi thông tin nhân viên và 1 đến 5 ảnh gốc
--> FastAPI tạo record trong PostgreSQL
--> Upload ảnh lên MinIO bucket
--> Gửi task process_face_registration vào hàng đợi Redis
--> Celery Worker lấy task từ Redis
--> Worker tải ảnh từ MinIO
--> Kiểm tra chất lượng (đủ sáng, không nhòe, duy nhất 1 mặt)
--> Trích xuất các Vector và tính Average Vector
--> Lưu Average Vector vào Qdrant
+Admin gửi thông tin nhân viên + 1–5 ảnh gốc
+→ FastAPI tạo record trong PostgreSQL
+→ Upload ảnh lên MinIO
+→ Đẩy task process_face_registration vào Redis Queue
+→ Celery Worker lấy task và tải ảnh từ MinIO
+→ Kiểm tra chất lượng ảnh:
+   - Đủ sáng
+   - Không nhòe
+   - Chỉ có 1 khuôn mặt
+→ Trích xuất embedding từ các ảnh
+→ Tính Average Vector
+→ Lưu vector vào Qdrant
 ```
 **API chính:**
 ```http
@@ -301,12 +303,12 @@ files=[<image1_binary>, <image2_binary>, ...]
 
 ### <span style="color: #D97706;">10.3. Luồng Bulk Import (Dành cho khởi tạo hệ thống)</span>
 ```text
-Admin upload 1 file ZIP (chứa file metadata.json và hàng loạt ảnh)
--> FastAPI giải nén vào thư mục tạm
--> Quét file JSON, lặp qua từng nhân viên
--> Tạo record DB và upload ảnh vào MinIO
--> Thêm hàng loạt task process_face_registration vào Celery Worker
--> Worker tuần tự xử lý vector trong nền.
+Admin upload file ZIP (metadata.json + ảnh nhân viên)
+→ FastAPI giải nén vào thư mục tạm
+→ Đọc metadata.json và lặp qua từng nhân viên
+→ Tạo record DB, upload ảnh lên MinIO
+→ Đẩy hàng loạt task process_face_registration vào Redis Queue
+→ Celery Worker xử lý vector khuôn mặt trong nền
 ```
 Hệ thống hỗ trợ file `metadata.json` trong ZIP:
 ```json
@@ -329,11 +331,11 @@ zip_file=<zip_file_binary>
 
 ### <span style="color: #D97706;">10.4. Luồng thiết lập quyền truy cập nhanh</span>
 ```text
-Admin chọn 1 phòng ban, chọn nhiều cửa và khung giờ
--> FastAPI tiếp nhận payload
--> Lặp qua danh sách các cửa (door_ids)
--> PostgreSQL lưu bản ghi phân quyền (DeptPermission)
--> Từ lúc này, mọi nhân viên thuộc phòng ban đó sẽ được ra vào các cửa đã chọn trong khung giờ quy định.
+Admin chọn phòng ban, danh sách cửa và khung giờ
+→ FastAPI tiếp nhận payload
+→ Lặp qua các door_ids
+→ PostgreSQL lưu bản ghi phân quyền
+→ Nhân viên trong phòng ban được phép ra vào các cửa đã chọn theo khung giờ quy định
 ```
 **API chính:**
 ```http
