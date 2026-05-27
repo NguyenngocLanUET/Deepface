@@ -35,7 +35,25 @@
    - **Xem lịch sử điểm danh**: Tra cứu nhật ký ra vào thời gian thực, sắp xếp theo thời gian mới nhất, hiển thị trạng thái (SUCCESS/DENIED) và lý do từ chối cụ thể.
 
    - **Lưu trữ dữ liệu**: Lưu lịch sử vào PostgreSQL, lưu ảnh khuôn mặt gốc vào MinIO, lưu vector khuôn mặt vào Qdrant.
+### <span style="color: #D97706;">2.1. Công nghệ Nhận diện & AI</span>
+*   **Average Embedding (Đăng ký 1-5 ảnh)**: Khi đăng ký nhân viên, hệ thống yêu cầu nhiều ảnh ở các góc độ khác nhau. Celery Worker sẽ tính toán **Vector Trung bình (Average Vector)** và chuẩn hóa L2 để đại diện cho khuôn mặt đó, giúp tăng tỷ lệ nhận diện chính xác vượt trội so với việc dùng 1 ảnh duy nhất.
+*   **Identify-Multi (Phát hiện hàng loạt)**: Hỗ trợ tiếp nhận luồng 10 ảnh liên tục (từ burst mode của camera). Hệ thống sẽ chạy song song (Parallel execution) để tìm ra ảnh có Score cao nhất, tối ưu cho môi trường ánh sáng thay đổi.
+*   **Kiểm tra chất lượng ảnh**: Tự động lọc ảnh nhòe, thiếu sáng hoặc ảnh không có khuôn mặt trước khi đăng ký.
 
+### <span style="color: #D97706;">2.2. Logic điểm danh đặc biệt</span>
+*   **Anti-spam Cooldown**: Sau khi điểm danh thành công, hệ thống áp dụng Cooldown (mặc định 60s) để tránh việc một người đứng trước camera tạo ra hàng chục log trùng lặp.
+*   Đối với người lạ, hệ thống không log ngay lập tức mà yêu cầu đối tượng xuất hiện liên tục > 3.5 giây mới ghi nhận "Denied" vào DB, giúp giảm thiểu rác dữ liệu từ người đi ngang qua.
+*   **Tự động phân loại trạng thái: *Thành công*, *Thành công (Trong giờ ân hạn)*, hoặc *Muộn* dựa trên cấu hình `WORK_START`.
+
+### <span style="color: #D97706;">2.3. Quản trị & Vận hành (Admin Tools)</span>
+*   **Bulk Import**: Cho phép Import hàng nghìn nhân viên qua 1 file ZIP. Hỗ trợ 2 cấu trúc folder (theo tên folder hoặc theo file metadata.json).
+*   **Phân quyền Cửa**: 
+    *   Phân quyền theo cá nhân.
+    *   **Quick Setup**: Phân quyền theo Phòng ban (Cấp quyền cho cả phòng vào danh sách cửa X, Y, Z trong khung giờ A -> B).
+*   Dashboard nhận thông báo ngay lập tức qua WebSocket kèm theo Score và lý do từ chối (ví dụ: "Tài khoản bị khóa", "Sai khung giờ").
+*   Tự động chạy tác vụ dọn dẹp log cũ và snapshots người lạ vào 2 giờ sáng hàng ngày để tiết kiệm dung lượng.
+
+---
 ## <span style="color: #059669;">3. Yêu cầu môi trường</span>
 - Docker Desktop.
 - Docker Compose.
@@ -92,7 +110,7 @@ database/
 ```
 
 ## <span style="color: #059669;">6. Cách chạy</span> 
-   1. Kiểm tra file `.env`. Có thể tạo lại từ `.env.example` nếu cần.
+   1. Cấu hình file `.env` (Dựa trên `.env.example`)
    2. Build và chạy toàn bộ stack:
       ```bash
       docker compose up -d --build
@@ -172,6 +190,17 @@ Admin upload 1 file ZIP (chứa file metadata.json và hàng loạt ảnh)
 -> Tạo record DB và upload ảnh vào MinIO
 -> Thêm hàng loạt task process_face_registration vào Celery Worker
 -> Worker tuần tự xử lý vector trong nền.
+```
+Hệ thống hỗ trợ file `metadata.json` trong ZIP:
+```json
+[
+  {
+    "full_name": "Nguyen Van A",
+    "employee_code": "EMP001",
+    "department_name": "IT Dept",
+    "images": ["folder1/img1.jpg", "folder1/img2.jpg"]
+  }
+]
 ```
 **API chính:**
 ```http
@@ -269,7 +298,9 @@ Dữ liệu được bảo toàn qua các Docker Volume định nghĩa sẵn dù
 docker compose logs -f backend 
 docker compose logs -f worker   
 ```
-
+*   **Health Check**: `/health` dùng cho Docker healthcheck.
+*   **Metrics**: `/metrics` cung cấp dữ liệu cho Prometheus.
+*   **Logs**: Toàn bộ luồng nhận diện được ghi Log chi tiết (Status: SUCCESS/DENIED, Score, Door, Reason).
 ### <span style="color: #D97706;">10.2. Hướng dẫn Backup & Restore dữ liệu</span>
 Thực hiện sao lưu thủ công thông qua các lệnh:
 
