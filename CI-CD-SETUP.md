@@ -44,4 +44,4 @@ Dự án triển khai theo mô hình **Hybrid Cloud**:
 Chỉ cần cấu hình biến môi trường trên Vercel:
 
 ```env
-VITE_API_BASE_URL=https://your-ngrok-url.ngrok-free.app
+VITE_API_BASE_URL=https://your-ngrok-url.ngrok-free.app/api
