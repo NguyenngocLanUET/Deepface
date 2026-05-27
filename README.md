@@ -40,7 +40,7 @@
 ## <span style="color: #059669;">1. Kiến trúc hệ thống</span>
 
 <p align="center">
-  <img width="100%" src="https://github.com/user-attachments/assets/88ac4d65-9597-44ec-8e7c-6aa2b1e6eaf9" />
+  <img width="7524" height="4932" alt="image" src="https://github.com/user-attachments/assets/b82d8086-d4f1-4730-916a-784380461de6" />
 </p>
 
 
