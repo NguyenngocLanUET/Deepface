@@ -10,7 +10,7 @@ import type {
 } from "../types";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "https://graffiti-fit-error.ngrok-free.dev/api/v1";
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";
 const NGROK_SKIP_WARNING_HEADER = "ngrok-skip-browser-warning";
 
 export type ApiMode = "live" | "offline";

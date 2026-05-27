@@ -27,6 +27,7 @@
   EyeOff,
 } from "lucide-react";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { api } from "./api/client";
 import { useCameraGate } from "./hooks/useCameraGate";
 import { useTinyFaceRegister } from "./hooks/useTinyFaceRegister";
@@ -56,7 +57,7 @@ type PageId =
 
 type Notice = {
   type: "success" | "error" | "info";
-  text: string;
+  text: string | React.ReactNode;
 };
 
 type ImportLogSummary = {
@@ -845,6 +846,44 @@ function App() {
   const [history, setHistory] = useState<AttendanceLog[]>([]);
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isHighZoom, setIsHighZoom] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "employee" | "department" | "door" | "permission"; item: any } | null>(null);
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      if (deleteTarget.type === "employee") {
+        await api.deleteEmployee((deleteTarget.item as Employee).id);
+        setNotice({ type: "success", text: `Đã xóa nhân viên ${(deleteTarget.item as Employee).full_name || ''}.` });
+      } else if (deleteTarget.type === "department") {
+        await api.deleteDepartment((deleteTarget.item as Department).id);
+        setNotice({ type: "success", text: `Đã xóa phòng ban ${(deleteTarget.item as Department).name || ''}.` });
+      } else if (deleteTarget.type === "door") {
+        await api.deleteDoor((deleteTarget.item as Door).id);
+        setNotice({ type: "success", text: `Đã xóa cửa/khu vực ${(deleteTarget.item as Door).name || ''}.` });
+      } else if (deleteTarget.type === "permission") {
+        const item = deleteTarget.item as any;
+        await api.deleteDepartmentPermission(item.id);
+        window.dispatchEvent(new Event("permission-deleted"));
+        setNotice({ type: "success", text: `Đã xóa quyền truy cập thành công.` });
+      }
+      setDeleteTarget(null);
+      refreshCoreData();
+    } catch (error) {
+      setNotice({ type: "error", text: errorMessage(error, "Không thể tiến hành xóa dữ liệu.") });
+      setDeleteTarget(null);
+    }
+  };
+
+  useEffect(() => {
+    const checkZoom = () => {
+      const zoom = Math.round((window.outerWidth / window.innerWidth) * 100);
+      setIsHighZoom(zoom >= 150);
+    };
+    checkZoom();
+    window.addEventListener("resize", checkZoom);
+    return () => window.removeEventListener("resize", checkZoom);
+  }, []);
 
   const refreshCoreData = useCallback(async (showLoading = false) => {
     if (!session) return;
@@ -964,33 +1003,34 @@ function App() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark">
-            <ShieldCheck size={24} />
+      <aside className="mini-sidebar">
+        <div className="mini-sidebar-inner">
+          <div className="mini-brand">
+            <div className="brand-mark">
+              <ShieldCheck size={24} />
+            </div>
+            <div className="brand-text">
+              <strong>FaceAccess AI</strong>
+            </div>
           </div>
-          <div>
-            <strong>FaceAccess AI</strong>
-            <span>Bảng điều khiển</span>
-          </div>
-        </div>
 
-        <nav className="nav-list" aria-label="Điều hướng chính">
-          {visibleNavItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                className={activePage === item.id ? "nav-item active" : "nav-item"}
-                onClick={() => setActivePage(item.id)}
-                type="button"
-              >
-                <Icon size={18} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+          <nav className="mini-nav-list" aria-label="Điều hướng chính">
+            {visibleNavItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  className={activePage === item.id ? "nav-item active" : "nav-item"}
+                  onClick={() => setActivePage(item.id)}
+                  type="button"
+                >
+                  <Icon size={18} />
+                  <span className="nav-label">{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
       </aside>
 
       <main className="workspace">
@@ -1020,7 +1060,7 @@ function App() {
           ) : (
             <>
               {activePage === "dashboard" && (
-                <DashboardPage stats={stats} history={history} employees={employees} />
+                <DashboardPage stats={stats} history={history} employees={employees} onNavigate={setActivePage} isHighZoom={isHighZoom} />
               )}
               {activePage === "kiosk" && (
                 <KioskPage
@@ -1035,6 +1075,7 @@ function App() {
                   departments={departments}
                   onNotice={setNotice}
                   onRefresh={() => void refreshCoreData()}
+                  onDeleteRequest={(type, item) => setDeleteTarget({ type, item } as any)}
                 />
               )}
               {activePage === "register" && (
@@ -1045,7 +1086,7 @@ function App() {
                 />
               )}
               {activePage === "doors" && (
-                <DoorsPage doors={doors} onNotice={setNotice} onRefresh={() => void refreshCoreData()} />
+                <DoorsPage doors={doors} onNotice={setNotice} onRefresh={() => void refreshCoreData()} onDeleteRequest={(type, item) => setDeleteTarget({ type, item } as any)} />
               )}
               {activePage === "departments" && (
                 <DepartmentsPage
@@ -1053,6 +1094,7 @@ function App() {
                   doors={doors}
                   onNotice={setNotice}
                   onRefresh={() => void refreshCoreData()}
+                  onDeleteRequest={(type, item) => setDeleteTarget({ type, item } as any)}
                 />
               )}
               {activePage === "permissions" && (
@@ -1078,6 +1120,7 @@ function App() {
             </>
           )}
         </div>
+        <DeleteConfirmModal target={deleteTarget} onConfirm={confirmDelete} onCancel={() => setDeleteTarget(null)} />
       </main>
     </div>
   );
@@ -1087,45 +1130,33 @@ function DashboardPage({
   stats,
   history,
   employees,
+  onNavigate,
+  isHighZoom,
 }: {
   stats: SystemStats;
   history: AttendanceLog[];
   employees: Employee[];
+  onNavigate: (page: PageId) => void;
+  isHighZoom: boolean;
 }) {
   const successCount = history.filter((item) => item.status === "SUCCESS").length;
   const deniedCount = history.filter((item) => item.status === "DENIED").length;
   const activeEmployees = employees.filter((item) => item.is_active).length;
-  const [cardWidth, setCardWidth] = useState(260);
 
   return (
     <div className="page-grid" style={{ width: "100%", display: "flex", flexDirection: "column", gap: "24px" }}>
-      <div style={{ gridColumn: "1 / -1", marginBottom: "20px", display: "flex", alignItems: "center", gap: "12px", background: "white", padding: "10px 15px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-        <SlidersHorizontal size={16} color="#64748b" />
-        <span style={{ fontSize: "13px", fontWeight: 700, color: "#475569" }}>Kích thước thẻ:</span>
-        <input 
-          type="range" 
-          min="200" 
-          max="450" 
-          value={cardWidth} 
-          onChange={(e) => setCardWidth(Number(e.target.value))} 
-          style={{ cursor: "pointer", accentColor: "#339af0" }}
-        />
-        <span style={{ fontSize: "12px", color: "#64748b", minWidth: "40px" }}>{cardWidth}px</span>
-      </div>
-
-      <div className="metrics-row" style={{ 
-        gridColumn: "1 / -1", 
-        display: "flex", 
-        gap: "20px", 
-        marginBottom: "35px", 
-        flexWrap: "wrap", // Cho phép các thẻ nhảy dòng để lấp đầy không gian ngang
-        paddingBottom: "10px",
-        width: "100%"
+      <div className="stats-grid-container" style={{
+        display: "flex",
+        flexWrap: "nowrap",
+        gap: "16px",
+        width: "100%",
+        maxWidth: "100%",
+        overflow: "hidden"
       }}>
-        <Metric icon={Users} label="Nhân viên" value={stats.employees} sub={`${activeEmployees} đang hoạt động`} color="#339af0" width={cardWidth} />
-        <Metric icon={Building2} label="Phòng ban" value={stats.departments} sub="Quyền kế thừa" color="#51cf66" width={cardWidth} />
-        <Metric icon={DoorOpen} label="Cửa/Khu vực" value={stats.doors} sub="Điểm kiểm soát" color="#fcc419" width={cardWidth} />
-        <Metric icon={History} label="Lượt hôm nay" value={stats.today_logs} sub="Ghi nhận mới" color="#ff922b" width={cardWidth} />
+        <NavCard icon={Users} label="Nhân viên" value={stats.employees} sub={`${activeEmployees} đang hoạt động`} color="#339af0" onClick={() => onNavigate("employees")} hideIcon={isHighZoom} />
+        <NavCard icon={Building2} label="Phòng ban" value={stats.departments} sub="Quản lý phòng ban" color="#51cf66" onClick={() => onNavigate("departments")} hideIcon={isHighZoom} />
+        <NavCard icon={DoorOpen} label="Cửa/Khu vực" value={stats.doors} sub="Điểm kiểm soát" color="#fcc419" onClick={() => onNavigate("doors")} hideIcon={isHighZoom} />
+        <NavCard icon={History} label="Lượt hôm nay" value={stats.today_logs} sub="Ghi nhận mới" color="#ff922b" onClick={() => onNavigate("history")} hideIcon={isHighZoom} />
       </div>
 
       <section className="panel wide" style={{ border: "1px solid #edf2f7", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)", width: "100%" }}>
@@ -1178,23 +1209,89 @@ function DashboardPage({
   );
 }
 
+function NavCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  color,
+  onClick,
+  hideIcon,
+}: {
+  icon: typeof Gauge;
+  label: string;
+  value: number;
+  sub: string;
+  color: string;
+  onClick: () => void;
+  hideIcon?: boolean;
+}) {
+  return (
+    <article
+      onClick={onClick}
+      style={{
+        flex: "1 1 0",
+        minWidth: "0",
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        padding: "12px",
+        background: "#ffffff",
+        border: "1px solid #dce5ee",
+        borderTop: `4px solid ${color}`,
+        borderRadius: "8px",
+        boxShadow: "0 18px 40px rgb(30 48 72 / 7%)",
+        cursor: "pointer",
+        transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        overflow: "hidden",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-4px)";
+        e.currentTarget.style.boxShadow = "0 25px 50px rgb(15 23 42 / 15%)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "0 18px 40px rgb(30 48 72 / 7%)";
+      }}
+    >
+      {!hideIcon && (
+        <div style={{
+          display: "grid",
+          width: "44px",
+          height: "44px",
+          placeItems: "center",
+          color: color,
+          backgroundColor: `${color}15`,
+          borderRadius: "8px",
+          flexShrink: 0,
+        }}>
+          <Icon size={24} />
+        </div>
+      )}
+      <div style={{ minWidth: 0 }}>
+        <span style={{ display: "block", fontSize: "12px", color: "#667789" }}>{label}</span>
+        <strong style={{ display: "block", fontSize: "22px", margin: "2px 0", color: "#223144" }}>{value}</strong>
+        <small style={{ display: "block", fontSize: "11px", color: "#667789" }}>{sub}</small>
+      </div>
+    </article>
+  );
+}
+
 function Metric({
   icon: Icon,
   label,
   value,
   sub,
   color,
-  width,
 }: {
   icon: typeof Gauge;
   label: string;
   value: number;
   sub: string;
   color?: string;
-  width?: number;
 }) {
   return (
-    <article className="metric-card" style={{ flex: `0 0 ${width}px`, minWidth: `${width}px`, borderTop: color ? `4px solid ${color}` : "none" }}>
+    <article className="metric-card" style={{ borderTop: color ? `4px solid ${color}` : "none" }}>
       <div className="metric-icon" style={{ backgroundColor: color ? `${color}15` : undefined, color: color }}>
         <Icon size={24} />
       </div>
@@ -1540,11 +1637,13 @@ function EmployeesPage({
   departments,
   onNotice,
   onRefresh,
+  onDeleteRequest,
 }: {
   employees: Employee[];
   departments: Department[];
   onNotice: (notice: Notice) => void;
   onRefresh: () => void;
+  onDeleteRequest: (type: "employee", item: Employee) => void;
 }) {
   const [query, setQuery] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<number | null>(null);
@@ -1590,16 +1689,6 @@ function EmployeesPage({
       } catch (error) {
         onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật.") });
       }
-  };
-
-  const deleteEmployee = async (employee: Employee) => {
-    try {
-      await api.deleteEmployee(employee.id);
-      onNotice({ type: "success", text: `Đã xóa nhân viên ${employee.full_name} mã nhân viên ${employee.employee_code}.` });
-      onRefresh();
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể xóa nhân viên.") });
-    }
   };
 
   useEffect(() => {
@@ -1827,7 +1916,7 @@ function EmployeesPage({
                       className="small-button danger"
                       onClick={(event) => {
                         event.stopPropagation();
-                        void deleteEmployee(employee);
+                        onDeleteRequest("employee", employee);
                       }}
                       type="button"
                     >
@@ -1929,6 +2018,12 @@ function RegisterPage({
   const [isAutoCaptureActive, setIsAutoCaptureActive] = useState(false);
   const [captureAttempts, setCaptureAttempts] = useState(0);
   const [lastQualityIssues, setLastQualityIssues] = useState<string[]>([]);
+  
+  // Force re-render khi departments thay đổi để cập nhật dropdown
+  const [deptKey, setDeptKey] = useState(0);
+  useEffect(() => {
+    setDeptKey(prev => prev + 1);
+  }, [departments.length]);
 
   const totalFiles = files.length;
 
@@ -1954,10 +2049,10 @@ function RegisterPage({
       setFiles([]);
       registerCamera.stop();
       setIsAutoCaptureActive(false);
-      onNotice({ type: "success", text: "Đã gửi đăng ký." });
+      onNotice({ type: "success", text: <>Đã đăng ký thành công khuôn mặt cho nhân viên <strong>{fullName}</strong> mã nhân viên <strong>{employeeCode}</strong>.</> });
       onRefresh();
     } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể đăng ký nhân viên.") });
+      onNotice({ type: "error", text: `Đăng ký khuôn mặt không thành công. ${errorMessage(error, "")}` });
     } finally {
       setSubmitting(false);
     }
@@ -2069,6 +2164,7 @@ function RegisterPage({
         <label className="field">
           <span>Phòng ban</span>
           <select
+            key={deptKey}
             value={departmentName}
             onChange={(event) => setDepartmentName(event.target.value)}
             required
@@ -2159,24 +2255,19 @@ function DoorsPage({
   doors,
   onNotice,
   onRefresh,
+  onDeleteRequest,
 }: {
   doors: Door[];
   onNotice: (notice: Notice) => void;
   onRefresh: () => void;
+  onDeleteRequest: (type: "door", item: Door) => void;
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
   // Function to handle deleting a door
   const deleteDoor = async (door: Door) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa cửa "${door.name}"?`)) return;
-    try {
-      await api.deleteDoor(door.id);
-      onNotice({ type: "success", text: "Đã xóa cửa/khu vực." });
-      onRefresh();
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể xóa cửa/khu vực.") });
-    }
+    onDeleteRequest("door", door);
   };
 
   // Function to handle submitting the new door form
@@ -2267,11 +2358,13 @@ function DepartmentsPage({
   doors,
   onNotice,
   onRefresh,
+  onDeleteRequest,
 }: {
   departments: Department[];
   doors: Door[];
   onNotice: (notice: Notice) => void;
   onRefresh: () => void;
+  onDeleteRequest: (type: "department" | "permission", item: any) => void;
 }) {
   const [name, setName] = useState("");
   const [editingDept, setEditingDept] = useState<Department | null>(null);
@@ -2306,6 +2399,15 @@ function DepartmentsPage({
   useEffect(() => {
     void fetchPermissions();
   }, [fetchPermissions, departments]);
+
+  // Effect to refetch permissions when a permission was deleted via modal
+  useEffect(() => {
+    const handlePermissionDeleted = () => {
+      void fetchPermissions();
+    };
+    window.addEventListener("permission-deleted", handlePermissionDeleted);
+    return () => window.removeEventListener("permission-deleted", handlePermissionDeleted);
+  }, [fetchPermissions]);
 
   // Effect to set default selected door when doors are loaded
   useEffect(() => {
@@ -2354,14 +2456,7 @@ function DepartmentsPage({
 
   // Function to delete a department
   const deleteDepartment = async (department: Department) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa phòng ban "${department.name}"?`)) return;
-    try {
-      await api.deleteDepartment(department.id);
-      onNotice({ type: "success", text: "Đã xóa phòng ban." });
-      onRefresh();
-    } catch (error) {
-      onNotice({ type: "error", text: errorMessage(error, "Không thể xóa phòng ban.") });
-    }
+    onDeleteRequest("department", department);
   };
 
   // Function to submit the new department form
@@ -2406,7 +2501,7 @@ function DepartmentsPage({
                           <span>{p.door_name}: {p.allowed_start_time?.slice(0, 5)} - {p.allowed_end_time?.slice(0, 5)}</span>
                           <button
                             className="tag-remove-btn"
-                            onClick={(e) => { e.stopPropagation(); void removePermission(p.id); }}
+                            onClick={(e) => { e.stopPropagation(); onDeleteRequest("permission", p); }}
                             title="Xóa quyền này"
                           >
                             <X size={10} />
@@ -3212,6 +3307,127 @@ function AdminToolsPage({ onNotice }: { onNotice: (notice: Notice) => void }) {
         </button>
       </section>
     </div>
+  );
+}
+
+function DeleteConfirmModal({ 
+  target, 
+  onConfirm, 
+  onCancel 
+}: { 
+  target: { type: "employee" | "department" | "door" | "permission"; item: any } | null; 
+  onConfirm: () => void; 
+  onCancel: () => void 
+}) {
+  if (!target) return null;
+  const itemName = target.type === "employee" 
+    ? target.item.full_name 
+    : target.type === "permission" ? (target.item.employee_name || target.item.department_name || "đối tượng này")
+    : target.item.name;
+    
+  const typeLabel = target.type === "employee" ? "nhân viên" 
+    : target.type === "department" ? "phòng ban" 
+    : target.type === "permission" ? "quyền truy cập của"
+    : "cửa/khu vực";
+  return createPortal(
+    <div 
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2147483647
+      }}
+      onClick={onCancel}
+    >
+      <div 
+        style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          padding: '32px',
+          width: '100%',
+          maxWidth: '450px',
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center',
+          margin: '0 16px'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button 
+          style={{
+            position: 'absolute',
+            top: '16px',
+            right: '16px',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            color: '#9CA3AF'
+          }}
+          onClick={onCancel}
+        >
+          <X size={24} />
+        </button>
+        <h3 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0 0 12px 0' }}>Xác nhận xóa</h3>
+        <p style={{ fontSize: '16px', color: '#4B5563', margin: '0 0 32px 0', lineHeight: '1.5' }}>
+          Bạn có chắc chắn muốn xóa {typeLabel} <strong style={{ color: '#1F2937' }}>{itemName}</strong> không? Hành động này không thể hoàn tác.
+        </p>
+        {/* ACTION CONTAINER - Removed blue background */}
+        <div 
+          style={{
+            width: '100%',
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '16px'
+          }}
+        >
+          {/* CANCEL BUTTON - Blue Background */}
+          <button 
+            style={{
+              flex: 1,
+              padding: '12px 0',
+              backgroundColor: '#0047AB',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+            onClick={onCancel}
+          >
+            Hủy
+          </button>
+          
+          {/* CONFIRM BUTTON - Blue Background */}
+          <button 
+            style={{
+              flex: 1,
+              padding: '12px 0',
+              backgroundColor: '#0047AB',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+            onClick={onConfirm}
+          >
+            Xác nhận
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
 
