@@ -132,6 +132,11 @@ export const api = {
     ),
   getEmployeePhotoUrl: (id: number, photoName: string) =>
     `${API_BASE_URL}/employees/${id}/photo/${encodeURIComponent(photoName)}`,
+  getEmployeePhoto: (id: number, photoName: string) =>
+    requestBlob([
+      `/employees/${id}/photo/${encodeURIComponent(photoName)}`,
+      `/employees/employees/${id}/photo/${encodeURIComponent(photoName)}`,
+    ]),
   searchEmployees: (query: string) =>
     request<Employee[]>([
       `/employees/search?query=${encodeURIComponent(query)}`,
