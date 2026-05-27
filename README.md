@@ -253,30 +253,153 @@ Content-Type: application/json
   "end_time": "18:00:00"
 }
 ```
-## <span style="color: #059669;">8. API chính</span>
-| Nhóm API | Endpoint | Chức năng |
-|---|---|---|
-| **Authentication** | `POST /api/v1/auth/login` | Đăng nhập |
-|  | `POST /api/v1/auth/register` | Tạo tài khoản |
-|  | `GET /api/v1/auth/me` | Lấy thông tin tài khoản hiện tại |
-| **Attendance** | `POST /api/v1/attendance/identify` | Nhận diện khuôn mặt và điểm danh |
-|  | `GET /api/v1/attendance/history` | Xem lịch sử điểm danh |
-|  | `GET /api/v1/attendance/stats/monthly` | Thống kê điểm danh theo tháng |
-|  | `GET /api/v1/attendance/export/excel` | Xuất báo cáo Excel |
-| **Employees** | `POST /api/v1/employees/register` | Đăng ký nhân viên và khuôn mặt |
-|  | `GET /api/v1/employees/` | Lấy danh sách nhân viên |
-|  | `PATCH /api/v1/employees/{id}/status` | Khóa/Mở tài khoản |
-|  | `PUT /api/v1/employees/{id}/permissions` | Cấp quyền truy cập cửa |
-|  | `DELETE /api/v1/employees/{id}` | Xóa nhân viên |
-| **Departments & Doors** | `GET /api/v1/departments/` | Lấy danh sách phòng ban |
-|  | `POST /api/v1/departments/permissions` | Cấp quyền theo phòng ban |
-|  | `POST /api/v1/departments/{dept_id}/quick-setup` | Phân quyền nhanh hàng loạt |
-|  | `GET /api/v1/doors/` | Lấy danh sách cửa |
-| **Admin Tools** | `POST /admin/bulk-import` | Import hàng loạt bằng ZIP |
-|  | `GET /admin/system-stats` | Thống kê tổng quan hệ thống |
-| **System** | `GET /health` | Health Check |
-|  | `GET /metrics` | Metrics cho Prometheus |
+<h2 align="center">
+  <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=700&size=28&pause=1000&color=10B981&center=true&vCenter=true&width=600&lines=⚡+Main+API+Endpoints+⚡;🚀+DeepFace+Attendance+System+🚀" />
+</h2>
+
+<div align="center">
+
+<table>
+<tr>
+<th>📦 API Group</th>
+<th>🔗 Endpoint</th>
+<th>📝 Description</th>
+</tr>
+
+<tr>
+<td><b>🔐 Authentication</b></td>
+<td><code>POST /api/v1/auth/login</code></td>
+<td>Đăng nhập</td>
+</tr>
+
+<tr>
+<td></td>
+<td><code>POST /api/v1/auth/register</code></td>
+<td>Tạo tài khoản</td>
+</tr>
+
+<tr>
+<td></td>
+<td><code>GET /api/v1/auth/me</code></td>
+<td>Lấy thông tin tài khoản hiện tại</td>
+</tr>
+
+<tr>
+<td><b>📸 Attendance</b></td>
+<td><code>POST /api/v1/attendance/identify</code></td>
+<td>Nhận diện khuôn mặt và điểm danh</td>
+</tr>
+
+<tr>
+<td></td>
+<td><code>GET /api/v1/attendance/history</code></td>
+<td>Xem lịch sử điểm danh</td>
+</tr>
+
+<tr>
+<td></td>
+<td><code>GET /api/v1/attendance/stats/monthly</code></td>
+<td>Thống kê điểm danh theo tháng</td>
+</tr>
+
+<tr>
+<td></td>
+<td><code>GET /api/v1/attendance/export/excel</code></td>
+<td>Xuất báo cáo Excel</td>
+</tr>
+
+<tr>
+<td><b>👨‍💼 Employees</b></td>
+<td><code>POST /api/v1/employees/register</code></td>
+<td>Đăng ký nhân viên và khuôn mặt</td>
+</tr>
+
+<tr>
+<td></td>
+<td><code>GET /api/v1/employees/</code></td>
+<td>Lấy danh sách nhân viên</td>
+</tr>
+
+<tr>
+<td></td>
+<td><code>PATCH /api/v1/employees/{id}/status</code></td>
+<td>Khóa/Mở tài khoản</td>
+</tr>
+
+<tr>
+<td></td>
+<td><code>PUT /api/v1/employees/{id}/permissions</code></td>
+<td>Cấp quyền truy cập cửa</td>
+</tr>
+
+<tr>
+<td></td>
+<td><code>DELETE /api/v1/employees/{id}</code></td>
+<td>Xóa nhân viên</td>
+</tr>
+
+<tr>
+<td><b>🏢 Departments & Doors</b></td>
+<td><code>GET /api/v1/departments/</code></td>
+<td>Lấy danh sách phòng ban</td>
+</tr>
+
+<tr>
+<td></td>
+<td><code>POST /api/v1/departments/permissions</code></td>
+<td>Cấp quyền theo phòng ban</td>
+</tr>
+
+<tr>
+<td></td>
+<td><code>POST /api/v1/departments/{dept_id}/quick-setup</code></td>
+<td>Phân quyền nhanh hàng loạt</td>
+</tr>
+
+<tr>
+<td></td>
+<td><code>GET /api/v1/doors/</code></td>
+<td>Lấy danh sách cửa</td>
+</tr>
+
+<tr>
+<td><b>🛠️ Admin Tools</b></td>
+<td><code>POST /admin/bulk-import</code></td>
+<td>Import hàng loạt bằng ZIP</td>
+</tr>
+
+<tr>
+<td></td>
+<td><code>GET /admin/system-stats</code></td>
+<td>Thống kê tổng quan hệ thống</td>
+</tr>
+
+<tr>
+<td><b>⚙️ System</b></td>
+<td><code>GET /health</code></td>
+<td>Health Check</td>
+</tr>
+
+<tr>
+<td></td>
+<td><code>GET /metrics</code></td>
+<td>Metrics cho Prometheus</td>
+</tr>
+
+</table>
+
+</div>
+
 ---
+
+<div align="center">
+
+![API](https://img.shields.io/badge/API-FastAPI-059669?style=for-the-badge&logo=fastapi)
+![Database](https://img.shields.io/badge/Database-PostgreSQL-0ea5e9?style=for-the-badge&logo=postgresql)
+![VectorDB](https://img.shields.io/badge/VectorDB-Qdrant-9333ea?style=for-the-badge)
+![Monitoring](https://img.shields.io/badge/Monitoring-Grafana-orange?style=for-the-badge&logo=grafana)
+
+</div>
 
 ## <span style="color: #059669;">9. Quản lý dữ liệu (Volumes)</span>
 
