@@ -35,10 +35,10 @@
    - **Xem lịch sử điểm danh**: Tra cứu nhật ký ra vào thời gian thực, sắp xếp theo thời gian mới nhất, hiển thị trạng thái (SUCCESS/DENIED) và lý do từ chối cụ thể.
 
    - **Lưu trữ dữ liệu**: Lưu lịch sử vào PostgreSQL, lưu ảnh khuôn mặt gốc vào MinIO, lưu vector khuôn mặt vào Qdrant.
-### <span style="color: #D97706;">2.1. Công nghệ Nhận diện & AI</span>
-*   **Average Embedding (Đăng ký 1-5 ảnh)**: Khi đăng ký nhân viên, hệ thống yêu cầu nhiều ảnh ở các góc độ khác nhau. Celery Worker sẽ tính toán **Vector Trung bình (Average Vector)** và chuẩn hóa L2 để đại diện cho khuôn mặt đó, giúp tăng tỷ lệ nhận diện chính xác vượt trội so với việc dùng 1 ảnh duy nhất.
-*   **Identify-Multi (Phát hiện hàng loạt)**: Hỗ trợ tiếp nhận luồng 10 ảnh liên tục (từ burst mode của camera). Hệ thống sẽ chạy song song (Parallel execution) để tìm ra ảnh có Score cao nhất, tối ưu cho môi trường ánh sáng thay đổi.
-*   **Kiểm tra chất lượng ảnh**: Tự động lọc ảnh nhòe, thiếu sáng hoặc ảnh không có khuôn mặt trước khi đăng ký.
+### <span style="color: #D97706;">2.1. Logic nhận diện đặc biệt khi đăng ký ảnh</span> 
+*   Khi đăng ký nhân viên, hệ thống yêu cầu nhiều ảnh ở các góc độ khác nhau. Celery Worker sẽ tính toán **Vector Trung bình (Average Vector)** và chuẩn hóa L2 để đại diện cho khuôn mặt đó.
+*   Hỗ trợ tiếp nhận luồng 10 ảnh liên tục (từ burst mode của camera). Hệ thống sẽ chạy song song để tìm ra ảnh có Score cao nhất, tối ưu cho môi trường ánh sáng thay đổi.
+*   Tự động lọc ảnh nhòe, thiếu sáng hoặc ảnh không có khuôn mặt trước khi đăng ký.
 
 ### <span style="color: #D97706;">2.2. Logic điểm danh đặc biệt</span>
 *   **Anti-spam Cooldown**: Sau khi điểm danh thành công, hệ thống áp dụng Cooldown (mặc định 60s) để tránh việc một người đứng trước camera tạo ra hàng chục log trùng lặp.
