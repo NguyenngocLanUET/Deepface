@@ -99,7 +99,7 @@ database/
       ```
    3. Mở các URL:
       ```http
-      Frontend API: deepface-psi.vercel.app
+      Frontend API: deepface-azure.vercel.app
       Backend API Docs: http://localhost:8000/docs
       MinIO Console: http://localhost:9001
       Grafana: http://localhost:3000
