@@ -225,7 +225,7 @@ docker compose up -d --build
 ```
 
 ### 4. Các dịch vụ chính
-
+Để có thể sử dụng frontend, trên giao diện chính mục variables của vercel cần phải được setup VITE_API_BASE_URL (ngrok domain url: ví dụ ....ngrok-free.dev/api/v1) và upload thêm file `.env`. 
 ```yaml
 Frontend: https://deepface-azure.vercel.app
 Backend Docs: http://localhost:8000/docs
