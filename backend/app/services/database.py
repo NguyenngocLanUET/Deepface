@@ -3,7 +3,6 @@ from sqlalchemy import create_engine, func, cast, Date
 from app.models.models import Base, Employee, AttendanceLog, AccessPermission, Door, DepartmentPermission, Department
 import os
 from datetime import datetime, time, timedelta
-import time as time_sleep
 from zoneinfo import ZoneInfo
 from app.core.config import settings
 
@@ -29,18 +28,6 @@ class DBService:
             Base.metadata.create_all(bind=engine)
         except Exception as e:
             print(f"⚠️ Cảnh báo: Chưa thể khởi tạo DB (có thể DB đang khởi động): {e}")
-        """Khởi tạo các bảng nếu chưa có với cơ chế thử lại"""
-        max_retries = 5
-        for i in range(max_retries):
-            try:
-                Base.metadata.create_all(bind=engine)
-                return
-            except Exception as e:
-                if i < max_retries - 1:
-                    print(f"⚠️ Đang đợi DB khởi động (Lần {i+1}/{max_retries})...")
-                    time_sleep.sleep(3)
-                else:
-                    print(f"❌ Không thể kết nối DB sau {max_retries} lần thử: {e}")
 
     class AttrDict(dict):
         """Dictionary that allows attribute access for keys (e.g. obj.key)."""
@@ -57,18 +44,10 @@ class DBService:
         db = SessionLocal()
         try:
             # Tìm phòng ban theo tên (so sánh không phân biệt hoa thường)
-            # Chuẩn hóa: xóa khoảng trắng đầu/cuối và thay thế khoảng trắng kép bằng 1 khoảng trắng
-            dept_name_clean = " ".join(department_name.strip().split())
-            dept_name_normalized = "".join(dept_name_clean.lower().split())  # bỏ hết khoảng trắng
-            
-            # Lấy tất cả departments và so sánh đã chuẩn hóa
-            all_depts = db.query(Department).all()
-            dept = None
-            for d in all_depts:
-                db_name_normalized = "".join(d.name.lower().split())
-                if db_name_normalized == dept_name_normalized:
-                    dept = d
-                    break
+            dept_name_clean = department_name.strip()
+            dept = db.query(Department).filter(
+                func.lower(Department.name) == func.lower(dept_name_clean)
+            ).first()
             
             if not dept:
                 raise ValueError(f"Không tìm thấy phòng ban: {dept_name_clean}. Vui lòng tạo phòng ban trước.")
@@ -715,4 +694,3 @@ class DBService:
             print(f"Cảnh báo: Không thể dọn dẹp log DENIED gần đây: {str(e)}")
         finally:
             db.close()
-                .filter(Att
