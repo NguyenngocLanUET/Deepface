@@ -291,7 +291,55 @@ class DBService:
             for f in filters:
                 query_obj = query_obj.filter(f)
             
-            return query_obj.all()
+            employees = query_obj.all()
+            result = []
+            for emp in employees:
+                # Get department name
+                dept_name = None
+                if emp.department_id:
+                    dept = db.query(Department).filter(Department.id == emp.department_id).first()
+                    if dept:
+                        dept_name = dept.name
+
+                # Get personal permissions
+                personal_perms = db.query(AccessPermission).filter(AccessPermission.employee_id == emp.id).all()
+                personal_perm_list = []
+                for p in personal_perms:
+                    door = db.query(Door).filter(Door.id == p.door_id).first()
+                    personal_perm_list.append({
+                        "id": p.id,
+                        "door_name": door.name if door else "Cửa",
+                        "allowed_start_time": p.allowed_start_time.strftime("%H:%M") if p.allowed_start_time else None,
+                        "allowed_end_time": p.allowed_end_time.strftime("%H:%M") if p.allowed_end_time else None,
+                        "type": "personal",
+                    })
+
+                # Get department permissions
+                dept_perm_list = []
+                if emp.department_id:
+                    dept_perms = db.query(DepartmentPermission).filter(DepartmentPermission.department_id == emp.department_id).all()
+                    for dp in dept_perms:
+                        door = db.query(Door).filter(Door.id == dp.door_id).first()
+                        dept_perm_list.append({
+                            "id": dp.id,
+                            "door_name": door.name if door else "Cửa",
+                            "allowed_start_time": dp.allowed_start_time.strftime("%H:%M") if dp.allowed_start_time else None,
+                            "allowed_end_time": dp.allowed_end_time.strftime("%H:%M") if dp.allowed_end_time else None,
+                            "type": "department",
+                        })
+
+                result.append(DBService.AttrDict({
+                    "id": emp.id,
+                    "full_name": emp.full_name,
+                    "employee_code": emp.employee_code,
+                    "role": "user",
+                    "is_active": emp.is_active,
+                    "department_id": emp.department_id,
+                    "department_name": dept_name,
+                    "photos": [],
+                    "permissions": personal_perm_list + dept_perm_list,
+                }))
+            return result
         finally:
             db.close()
 
