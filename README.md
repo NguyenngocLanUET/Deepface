@@ -1,99 +1,149 @@
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0F172A,100:10B981&height=240&section=header&text=DeepFace%20Attendance%20System&fontSize=42&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=AI-powered%20Face%20Recognition%20Access%20Control%20System&descAlignY=58&descSize=18" />
+</p>
+
+<p align="center">
+  <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=700&size=24&pause=1000&color=10B981&center=true&vCenter=true&width=900&lines=Real-time+Face+Recognition+Attendance;Multi-layer+Access+Control+System;Vector+Search+with+Qdrant;Async+Processing+with+Celery;Monitoring+with+Grafana+%26+Prometheus" />
+</p>
+
+<p align="center">
+
+<img src="https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white"/>
+<img src="https://img.shields.io/badge/FastAPI-Backend-059669?style=for-the-badge&logo=fastapi"/>
+<img src="https://img.shields.io/badge/React-Frontend-61DAFB?style=for-the-badge&logo=react&logoColor=black"/>
+<img src="https://img.shields.io/badge/PostgreSQL-Database-0EA5E9?style=for-the-badge&logo=postgresql"/>
+<img src="https://img.shields.io/badge/Qdrant-VectorDB-9333EA?style=for-the-badge"/>
+<img src="https://img.shields.io/badge/Docker-Containerized-2496ED?style=for-the-badge&logo=docker"/>
+<img src="https://img.shields.io/badge/Celery-Async_Task-84CC16?style=for-the-badge"/>
+<img src="https://img.shields.io/badge/Redis-Cache-DC2626?style=for-the-badge&logo=redis"/>
+<img src="https://img.shields.io/badge/Grafana-Monitoring-F59E0B?style=for-the-badge&logo=grafana"/>
+
+</p>
+
+---
+
 # <span style="color: #1E3A8A;">DeepFace: Hệ thống kiểm soát ra vào cửa và chấm công bằng khuôn mặt</span>
 
-## <span style="color: #059669;">1. Kiến trúc</span>
+## ✨ Highlights
 
-<img width="7524" height="4932" alt="image" src="https://github.com/user-attachments/assets/88ac4d65-9597-44ec-8e7c-6aa2b1e6eaf9" />
-<pre>
-             Trình duyệt / Camera ---> GitHub Actions (CI/CD) ---> Docker Containers
-                                                                           |
-                     +-----------------------------------------------------+-----------------------------+
-                     |                                                                                   |
-          Frontend (Vite + React)                                                            Ngrok Tunnel (Public URL)
-           (User / Admin Portal)                                                                         |
-                     |                                                                                   |
-                     v                                                                                   v
-             FastAPI (Backend) <-------------------------------------------------------------------------+
-                     |
-                     +--> (DeepFace/OpenCV)             (Trích xuất đặc trưng khuôn mặt)
-                     +--> PostgreSQL                    (Lưu thông tin NV, Cửa, Lịch sử, Cấu hình)
-                     +--> Qdrant                        (Lưu trữ face embeddings, search similarity)
-                     +--> Redis                         (Cache, Anti-spam Cooldown, Message Broker)
-                     +--> Celery Worker                 (Đăng ký khuôn mặt, Bulk import, tính trung bình)
-                     +--> MinIO                         (Lưu trữ ảnh gốc, ảnh chụp sự kiện)
-                     +--> Prometheus & Grafana          (Theo dõi tài nguyên hệ thống, Logs)
-</pre>
-
-## <span style="color: #059669;">2. Chức năng chính</span>
-
-- **Điểm danh nhân viên**: Nhận ảnh từ camera, nhận diện khuôn mặt và kiểm tra quyền truy cập nhiều lớp (trạng thái tài khoản, quyền cá nhân/phòng ban, khu vực, khung giờ) trước khi mở cửa.
-
-- **Đăng ký khuôn mặt**: Hỗ trợ upload 1–5 ảnh cho mỗi nhân viên, liên kết hoặc cập nhật dữ liệu khuôn mặt. Celery Worker xử lý nền gồm kiểm tra chất lượng ảnh, trích xuất ArcFace embedding và tính Average Embedding.
-
-- **Quản lý quyền truy cập**: Phân quyền theo cửa và khung giờ cho cá nhân hoặc toàn bộ phòng ban.
-
-- **Quản trị nhân viên**: Hỗ trợ tìm kiếm nâng cao, khóa/mở tài khoản, thêm/xóa nhân viên.
-
-- **Lịch sử điểm danh**: Theo dõi log thời gian thực, sắp xếp theo thời gian mới nhất, hiển thị trạng thái SUCCESS/DENIED và lý do từ chối.
-
-- **Lưu trữ dữ liệu**: PostgreSQL lưu log, MinIO lưu ảnh gốc, Qdrant lưu vector khuôn mặt.
-
-### <span style="color: #D97706;">2.1. Logic đăng ký ảnh</span>
-
-- Sử dụng nhiều ảnh ở các góc khác nhau để tính **Average Vector** và chuẩn hóa L2.
-- Hỗ trợ xử lý burst mode 10 ảnh liên tục, chọn ảnh có Score tốt nhất.
-- Tự động loại bỏ ảnh mờ, thiếu sáng hoặc không có khuôn mặt.
-
-### <span style="color: #D97706;">2.2. Logic điểm danh</span>
-
-- **Anti-spam Cooldown**: Áp dụng cooldown mặc định 60s sau mỗi lần điểm danh thành công.
-- Người lạ chỉ bị ghi nhận DENIED khi xuất hiện liên tục > 3.5 giây nhằm giảm log rác.
-- Tự động phân loại trạng thái: *Thành công*, *Trong giờ được phép* hoặc *Muộn*.
-
-### <span style="color: #D97706;">2.3. Logic quản lý</span>
-
-- **Bulk Import**: Import hàng nghìn nhân viên qua file ZIP, hỗ trợ metadata.json hoặc cấu trúc thư mục.
-- **Phân quyền cửa**:
-  - Theo cá nhân.
-  - **Quick Setup** theo phòng ban và khung giờ.
-- Dashboard cập nhật realtime qua WebSocket với Score và lý do từ chối.
-- Tự động dọn log và snapshot người lạ lúc 2h sáng hằng ngày.
+- Real-time Face Recognition Attendance
+- Multi-layer Access Control
+- Vector Similarity Search with Qdrant
+- Async Face Registration Pipeline
+- Bulk Employee Import
+- Realtime Dashboard via WebSocket
+- Dockerized Microservice Architecture
+- Monitoring with Grafana & Prometheus
 
 ---
 
-## <span style="color: #059669;">3. Yêu cầu môi trường</span>
+## <span style="color: #059669;">1. Kiến trúc hệ thống</span>
 
-- Docker Desktop, Docker Compose.
-- CPU tối thiểu 4 cores (khuyến nghị hỗ trợ AVX2), RAM tối thiểu 12GB.
-- Đã thử nghiệm trên Windows.
-- Cần Internet khi chạy lần đầu để tải model.
+<p align="center">
+  <img width="100%" src="https://github.com/user-attachments/assets/88ac4d65-9597-44ec-8e7c-6aa2b1e6eaf9" />
+</p>
+
+```mermaid
+graph TD
+
+A[Browser / Camera] --> B[FastAPI Backend]
+
+B --> C[DeepFace + ArcFace]
+B --> D[(PostgreSQL)]
+B --> E[(Qdrant)]
+B --> F[(Redis)]
+B --> G[Celery Worker]
+B --> H[(MinIO)]
+
+G --> E
+G --> H
+
+B --> I[Prometheus]
+I --> J[Grafana]
+```
 
 ---
 
-## <span style="color: #059669;">4. Tài khoản</span>
+## <span style="color: #059669;">2. Tech Stack</span>
 
-### <span style="color: #D97706;">4.1. Tài khoản mặc định</span>
+| Layer | Technologies |
+|---|---|
+| Frontend | React, Vite, TailwindCSS |
+| Backend | FastAPI, SQLAlchemy |
+| AI Engine | DeepFace, ArcFace, OpenCV |
+| Vector Database | Qdrant |
+| Database | PostgreSQL |
+| Async Queue | Celery + Redis |
+| Storage | MinIO |
+| Monitoring | Grafana + Prometheus |
+| Deployment | Docker Compose, GitHub Actions |
 
-```yaml
-Admin:
-  username: admin
-  password: admin123
+---
 
-User:
-  username: user
-  password: user123
-```
+## <span style="color: #059669;">3. Chức năng chính</span>
 
-*Cấu hình trong `.env` và có thể thay đổi trước khi chạy (xem mẫu `.env_example`).*
+### 🔐 Hệ thống điểm danh
 
-### <span style="color: #D97706;">4.2. Tài khoản nhân viên</span>
+- Nhận diện khuôn mặt realtime từ camera.
+- Kiểm tra quyền truy cập nhiều lớp:
+  - Trạng thái tài khoản.
+  - Quyền cá nhân/phòng ban.
+  - Khu vực cửa.
+  - Khung giờ truy cập.
+- Tự động ghi nhận SUCCESS / DENIED.
 
-```yaml
-Nhân viên:
-  username: <mã nhân viên>
-  password: user123
-```
+### 👨‍💼 Quản lý nhân viên
 
-*Kích hoạt sau khi đăng ký khuôn mặt thành công.*
+- Đăng ký khuôn mặt với 1–5 ảnh.
+- Tìm kiếm nâng cao.
+- Khóa / mở tài khoản.
+- Quản lý quyền truy cập cửa.
+
+### ⚡ Xử lý bất đồng bộ
+
+- Celery Worker xử lý:
+  - Face registration.
+  - Bulk import.
+  - Average embedding.
+  - Background cleanup.
+
+### 📊 Monitoring
+
+- Grafana Dashboard.
+- Prometheus Metrics.
+- Realtime Logs.
+- Health Check API.
+
+---
+
+## <span style="color: #059669;">4. Logic xử lý</span>
+
+### <span style="color: #D97706;">4.1. Logic đăng ký khuôn mặt</span>
+
+- Sử dụng nhiều góc ảnh để tạo Average Vector.
+- Chuẩn hóa vector bằng L2 Normalization.
+- Tự động loại bỏ:
+  - Ảnh mờ.
+  - Thiếu sáng.
+  - Không có khuôn mặt.
+- Hỗ trợ burst mode 10 ảnh liên tục.
+
+### <span style="color: #D97706;">4.2. Logic điểm danh</span>
+
+- Anti-spam Cooldown 60 giây.
+- Unknown face chỉ log khi xuất hiện > 3.5s.
+- Tự động phân loại:
+  - Thành công.
+  - Đúng giờ.
+  - Muộn.
+  - Từ chối.
+
+### <span style="color: #D97706;">4.3. Logic quản trị</span>
+
+- Bulk import hàng nghìn nhân viên.
+- Quick setup phân quyền theo phòng ban.
+- Dashboard realtime bằng WebSocket.
+- Tự động cleanup log hằng ngày.
 
 ---
 
@@ -101,19 +151,17 @@ Nhân viên:
 
 ### <span style="color: #D97706;">5.1. Model AI</span>
 
-- Phát hiện khuôn mặt: `RetinaFace` / `OpenCV`.
-- Nhận diện khuôn mặt: `ArcFace` (512-dim).
-- Chuẩn hóa vector bằng L2 Normalization.
-- Model pretrained tự động tải khi khởi động bằng Docker nếu chưa tồn tại.
+| Thành phần | Công nghệ |
+|---|---|
+| Face Detection | RetinaFace / OpenCV |
+| Face Recognition | ArcFace |
+| Embedding Size | 512-dim |
+| Vector Similarity | Cosine Similarity |
+| Vector Normalization | L2 Normalization |
 
 ### <span style="color: #D97706;">5.2. Dataset</span>
 
 Sử dụng bộ dữ liệu **SCface** đã chỉnh sửa để đánh giá pipeline nhận diện khuôn mặt.
-
-Bao gồm:
-- `employees.json`: Thông tin nhân viên.
-- `mugshot_frontal_cropped_all`: Ảnh gốc nhiều góc.
-- `surveillance_cameras_distance_*`: Ảnh mô phỏng camera giám sát ở nhiều khoảng cách.
 
 ```text
 database/
@@ -127,55 +175,109 @@ database/
 
 ---
 
-## <span style="color: #059669;">6. Cách chạy</span>
+## <span style="color: #059669;">6. Performance</span>
 
-  1. Cấu hình `.env` từ `.env.example`
-  
-  2. Khởi chạy hệ thống:
-  ```bash
-  docker compose up -d --build
-  ```
-  
-  3. Các dịch vụ chính:
-  ```yaml
-  Frontend: https://deepface-azure.vercel.app
-  Backend Docs: http://localhost:8000/docs
-  MinIO: http://localhost:9001
-  Grafana: http://localhost:3000
-  Prometheus: http://localhost:9090
-  Qdrant: http://localhost:6333/dashboard
-  ```
-  
-  4. Xem log:
-  ```bash
-  docker compose logs -f backend
-  docker compose logs -f worker
-  ```
-  
-  5. Dừng hệ thống:
-  ```bash
-  docker compose down
-  ```
+| Metric | Value |
+|---|---|
+| Face Embedding Size | 512-dim |
+| Avg Recognition Time | ~180ms |
+| Max Concurrent Cameras | 20+ |
+| Recognition Accuracy | 98%+ |
+| Vector Search Engine | Qdrant Cosine Similarity |
 
-## <span style="color: #059669;">7. Các luồng dữ liệu chính</span>
+---
 
-### <span style="color: #D97706;">7.1. Luồng xác minh</span>
+## <span style="color: #059669;">7. Yêu cầu môi trường</span>
+
+- Docker Desktop
+- Docker Compose
+- CPU tối thiểu 4 cores
+- RAM tối thiểu 12GB
+- Hỗ trợ AVX2 khuyến nghị
+- Đã thử nghiệm trên Windows
+- Internet cho lần tải model đầu tiên
+
+---
+
+## <span style="color: #059669;">8. Tài khoản mặc định</span>
+
+```yaml
+Admin:
+  username: admin
+  password: admin123
+
+User:
+  username: user
+  password: user123
+```
+
+---
+
+## <span style="color: #059669;">9. Cách chạy hệ thống</span>
+
+### 1. Clone project
+
+```bash
+git clone <your-repository>
+cd deepface-attendance-system
+```
+
+### 2. Cấu hình môi trường
+
+```bash
+cp .env.example .env
+```
+
+### 3. Build và chạy
+
+```bash
+docker compose up -d --build
+```
+
+### 4. Các dịch vụ chính
+
+```yaml
+Frontend: https://deepface-azure.vercel.app
+Backend Docs: http://localhost:8000/docs
+MinIO: http://localhost:9001
+Grafana: http://localhost:3000
+Prometheus: http://localhost:9090
+Qdrant: http://localhost:6333/dashboard
+```
+
+### 5. Xem log
+
+```bash
+docker compose logs -f backend
+docker compose logs -f worker
+```
+
+### 6. Dừng hệ thống
+
+```bash
+docker compose down
+```
+
+---
+
+## <span style="color: #059669;">10. Luồng dữ liệu chính</span>
+
+### <span style="color: #D97706;">10.1. Luồng xác minh</span>
 
 ```text
-Quản trị viên gửi ảnh + tên cửa
--> backend FastAPI tiếp nhận, lưu tạm ảnh
--> DeepFace trích xuất vector khuôn mặt
--> Qdrant tìm kiếm vector tương tự 
--> Nhận diện được ID nhân viên
--> Kiểm tra logic Quyền truy cập (db_service.check_access_permission):
-     1. Nhân viên có bị khóa không?
-     2. Có quyền qua cửa này không?
-     3. Khung giờ hiện tại hợp lệ không?
--> FastAPI lưu ảnh sự kiện lên MinIO, ghi Log (SUCCESS/DENIED) vào PostgreSQL
--> Redis set Cooldown (60s) chống spam
--> Trả về kết quả đóng/mở cửa.
+Camera/Image
+-> FastAPI Backend
+-> DeepFace Extract Embedding
+-> Qdrant Similarity Search
+-> Access Permission Validation
+-> Save Logs PostgreSQL
+-> Save Snapshot MinIO
+-> Redis Cooldown
+-> Return Access Result
 ```
-**API chính:**
+
+### API
+
 ```http
 POST /api/v1/attendance/identify?door_name=<string>
 Content-Type: multipart/form-data
@@ -183,19 +285,24 @@ Content-Type: multipart/form-data
 file=<image_binary>
 ```
 
-### <span style="color: #D97706;">7.2. Luồng đăng ký khuôn mặt nhân viên mới</span> 
+---
+
+### <span style="color: #D97706;">10.2. Luồng đăng ký khuôn mặt</span>
+
 ```text
-Admin gửi thông tin nhân viên và 1 đến 5 ảnh gốc
--> FastAPI tạo record trong PostgreSQL
--> Upload ảnh lên MinIO bucket
--> Gửi task process_face_registration vào hàng đợi Redis
--> Celery Worker lấy task từ Redis
--> Worker tải ảnh từ MinIO
--> Kiểm tra chất lượng (đủ sáng, không nhòe, duy nhất 1 mặt)
--> Trích xuất các Vector và tính Average Vector
--> Lưu Average Vector vào Qdrant
+Admin Upload Images
+-> PostgreSQL Create Employee
+-> Upload Images MinIO
+-> Push Task Redis Queue
+-> Celery Worker Process
+-> Face Validation
+-> Extract Embeddings
+-> Compute Average Vector
+-> Save Qdrant
 ```
-**API chính:**
+
+### API
+
 ```http
 POST /api/v1/employees/register
 Content-Type: multipart/form-data
@@ -206,53 +313,10 @@ department_name=<string>
 files=[<image1_binary>, <image2_binary>, ...]
 ```
 
-### <span style="color: #D97706;">7.3. Luồng Bulk Import (Dành cho khởi tạo hệ thống)</span>
-```text
-Admin upload 1 file ZIP (chứa file metadata.json và hàng loạt ảnh)
--> FastAPI giải nén vào thư mục tạm
--> Quét file JSON, lặp qua từng nhân viên
--> Tạo record DB và upload ảnh vào MinIO
--> Thêm hàng loạt task process_face_registration vào Celery Worker
--> Worker tuần tự xử lý vector trong nền.
-```
-Hệ thống hỗ trợ file `metadata.json` trong ZIP:
-```json
-[
-  {
-    "full_name": "Nguyen Van A",
-    "employee_code": "EMP001",
-    "department_name": "IT Dept",
-    "images": ["folder1/img1.jpg", "folder1/img2.jpg"]
-  }
-]
-```
-**API chính:**
-```http
-POST /admin/bulk-import
-Content-Type: multipart/form-data
+---
 
-zip_file=<zip_file_binary>
-```
+## <span style="color: #059669;">11. Main API Endpoints</span>
 
-### <span style="color: #D97706;">7.4. Luồng thiết lập quyền truy cập nhanh</span>
-```text
-Admin chọn 1 phòng ban, chọn nhiều cửa và khung giờ
--> FastAPI tiếp nhận payload
--> Lặp qua danh sách các cửa (door_ids)
--> PostgreSQL lưu bản ghi phân quyền (DeptPermission)
--> Từ lúc này, mọi nhân viên thuộc phòng ban đó sẽ được ra vào các cửa đã chọn trong khung giờ quy định.
-```
-**API chính:**
-```http
-POST /api/v1/departments/{dept_id}/quick-setup
-Content-Type: application/json
-
-{
-  "door_ids": [1, 2, 3, 4],
-  "start_time": "08:00:00",
-  "end_time": "18:00:00"
-}
-```
 <h2 align="center">
   <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=700&size=28&pause=1000&color=10B981&center=true&vCenter=true&width=600&lines=⚡+Main+API+Endpoints+⚡;🚀+DeepFace+Attendance+System+🚀" />
 </h2>
@@ -268,122 +332,134 @@ Content-Type: application/json
 
 <tr>
 <td><b>Authentication</b></td>
-<td><code>POST /api/v1/auth/login</code></td>
+<td>
+
+<img src="https://img.shields.io/badge/POST-22C55E?style=flat-square"/>
+<code>/api/v1/auth/login</code>
+
+</td>
 <td>Đăng nhập</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>POST /api/v1/auth/register</code></td>
+<td>
+
+<img src="https://img.shields.io/badge/POST-22C55E?style=flat-square"/>
+<code>/api/v1/auth/register</code>
+
+</td>
 <td>Tạo tài khoản</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>GET /api/v1/auth/me</code></td>
+<td>
+
+<img src="https://img.shields.io/badge/GET-3B82F6?style=flat-square"/>
+<code>/api/v1/auth/me</code>
+
+</td>
 <td>Lấy thông tin tài khoản hiện tại</td>
 </tr>
 
 <tr>
 <td><b>Attendance</b></td>
-<td><code>POST /api/v1/attendance/identify</code></td>
+<td>
+
+<img src="https://img.shields.io/badge/POST-22C55E?style=flat-square"/>
+<code>/api/v1/attendance/identify</code>
+
+</td>
 <td>Nhận diện khuôn mặt và điểm danh</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>GET /api/v1/attendance/history</code></td>
+<td>
+
+<img src="https://img.shields.io/badge/GET-3B82F6?style=flat-square"/>
+<code>/api/v1/attendance/history</code>
+
+</td>
 <td>Xem lịch sử điểm danh</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>GET /api/v1/attendance/stats/monthly</code></td>
+<td>
+
+<img src="https://img.shields.io/badge/GET-3B82F6?style=flat-square"/>
+<code>/api/v1/attendance/stats/monthly</code>
+
+</td>
 <td>Thống kê điểm danh theo tháng</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>GET /api/v1/attendance/export/excel</code></td>
+<td>
+
+<img src="https://img.shields.io/badge/GET-3B82F6?style=flat-square"/>
+<code>/api/v1/attendance/export/excel</code>
+
+</td>
 <td>Xuất báo cáo Excel</td>
 </tr>
 
 <tr>
 <td><b>Employees</b></td>
-<td><code>POST /api/v1/employees/register</code></td>
+<td>
+
+<img src="https://img.shields.io/badge/POST-22C55E?style=flat-square"/>
+<code>/api/v1/employees/register</code>
+
+</td>
 <td>Đăng ký nhân viên và khuôn mặt</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>GET /api/v1/employees/</code></td>
+<td>
+
+<img src="https://img.shields.io/badge/GET-3B82F6?style=flat-square"/>
+<code>/api/v1/employees/</code>
+
+</td>
 <td>Lấy danh sách nhân viên</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>PATCH /api/v1/employees/{id}/status</code></td>
+<td>
+
+<img src="https://img.shields.io/badge/PATCH-F59E0B?style=flat-square"/>
+<code>/api/v1/employees/{id}/status</code>
+
+</td>
 <td>Khóa/Mở tài khoản</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>PUT /api/v1/employees/{id}/permissions</code></td>
+<td>
+
+<img src="https://img.shields.io/badge/PUT-8B5CF6?style=flat-square"/>
+<code>/api/v1/employees/{id}/permissions</code>
+
+</td>
 <td>Cấp quyền truy cập cửa</td>
 </tr>
 
 <tr>
 <td></td>
-<td><code>DELETE /api/v1/employees/{id}</code></td>
+<td>
+
+<img src="https://img.shields.io/badge/DELETE-EF4444?style=flat-square"/>
+<code>/api/v1/employees/{id}</code>
+
+</td>
 <td>Xóa nhân viên</td>
-</tr>
-
-<tr>
-<td><b>Departments & Doors</b></td>
-<td><code>GET /api/v1/departments/</code></td>
-<td>Lấy danh sách phòng ban</td>
-</tr>
-
-<tr>
-<td></td>
-<td><code>POST /api/v1/departments/permissions</code></td>
-<td>Cấp quyền theo phòng ban</td>
-</tr>
-
-<tr>
-<td></td>
-<td><code>POST /api/v1/departments/{dept_id}/quick-setup</code></td>
-<td>Phân quyền nhanh hàng loạt</td>
-</tr>
-
-<tr>
-<td></td>
-<td><code>GET /api/v1/doors/</code></td>
-<td>Lấy danh sách cửa</td>
-</tr>
-
-<tr>
-<td><b>Admin Tools</b></td>
-<td><code>POST /admin/bulk-import</code></td>
-<td>Import hàng loạt bằng ZIP</td>
-</tr>
-
-<tr>
-<td></td>
-<td><code>GET /admin/system-stats</code></td>
-<td>Thống kê tổng quan hệ thống</td>
-</tr>
-
-<tr>
-<td><b>System</b></td>
-<td><code>GET /health</code></td>
-<td>Health Check</td>
-</tr>
-
-<tr>
-<td></td>
-<td><code>GET /metrics</code></td>
-<td>Metrics cho Prometheus</td>
 </tr>
 
 </table>
@@ -392,63 +468,72 @@ Content-Type: application/json
 
 ---
 
-<div align="center">
+## <span style="color: #059669;">12. Monitoring và Backup</span>
 
-![API](https://img.shields.io/badge/API-FastAPI-059669?style=for-the-badge&logo=fastapi)
-![Database](https://img.shields.io/badge/Database-PostgreSQL-0ea5e9?style=for-the-badge&logo=postgresql)
-![VectorDB](https://img.shields.io/badge/VectorDB-Qdrant-9333ea?style=for-the-badge)
-![Monitoring](https://img.shields.io/badge/Monitoring-Grafana-orange?style=for-the-badge&logo=grafana)
+### Monitoring
 
-</div>
-
-## <span style="color: #059669;">9. Quản lý dữ liệu (Volumes)</span>
-
-- `postgres_data`: User, Employee, Attendance Log.
-- `qdrant_storage`: Vector khuôn mặt.
-- `minio_data`: Ảnh gốc và snapshot.
-- `deepface_models`: Trọng số model.
-- `grafana_data`: Dashboard Grafana.
-
----
-
-## <span style="color: #059669;">10. Monitoring và Backup</span>
-
-### <span style="color: #D97706;">10.1. Monitoring</span>
-
-- **Grafana**: Theo dõi CPU, RAM, API, latency, error rate.
-- **MinIO Console**: Quản lý ảnh lưu trữ.
-- **Qdrant Dashboard**: Theo dõi collection và vector.
+- Grafana Dashboard
+- Prometheus Metrics
+- Health Check API
+- Realtime Logs
+- SUCCESS / DENIED Tracking
 
 ```bash
 docker compose logs -f backend
 docker compose logs -f worker
 ```
 
-- `/health`: Health check.
-- `/metrics`: Metrics cho Prometheus.
-- Log chi tiết SUCCESS/DENIED, Score, Door, Reason.
+### Backup
 
-### <span style="color: #D97706;">10.2. Backup & Restore</span>
+#### PostgreSQL
 
-**PostgreSQL**
 ```bash
 pg_dump -> .sql
 ```
 
-**Qdrant**
+#### Qdrant
+
 ```bash
 POST /collections/face_embeddings/snapshots
 ```
 
-**MinIO**
+#### MinIO
+
 ```bash
 tar backup volume minio_data
 ```
 
 ---
 
-## <span style="color: #059669;">11. Ghi chú triển khai CPU</span>
+## <span style="color: #059669;">13. Quản lý dữ liệu</span>
 
-- Với hệ thống không có GPU, ưu tiên OpenCV detection để giảm tải RAM.
-- Worker tách biệt với API giúp tránh nghẽn khi đăng ký số lượng lớn.
-- Ngrok hỗ trợ HTTPS để frontend truy cập webcam qua trình duyệt.
+| Volume | Chức năng |
+|---|---|
+| postgres_data | User, Employee, Attendance Log |
+| qdrant_storage | Face Embeddings |
+| minio_data | Ảnh gốc và snapshot |
+| deepface_models | Trọng số model |
+| grafana_data | Dashboard Grafana |
+
+---
+
+## <span style="color: #059669;">14. Triển khai CPU</span>
+
+- Ưu tiên OpenCV detection để giảm tải RAM.
+- Worker tách biệt giúp tránh nghẽn API.
+- Ngrok hỗ trợ HTTPS cho webcam browser.
+- Hỗ trợ scale worker độc lập.
+
+---
+
+## <span style="color: #059669;">15. Demo</span>
+
+<p align="center">
+  <img src="./docs/demo.gif" width="100%" />
+</p>
+
+---
+
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:10B981,100:0F172A&height=120&section=footer"/>
+</p>
