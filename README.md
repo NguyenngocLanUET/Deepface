@@ -24,308 +24,280 @@
 </pre>
 
 ## <span style="color: #059669;">2. Chức năng chính</span>
-   - **Điểm danh cho nhân viên**: Tiếp nhận ảnh từ camera cửa, nhận diện khuôn mặt, kiểm tra quyền truy cập nhiều lớp (trạng thái tài khoản, quyền cá nhân, quyền phòng ban, khu vực, khung giờ) rồi mới quyết định cấp quyền mở cửa.
 
-   - **Đăng ký khuôn mặt cho nhân viên mới**: Hỗ trợ upload 1-5 ảnh cho một nhân viên, liên kết ảnh với dữ liệu nhân viên đã có hoặc cập nhật lại ảnh mới cho nhân viên. Celery Worker xử lý nền để: kiểm tra chất lượng ảnh (độ sáng, độ nhòe, số mặt), tính ArcFace embedding cho từng ảnh và tính Average Embedding cuối cùng.
+- **Điểm danh nhân viên**: Nhận ảnh từ camera, nhận diện khuôn mặt và kiểm tra quyền truy cập nhiều lớp (trạng thái tài khoản, quyền cá nhân/phòng ban, khu vực, khung giờ) trước khi mở cửa.
 
-   - **Quản lý quyền truy cập cho nhân viên**: Cấp quyền truy cập theo cửa và khung giờ. Hỗ trợ cấp quyền riêng cho cá nhân hoặc kế thừa cho nguyên một phòng ban.
+- **Đăng ký khuôn mặt**: Hỗ trợ upload 1–5 ảnh cho mỗi nhân viên, liên kết hoặc cập nhật dữ liệu khuôn mặt. Celery Worker xử lý nền gồm kiểm tra chất lượng ảnh, trích xuất ArcFace embedding và tính Average Embedding.
 
-   - **Quản trị nhân viên**: Tìm kiếm nhân viên nâng cao, khóa/mở tài khoản, thêm/xóa hoàn toàn nhân viên.
+- **Quản lý quyền truy cập**: Phân quyền theo cửa và khung giờ cho cá nhân hoặc toàn bộ phòng ban.
 
-   - **Xem lịch sử điểm danh**: Tra cứu nhật ký ra vào thời gian thực, sắp xếp theo thời gian mới nhất, hiển thị trạng thái (SUCCESS/DENIED) và lý do từ chối cụ thể.
+- **Quản trị nhân viên**: Hỗ trợ tìm kiếm nâng cao, khóa/mở tài khoản, thêm/xóa nhân viên.
 
-   - **Lưu trữ dữ liệu**: Lưu lịch sử vào PostgreSQL, lưu ảnh khuôn mặt gốc vào MinIO, lưu vector khuôn mặt vào Qdrant.
-### <span style="color: #D97706;">2.1. Logic nhận diện đặc biệt khi đăng ký ảnh</span> 
-*   Khi đăng ký nhân viên, hệ thống yêu cầu nhiều ảnh ở các góc độ khác nhau. Celery Worker sẽ tính toán **Vector Trung bình (Average Vector)** và chuẩn hóa L2 để đại diện cho khuôn mặt đó.
-*   Hỗ trợ tiếp nhận luồng 10 ảnh liên tục (từ burst mode của camera). Hệ thống sẽ chạy song song để tìm ra ảnh có Score cao nhất, tối ưu cho môi trường ánh sáng thay đổi.
-*   Tự động lọc ảnh nhòe, thiếu sáng hoặc ảnh không có khuôn mặt trước khi đăng ký.
+- **Lịch sử điểm danh**: Theo dõi log thời gian thực, sắp xếp theo thời gian mới nhất, hiển thị trạng thái SUCCESS/DENIED và lý do từ chối.
 
-### <span style="color: #D97706;">2.2. Logic điểm danh đặc biệt</span>
-*   **Anti-spam Cooldown**: Sau khi điểm danh thành công, hệ thống áp dụng Cooldown (mặc định 60s) để tránh việc một người đứng trước camera tạo ra hàng chục log trùng lặp.
-*   Đối với người lạ, hệ thống không log ngay lập tức mà yêu cầu đối tượng xuất hiện liên tục > 3.5 giây mới ghi nhận "Denied" vào DB, giúp giảm thiểu rác dữ liệu từ người đi ngang qua.
-*   **Tự động phân loại trạng thái: *Thành công*, *Thành công (Trong giờ ân hạn)*, hoặc *Muộn* dựa trên cấu hình `WORK_START`.
+- **Lưu trữ dữ liệu**: PostgreSQL lưu log, MinIO lưu ảnh gốc, Qdrant lưu vector khuôn mặt.
 
-### <span style="color: #D97706;">2.3. Logic quản lý đặc biệt</span>
-*   **Bulk Import**: Cho phép Import hàng nghìn nhân viên qua 1 file ZIP. Hỗ trợ 2 cấu trúc folder (theo tên folder hoặc theo file metadata.json).
-*   **Phân quyền Cửa**: 
-    *   Phân quyền theo cá nhân.
-    *   **Quick Setup**: Phân quyền theo Phòng ban (Cấp quyền cho cả phòng vào danh sách cửa X, Y, Z trong khung giờ A -> B).
-*   Dashboard nhận thông báo ngay lập tức qua WebSocket kèm theo Score và lý do từ chối (ví dụ: "Tài khoản bị khóa", "Sai khung giờ").
-*   Tự động chạy tác vụ dọn dẹp log cũ và snapshots người lạ vào 2 giờ sáng hàng ngày để tiết kiệm dung lượng.
+### <span style="color: #D97706;">2.1. Logic đăng ký ảnh</span>
+
+- Sử dụng nhiều ảnh ở các góc khác nhau để tính **Average Vector** và chuẩn hóa L2.
+- Hỗ trợ xử lý burst mode 10 ảnh liên tục, chọn ảnh có Score tốt nhất.
+- Tự động loại bỏ ảnh mờ, thiếu sáng hoặc không có khuôn mặt.
+
+### <span style="color: #D97706;">2.2. Logic điểm danh</span>
+
+- **Anti-spam Cooldown**: Áp dụng cooldown mặc định 60s sau mỗi lần điểm danh thành công.
+- Người lạ chỉ bị ghi nhận DENIED khi xuất hiện liên tục > 3.5 giây nhằm giảm log rác.
+- Tự động phân loại trạng thái: *Thành công*, *Trong giờ ân hạn* hoặc *Muộn* dựa trên `WORK_START`.
+
+### <span style="color: #D97706;">2.3. Logic quản lý</span>
+
+- **Bulk Import**: Import hàng nghìn nhân viên qua file ZIP, hỗ trợ metadata.json hoặc cấu trúc thư mục.
+- **Phân quyền cửa**:
+  - Theo cá nhân.
+  - **Quick Setup** theo phòng ban và khung giờ.
+- Dashboard cập nhật realtime qua WebSocket với Score và lý do từ chối.
+- Tự động dọn log và snapshot người lạ lúc 2h sáng hằng ngày.
 
 ---
-## <span style="color: #059669;">3. Yêu cầu môi trường</span>
-- Docker Desktop.
-- Docker Compose.
-- Phần cứng: CPU tối thiểu 4 Cores, ưu tiên CPU có hỗ trợ lệnh AVX2 để tăng tốc độ xử lý, RAM tối thiểu 12GB.
-- Hệ điều hành: Đã được thử nghiệm trên Windows.
-- Network: Cần có kết nối Internet trong lần đầu tiên chạy.
 
-## <span style="color: #059669;">4. Tài khoản </span>
-### <span style="color: #D97706;">4.1. Tài khoản mặc định </span> 
+## <span style="color: #059669;">3. Yêu cầu môi trường</span>
+
+- Docker Desktop, Docker Compose.
+- CPU tối thiểu 4 cores (khuyến nghị hỗ trợ AVX2), RAM tối thiểu 12GB.
+- Đã thử nghiệm trên Windows.
+- Cần Internet khi chạy lần đầu để tải model.
+
+---
+
+## <span style="color: #059669;">4. Tài khoản</span>
+
+### <span style="color: #D97706;">4.1. Tài khoản mặc định</span>
+
 ```yaml
 Admin:
-  username: admin (Thiết lập trong POSTGRES_USER)
-  password: admin123 (Thiết lập trong POSTGRES_PASSWORD)
+  username: admin
+  password: admin123
 
 User:
   username: user
   password: user123
 ```
-*Các giá trị này nằm trong `.env` và có thể đổi trước khi chạy.*
-### <span style="color: #D97706;">4.2. Tài khoản cho nhân viên ( hoạt động sau khi đăng ký khuôn mặt thành công ) </span> 
+
+*Cấu hình trong `.env` và có thể thay đổi trước khi chạy.*
+
+### <span style="color: #D97706;">4.2. Tài khoản nhân viên</span>
+
 ```yaml
 Nhân viên:
-  username: <điền mã nhân viên>
-  passwword: user123
+  username: <mã nhân viên>
+  password: user123
 ```
+
+*Kích hoạt sau khi đăng ký khuôn mặt thành công.*
+
+---
+
 ## <span style="color: #059669;">5. Model AI và Dataset</span>
 
-### <span style="color: #D97706;">5.1. Model AI</span> 
-- **Mô hình phát hiện khuôn mặt**: `RetinaFace`/`opencv`.
-- **Mô hình nhận diện khuôn mặt**: `ArcFace` (512 chiều).
-- **Chuẩn hóa vector**: L2 Normalization.
-- **Tải mô hình**: Khi hệ thống được khởi chạy bằng Docker/Docker Compose, các trọng số pretrained của mô hình sẽ tự động được tải xuống nếu chưa tồn tại trong hệ thống.
+### <span style="color: #D97706;">5.1. Model AI</span>
+
+- Phát hiện khuôn mặt: `RetinaFace` / `OpenCV`.
+- Nhận diện khuôn mặt: `ArcFace` (512-dim).
+- Chuẩn hóa vector bằng L2 Normalization.
+- Model pretrained tự động tải khi khởi động bằng Docker nếu chưa tồn tại.
 
 ### <span style="color: #D97706;">5.2. Dataset</span>
-Dự án này sử dụng bộ dữ liệu **[SCface (Surveillance Cameras Face Database)](https://scface.org/)** đã chỉnh sửa cho phù hợp dự án để thử nghiệm và đánh giá pipeline nhận diện khuôn mặt.
-   
-Cấu trúc dữ liệu sử dụng trong dự án:
-   - Dữ liệu thông tin của nhân viên `employees.json`: bao gồm mã nhân viên, họ và tên, phòng ban, chức vụ, liên hệ, trạng thái làm việc, trạng thái cập nhật ảnh xác minh.
-   - Dữ liệu ảnh upload để làm ảnh gốc `mugshot_frontal_cropped_all`: Chứa ảnh của 130 nhân viên theo ba góc: góc chính diện, góc lệch trái và góc lệch phải.
-   - `surveillance_cameras_distance_1`, `surveillance_cameras_distance_2`, `surveillance_cameras_distance_3` chứa ảnh chụp từ 3 khoảng cách khác nhau với 4 camera giám sát để thực hiện luồng xác minh tại cửa để mô phỏng ảnh chụp realtime từ camera ở cửa.
+
+Sử dụng bộ dữ liệu **SCface** đã chỉnh sửa để đánh giá pipeline nhận diện khuôn mặt.
+
+Bao gồm:
+- `employees.json`: Thông tin nhân viên.
+- `mugshot_frontal_cropped_all`: Ảnh gốc nhiều góc.
+- `surveillance_cameras_distance_*`: Ảnh mô phỏng camera giám sát ở nhiều khoảng cách.
 
 ```text
-Cấu trúc database:
 database/
 ├── employees.json
 └── Images/
-    ├── Fail/
     ├── mugshot_frontal_cropped_all/
-    ├── mugshot_rotation_all/
     ├── surveillance_cameras_distance_1/
     ├── surveillance_cameras_distance_2/
-    ├── surveillance_cameras_distance_3/
-    └── Readme.txt 
+    └── surveillance_cameras_distance_3/
 ```
 
-## <span style="color: #059669;">6. Cách chạy</span> 
-   1. Cấu hình file `.env` (Dựa trên `.env.example`)
-   2. Build và chạy toàn bộ stack:
-      ```bash
-      docker compose up -d --build
-      ```
-   3. Mở các URL:
-      ```http
-      Frontend API: deepface-azure.vercel.app
-      Backend API Docs: http://localhost:8000/docs
-      MinIO Console: http://localhost:9001
-      Grafana: http://localhost:3000
-      Prometheus: http://localhost:9090
-      Qdrant: http://localhost:6333/dashboard
-      ```
-   4. Xem log:
-      ```bash
-      docker compose logs -f backend
-      docker compose logs -f worker
-      ```
-   5. Dừng hệ thống:
-      ```bash
-      docker compose down
-      ```
+---
+
+## <span style="color: #059669;">6. Cách chạy</span>
+
+1. Cấu hình `.env` từ `.env.example`
+
+2. Khởi chạy hệ thống:
+```bash
+docker compose up -d --build
+```
+
+3. Các dịch vụ chính:
+```http
+Frontend: deepface-azure.vercel.app
+Backend Docs: http://localhost:8000/docs
+MinIO: http://localhost:9001
+Grafana: http://localhost:3000
+Prometheus: http://localhost:9090
+Qdrant: http://localhost:6333/dashboard
+```
+
+4. Xem log:
+```bash
+docker compose logs -f backend
+docker compose logs -f worker
+```
+
+5. Dừng hệ thống:
+```bash
+docker compose down
+```
+
+---
 
 ## <span style="color: #059669;">7. Các luồng dữ liệu chính</span>
 
 ### <span style="color: #D97706;">7.1. Luồng xác minh</span>
+
 ```text
-Quản trị viên gửi ảnh + tên cửa
--> backend FastAPI tiếp nhận, lưu tạm ảnh
--> DeepFace trích xuất vector khuôn mặt
--> Qdrant tìm kiếm vector tương tự 
--> Nhận diện được ID nhân viên
--> Kiểm tra logic Quyền truy cập (db_service.check_access_permission):
-     1. Nhân viên có bị khóa không?
-     2. Có quyền qua cửa này không?
-     3. Khung giờ hiện tại hợp lệ không?
--> FastAPI lưu ảnh sự kiện lên MinIO, ghi Log (SUCCESS/DENIED) vào PostgreSQL
--> Redis set Cooldown (60s) chống spam
--> Trả về kết quả đóng/mở cửa.
+Camera -> FastAPI -> Trích xuất vector -> Qdrant tìm kiếm
+-> Kiểm tra quyền truy cập
+-> Lưu log PostgreSQL + ảnh MinIO
+-> Redis cooldown chống spam
+-> Trả kết quả mở/đóng cửa
 ```
-**API chính:**
+
+**API chính**
 ```http
-POST /api/v1/attendance/identify?door_name=<string>
-Content-Type: multipart/form-data
-
-file=<image_binary>
+POST /api/v1/attendance/identify
 ```
 
-### <span style="color: #D97706;">7.2. Luồng đăng ký khuôn mặt nhân viên mới</span> 
+### <span style="color: #D97706;">7.2. Luồng đăng ký khuôn mặt</span>
+
 ```text
-Admin gửi thông tin nhân viên và 1 đến 5 ảnh gốc
--> FastAPI tạo record trong PostgreSQL
--> Upload ảnh lên MinIO bucket
--> Gửi task process_face_registration vào hàng đợi Redis
--> Celery Worker lấy task từ Redis
--> Worker tải ảnh từ MinIO
--> Kiểm tra chất lượng (đủ sáng, không nhòe, duy nhất 1 mặt)
--> Trích xuất các Vector và tính Average Vector
--> Lưu Average Vector vào Qdrant
+Admin upload thông tin + ảnh
+-> PostgreSQL + MinIO
+-> Redis queue
+-> Celery Worker xử lý
+-> Kiểm tra chất lượng ảnh
+-> Tính Average Vector
+-> Lưu Qdrant
 ```
-**API chính:**
+
+**API chính**
 ```http
 POST /api/v1/employees/register
-Content-Type: multipart/form-data
-
-full_name=<string>
-employee_code=<string>
-department_name=<string>
-files=[<image1_binary>, <image2_binary>, ...]
 ```
 
-### <span style="color: #D97706;">7.3. Luồng Bulk Import (Dành cho khởi tạo hệ thống)</span>
+### <span style="color: #D97706;">7.3. Bulk Import</span>
+
 ```text
-Admin upload 1 file ZIP (chứa file metadata.json và hàng loạt ảnh)
--> FastAPI giải nén vào thư mục tạm
--> Quét file JSON, lặp qua từng nhân viên
--> Tạo record DB và upload ảnh vào MinIO
--> Thêm hàng loạt task process_face_registration vào Celery Worker
--> Worker tuần tự xử lý vector trong nền.
+Upload ZIP -> Giải nén
+-> Tạo dữ liệu nhân viên
+-> Upload MinIO
+-> Đưa task vào Celery
+-> Worker xử lý nền
 ```
-Hệ thống hỗ trợ file `metadata.json` trong ZIP:
-```json
-[
-  {
-    "full_name": "Nguyen Van A",
-    "employee_code": "EMP001",
-    "department_name": "IT Dept",
-    "images": ["folder1/img1.jpg", "folder1/img2.jpg"]
-  }
-]
-```
-**API chính:**
+
+**API chính**
 ```http
 POST /admin/bulk-import
-Content-Type: multipart/form-data
-
-zip_file=<zip_file_binary>
 ```
 
-### <span style="color: #D97706;">7.4. Luồng thiết lập quyền truy cập nhanh</span>
+### <span style="color: #D97706;">7.4. Quick Setup quyền truy cập</span>
+
 ```text
-Admin chọn 1 phòng ban, chọn nhiều cửa và khung giờ
--> FastAPI tiếp nhận payload
--> Lặp qua danh sách các cửa (door_ids)
--> PostgreSQL lưu bản ghi phân quyền (DeptPermission)
--> Từ lúc này, mọi nhân viên thuộc phòng ban đó sẽ được ra vào các cửa đã chọn trong khung giờ quy định.
+Chọn phòng ban + cửa + khung giờ
+-> Lưu DeptPermission
+-> Nhân viên phòng ban được kế thừa quyền
 ```
-**API chính:**
+
+**API chính**
 ```http
 POST /api/v1/departments/{dept_id}/quick-setup
-Content-Type: application/json
-
-{
-  "door_ids": [1, 2, 3, 4],
-  "start_time": "08:00:00",
-  "end_time": "18:00:00"
-}
 ```
+
+---
 
 ## <span style="color: #059669;">8. API chính</span>
 
-**Authentication (Xác thực)**
-```http
-POST /api/v1/auth/login    (Đăng nhập)
-POST /api/v1/auth/register (Tạo tài khoản)
-GET  /api/v1/auth/me
-```
+| Nhóm API | Endpoint | Chức năng |
+|---|---|---|
+| **Authentication** | `POST /api/v1/auth/login` | Đăng nhập |
+|  | `POST /api/v1/auth/register` | Tạo tài khoản |
+|  | `GET /api/v1/auth/me` | Lấy thông tin tài khoản hiện tại |
+| **Attendance** | `POST /api/v1/attendance/identify` | Nhận diện khuôn mặt và điểm danh |
+|  | `GET /api/v1/attendance/history` | Xem lịch sử điểm danh |
+|  | `GET /api/v1/attendance/stats/monthly` | Thống kê điểm danh theo tháng |
+|  | `GET /api/v1/attendance/export/excel` | Xuất báo cáo Excel |
+| **Employees** | `POST /api/v1/employees/register` | Đăng ký nhân viên và khuôn mặt |
+|  | `GET /api/v1/employees/` | Lấy danh sách nhân viên |
+|  | `PATCH /api/v1/employees/{id}/status` | Khóa/Mở tài khoản |
+|  | `PUT /api/v1/employees/{id}/permissions` | Cấp quyền truy cập cửa |
+|  | `DELETE /api/v1/employees/{id}` | Xóa nhân viên |
+| **Departments & Doors** | `GET /api/v1/departments/` | Lấy danh sách phòng ban |
+|  | `POST /api/v1/departments/permissions` | Cấp quyền theo phòng ban |
+|  | `POST /api/v1/departments/{dept_id}/quick-setup` | Phân quyền nhanh hàng loạt |
+|  | `GET /api/v1/doors/` | Lấy danh sách cửa |
+| **Admin Tools** | `POST /admin/bulk-import` | Import hàng loạt bằng ZIP |
+|  | `GET /admin/system-stats` | Thống kê tổng quan hệ thống |
+| **System** | `GET /health` | Health Check |
+|  | `GET /metrics` | Metrics cho Prometheus |
 
-**Attendance (Chấm công và Điểm danh)**
-```http
-POST /api/v1/attendance/identify       (Nhận diện khuôn mặt)
-GET  /api/v1/attendance/history        (Xem lịch sử)
-GET  /api/v1/attendance/stats/monthly  (Thống kê tháng)
-GET  /api/v1/attendance/export/excel   (Xuất file Excel)
-```
+---
 
-**Employees (Quản lý Nhân viên)**
-```http
-POST   /api/v1/employees/register         (Đăng kí thông tin cho nhân viên)
-GET    /api/v1/employees/                 (Lấy danh sách tất cả nhân viên)
-PATCH  /api/v1/employees/{id}/status      (Khóa hoặc mở tài khoản)
-PUT    /api/v1/employees/{id}/permissions (Cấp quyền cửa)
-DELETE /api/v1/employees/{id}             (Xóa nhân viên)
-```
+## <span style="color: #059669;">9. Quản lý dữ liệu (Volumes)</span>
 
-**Departments & Doors (Quản lý phòng ban và cửa ra vào)**
-```http
-GET  /api/v1/departments/
-POST /api/v1/departments/permissions
-POST /api/v1/departments/{dept_id}/quick-setup (Phân quyền hàng loạt)
-GET  /api/v1/doors/
-```
+- `postgres_data`: User, Employee, Attendance Log.
+- `qdrant_storage`: Vector khuôn mặt.
+- `minio_data`: Ảnh gốc và snapshot.
+- `deepface_models`: Trọng số model.
+- `grafana_data`: Dashboard Grafana.
 
-**Admin Tools (Công cụ quản trị)**
-```http
-POST /admin/bulk-import (Tải ZIP và đăng kí cho nhiều nhân viên một lúc)
-GET  /admin/system-stats (Dashboard tổng quan)
-```
-
-**System (Hệ thống)**
-```http
-GET /health
-GET /metrics
-```
-
-## <span style="color: #059669;">9. Quản lý Dữ liệu (Volumes)</span>
-Dữ liệu được bảo toàn qua các Docker Volume định nghĩa sẵn dù có khởi động lại hệ thống:
-*   `postgres_data`: Lưu trữ User, Employee, Attendance Log.
-*   `qdrant_storage`: Cơ sở dữ liệu Vector nhận diện khuôn mặt.
-*   `minio_data`: Kho hình ảnh gốc và ảnh snapshoot điểm danh.
-*   `deepface_models`: Lưu trữ trọng số của mô hình để tránh tải lại khi khởi động lại.
-*   `grafana_data`: Lưu cấu hình các bảng dashboard phân tích hệ thống.
+---
 
 ## <span style="color: #059669;">10. Monitoring và Backup</span>
 
-### <span style="color: #D97706;">10.1. Theo dõi hệ thống thông qua Dashboards & Logs</span>
+### <span style="color: #D97706;">10.1. Monitoring</span>
 
-**Dashboards:**
-*   `Grafana Dashboard:` Dùng để theo dõi tài nguyên (CPU, RAM), số lượng Request API, thời gian phản hồi và tỷ lệ lỗi,...
-*   `MinIO Console:` Quản lý dung lượng lưu trữ ảnh tĩnh, kiểm tra file rác.
-*   `Qdrant Dashboard:` Trực quan hóa các Collection, số lượng Vector khuôn mặt hiện có và theo dõi hiệu suất bộ nhớ.
+- **Grafana**: Theo dõi CPU, RAM, API, latency, error rate.
+- **MinIO Console**: Quản lý ảnh lưu trữ.
+- **Qdrant Dashboard**: Theo dõi collection và vector.
 
-**Logs:**
 ```bash
-docker compose logs -f backend 
-docker compose logs -f worker   
+docker compose logs -f backend
+docker compose logs -f worker
 ```
-*   **Health Check**: `/health` dùng cho Docker healthcheck.
-*   **Metrics**: `/metrics` cung cấp dữ liệu cho Prometheus.
-*   **Logs**: Toàn bộ luồng nhận diện được ghi Log chi tiết (Status: SUCCESS/DENIED, Score, Door, Reason).
-### <span style="color: #D97706;">10.2. Hướng dẫn Backup & Restore dữ liệu</span>
-Thực hiện sao lưu thủ công thông qua các lệnh:
 
-**1. Backup PostgreSQL (Dữ liệu quan hệ):**
-Xuất toàn bộ dữ liệu ra file `.sql`:
-```bash
-docker exec -t <tên_container_db> pg_dump -U admin attendance > db_backup_$(date +%F).sql
-```
-*(Khôi phục: `cat db_backup.sql | docker exec -i <tên_container_db> psql -U admin -d attendance`)*
+- `/health`: Health check.
+- `/metrics`: Metrics cho Prometheus.
+- Log chi tiết SUCCESS/DENIED, Score, Door, Reason.
 
-**2. Backup Vector Qdrant:**
-```bash
-curl -X POST 'http://localhost:6333/collections/face_embeddings/snapshots'
-```
-*File snapshot sẽ được lưu tự động bên trong volume `qdrant_storage/snapshots/`.*
+### <span style="color: #D97706;">10.2. Backup & Restore</span>
 
-**3. Backup Hình ảnh (MinIO):**
+**PostgreSQL**
 ```bash
-# Stop MinIO tạm thời để tránh mất mát data đang ghi
-docker compose stop minio
-tar -czvf minio_backup_$(date +%F).tar.gz /var/lib/docker/volumes/tên_project_minio_data/_data
-docker compose start minio
+pg_dump -> .sql
 ```
+
+**Qdrant**
+```bash
+POST /collections/face_embeddings/snapshots
+```
+
+**MinIO**
+```bash
+tar backup volume minio_data
+```
+
+---
 
 ## <span style="color: #059669;">11. Ghi chú triển khai CPU</span>
-- Nếu chạy trên hệ thống không có GPU (chỉ có CPU), hàm detection OpenCV được khuyên dùng để tránh quá tải RAM thay vì RetinaFace.
-- Worker được cấu hình tách biệt với API chính, giúp hệ thống không bị nghẽn khi đăng ký quá nhiều nhân viên cùng lúc.
-- Ngrok cung cấp kết nối HTTPS SSL tự động để WebRTC/Webcam phía Frontend có thể xin quyền truy cập Camera từ trình duyệt.
+
+- Với hệ thống không có GPU, ưu tiên OpenCV detection để giảm tải RAM.
+- Worker tách biệt với API giúp tránh nghẽn khi đăng ký số lượng lớn.
+- Ngrok hỗ trợ HTTPS để frontend truy cập webcam qua trình duyệt.
