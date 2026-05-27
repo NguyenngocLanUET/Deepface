@@ -129,102 +129,132 @@ database/
 
 ## <span style="color: #059669;">6. Cách chạy</span>
 
-1. Cấu hình `.env` từ `.env.example`
-
-2. Khởi chạy hệ thống:
-```bash
-docker compose up -d --build
-```
-
-3. Các dịch vụ chính:
-```http
-Frontend: deepface-azure.vercel.app
-Backend Docs: http://localhost:8000/docs
-MinIO: http://localhost:9001
-Grafana: http://localhost:3000
-Prometheus: http://localhost:9090
-Qdrant: http://localhost:6333/dashboard
-```
-
-4. Xem log:
-```bash
-docker compose logs -f backend
-docker compose logs -f worker
-```
-
-5. Dừng hệ thống:
-```bash
-docker compose down
-```
-
----
+  1. Cấu hình `.env` từ `.env.example`
+  
+  2. Khởi chạy hệ thống:
+  ```bash
+  docker compose up -d --build
+  ```
+  
+  3. Các dịch vụ chính:
+  ```http
+  Frontend: deepface-azure.vercel.app
+  Backend Docs: http://localhost:8000/docs
+  MinIO: http://localhost:9001
+  Grafana: http://localhost:3000
+  Prometheus: http://localhost:9090
+  Qdrant: http://localhost:6333/dashboard
+  ```
+  
+  4. Xem log:
+  ```bash
+  docker compose logs -f backend
+  docker compose logs -f worker
+  ```
+  
+  5. Dừng hệ thống:
+  ```bash
+  docker compose down
+  ```
 
 ## <span style="color: #059669;">7. Các luồng dữ liệu chính</span>
 
 ### <span style="color: #D97706;">7.1. Luồng xác minh</span>
 
 ```text
-Camera -> FastAPI -> Trích xuất vector -> Qdrant tìm kiếm
--> Kiểm tra quyền truy cập
--> Lưu log PostgreSQL + ảnh MinIO
--> Redis cooldown chống spam
--> Trả kết quả mở/đóng cửa
+Quản trị viên gửi ảnh + tên cửa
+-> backend FastAPI tiếp nhận, lưu tạm ảnh
+-> DeepFace trích xuất vector khuôn mặt
+-> Qdrant tìm kiếm vector tương tự 
+-> Nhận diện được ID nhân viên
+-> Kiểm tra logic Quyền truy cập (db_service.check_access_permission):
+     1. Nhân viên có bị khóa không?
+     2. Có quyền qua cửa này không?
+     3. Khung giờ hiện tại hợp lệ không?
+-> FastAPI lưu ảnh sự kiện lên MinIO, ghi Log (SUCCESS/DENIED) vào PostgreSQL
+-> Redis set Cooldown (60s) chống spam
+-> Trả về kết quả đóng/mở cửa.
 ```
-
-**API chính**
+**API chính:**
 ```http
-POST /api/v1/attendance/identify
+POST /api/v1/attendance/identify?door_name=<string>
+Content-Type: multipart/form-data
+
+file=<image_binary>
 ```
 
-### <span style="color: #D97706;">7.2. Luồng đăng ký khuôn mặt</span>
-
+### <span style="color: #D97706;">7.2. Luồng đăng ký khuôn mặt nhân viên mới</span> 
 ```text
-Admin upload thông tin + ảnh
--> PostgreSQL + MinIO
--> Redis queue
--> Celery Worker xử lý
--> Kiểm tra chất lượng ảnh
--> Tính Average Vector
--> Lưu Qdrant
+Admin gửi thông tin nhân viên và 1 đến 5 ảnh gốc
+-> FastAPI tạo record trong PostgreSQL
+-> Upload ảnh lên MinIO bucket
+-> Gửi task process_face_registration vào hàng đợi Redis
+-> Celery Worker lấy task từ Redis
+-> Worker tải ảnh từ MinIO
+-> Kiểm tra chất lượng (đủ sáng, không nhòe, duy nhất 1 mặt)
+-> Trích xuất các Vector và tính Average Vector
+-> Lưu Average Vector vào Qdrant
 ```
-
-**API chính**
+**API chính:**
 ```http
 POST /api/v1/employees/register
+Content-Type: multipart/form-data
+
+full_name=<string>
+employee_code=<string>
+department_name=<string>
+files=[<image1_binary>, <image2_binary>, ...]
 ```
 
-### <span style="color: #D97706;">7.3. Bulk Import</span>
-
+### <span style="color: #D97706;">7.3. Luồng Bulk Import (Dành cho khởi tạo hệ thống)</span>
 ```text
-Upload ZIP -> Giải nén
--> Tạo dữ liệu nhân viên
--> Upload MinIO
--> Đưa task vào Celery
--> Worker xử lý nền
+Admin upload 1 file ZIP (chứa file metadata.json và hàng loạt ảnh)
+-> FastAPI giải nén vào thư mục tạm
+-> Quét file JSON, lặp qua từng nhân viên
+-> Tạo record DB và upload ảnh vào MinIO
+-> Thêm hàng loạt task process_face_registration vào Celery Worker
+-> Worker tuần tự xử lý vector trong nền.
 ```
-
-**API chính**
+Hệ thống hỗ trợ file `metadata.json` trong ZIP:
+```json
+[
+  {
+    "full_name": "Nguyen Van A",
+    "employee_code": "EMP001",
+    "department_name": "IT Dept",
+    "images": ["folder1/img1.jpg", "folder1/img2.jpg"]
+  }
+]
+```
+**API chính:**
 ```http
 POST /admin/bulk-import
+Content-Type: multipart/form-data
+
+zip_file=<zip_file_binary>
 ```
 
-### <span style="color: #D97706;">7.4. Quick Setup quyền truy cập</span>
-
+### <span style="color: #D97706;">7.4. Luồng thiết lập quyền truy cập nhanh</span>
 ```text
-Chọn phòng ban + cửa + khung giờ
--> Lưu DeptPermission
--> Nhân viên phòng ban được kế thừa quyền
+Admin chọn 1 phòng ban, chọn nhiều cửa và khung giờ
+-> FastAPI tiếp nhận payload
+-> Lặp qua danh sách các cửa (door_ids)
+-> PostgreSQL lưu bản ghi phân quyền (DeptPermission)
+-> Từ lúc này, mọi nhân viên thuộc phòng ban đó sẽ được ra vào các cửa đã chọn trong khung giờ quy định.
 ```
-
-**API chính**
+**API chính:**
 ```http
 POST /api/v1/departments/{dept_id}/quick-setup
+Content-Type: application/json
+
+{
+  "door_ids": [1, 2, 3, 4],
+  "start_time": "08:00:00",
+  "end_time": "18:00:00"
+}
 ```
-
----
-
 ## <span style="color: #059669;">8. API chính</span>
-
+```http
 | Nhóm API | Endpoint | Chức năng |
 |---|---|---|
 | **Authentication** | `POST /api/v1/auth/login` | Đăng nhập |
@@ -247,7 +277,7 @@ POST /api/v1/departments/{dept_id}/quick-setup
 |  | `GET /admin/system-stats` | Thống kê tổng quan hệ thống |
 | **System** | `GET /health` | Health Check |
 |  | `GET /metrics` | Metrics cho Prometheus |
-
+```
 ---
 
 ## <span style="color: #059669;">9. Quản lý dữ liệu (Volumes)</span>
