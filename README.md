@@ -45,7 +45,7 @@
 *   Đối với người lạ, hệ thống không log ngay lập tức mà yêu cầu đối tượng xuất hiện liên tục > 3.5 giây mới ghi nhận "Denied" vào DB, giúp giảm thiểu rác dữ liệu từ người đi ngang qua.
 *   **Tự động phân loại trạng thái: *Thành công*, *Thành công (Trong giờ ân hạn)*, hoặc *Muộn* dựa trên cấu hình `WORK_START`.
 
-### <span style="color: #D97706;">2.3. Quản trị & Vận hành (Admin Tools)</span>
+### <span style="color: #D97706;">2.3. Logic quản lý đặc biệt</span>
 *   **Bulk Import**: Cho phép Import hàng nghìn nhân viên qua 1 file ZIP. Hỗ trợ 2 cấu trúc folder (theo tên folder hoặc theo file metadata.json).
 *   **Phân quyền Cửa**: 
     *   Phân quyền theo cá nhân.
