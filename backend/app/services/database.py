@@ -3,6 +3,7 @@ from sqlalchemy import create_engine, func, cast, Date
 from app.models.models import Base, Employee, AttendanceLog, AccessPermission, Door, DepartmentPermission, Department
 import os
 from datetime import datetime, time, timedelta
+import time as time_sleep
 from zoneinfo import ZoneInfo
 from app.core.config import settings
 
@@ -28,6 +29,18 @@ class DBService:
             Base.metadata.create_all(bind=engine)
         except Exception as e:
             print(f"⚠️ Cảnh báo: Chưa thể khởi tạo DB (có thể DB đang khởi động): {e}")
+        """Khởi tạo các bảng nếu chưa có với cơ chế thử lại"""
+        max_retries = 5
+        for i in range(max_retries):
+            try:
+                Base.metadata.create_all(bind=engine)
+                return
+            except Exception as e:
+                if i < max_retries - 1:
+                    print(f"⚠️ Đang đợi DB khởi động (Lần {i+1}/{max_retries})...")
+                    time_sleep.sleep(3)
+                else:
+                    print(f"❌ Không thể kết nối DB sau {max_retries} lần thử: {e}")
 
     class AttrDict(dict):
         """Dictionary that allows attribute access for keys (e.g. obj.key)."""
@@ -702,3 +715,4 @@ class DBService:
             print(f"Cảnh báo: Không thể dọn dẹp log DENIED gần đây: {str(e)}")
         finally:
             db.close()
+                .filter(Att
