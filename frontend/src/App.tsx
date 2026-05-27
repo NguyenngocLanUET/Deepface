@@ -1,4 +1,4 @@
-﻿import {
+import {
   BarChart3,
   Activity,
   Building2,
@@ -869,6 +869,7 @@ function App() {
       }
       setDeleteTarget(null);
       refreshCoreData();
+      await refreshCoreData();
     } catch (error) {
       setNotice({ type: "error", text: errorMessage(error, "Không thể tiến hành xóa dữ liệu.") });
       setDeleteTarget(null);
@@ -1650,7 +1651,15 @@ function EmployeesPage({
   const [statusFilter, setStatusFilter] = useState<boolean | null>(null);
   const [rows, setRows] = useState<Employee[]>(employees);
 
-  useEffect(() => setRows(employees), [employees]);
+  // Đồng bộ lại danh sách hiển thị (rows) mỗi khi dữ liệu gốc từ parent (employees) thay đổi
+  // Đồng bộ lại danh sách hiển thị (rows) mỗi khi dữ liệu gốc từ parent thay đổi.
+  // Chỉ thực hiện đồng bộ nếu người dùng không đang thực hiện tìm kiếm/lọc để tránh ghi đè kết quả search.
+  useEffect(() => {
+    setRows(employees);
+    if (!query && departmentFilter === null && statusFilter === null) {
+      setRows(employees);
+    }
+  }, [employees]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -1685,6 +1694,7 @@ function EmployeesPage({
       try {
         await api.updateEmployeeStatus(employee.id, !employee.is_active);
         onNotice({ type: "success", text: "Đã cập nhật trạng thái nhân viên." });
+        onRefresh(); // Cập nhật lại dữ liệu tổng ở App.tsx để đảm bảo đồng bộ Dashboard/Stats
         await search(); // Cập nhật lại danh sách dựa trên bộ lọc hiện tại
       } catch (error) {
         onNotice({ type: "error", text: errorMessage(error, "Không thể cập nhật.") });
@@ -1716,9 +1726,9 @@ function EmployeesPage({
 
       const photos = await Promise.all(
         result.photos.map(async (photoName) => {
-          const url = api.getEmployeePhotoUrl(employee.id, photoName);
-          const response = await fetch(url);
-          const blob = await response.blob();
+          // Sử dụng phương thức từ api client (đã được cấu hình kèm các Header cần thiết) 
+          // thay vì dùng fetch() thuần của trình duyệt.
+          const blob = await api.getEmployeePhoto(employee.id, photoName);
           return { name: photoName, url: URL.createObjectURL(blob) };
         }),
       );
