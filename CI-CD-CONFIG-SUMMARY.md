@@ -61,6 +61,6 @@ Vào:
 
 Thêm các secrets sau:
 
-```text
-
-```
+<p align="center">
+<img width="987" height="612" alt="image" src="https://github.com/user-attachments/assets/59ece5de-94c1-4872-a3f3-8dea7da6eb40" />
+</p>
