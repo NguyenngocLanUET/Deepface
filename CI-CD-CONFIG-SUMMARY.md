@@ -1,82 +1,66 @@
-# GitHub Actions Configuration Summary
+# Tổng quan cấu hình GitHub Actions
 
-## Directory Structure
+## Cấu trúc thư mục
 
-```
+```text
 .
-+-- .github/
-�   +-- workflows/
-�       +-- ci.yml         # CI pipeline
-�       +-- deploy.yml     # Deployment pipeline
-�       +-- code-quality.yml   # Code quality checks
-+-- data/
-�   +-- raw/               # Raw input data
-�   +-- processed/         # Processed data
-�   +-- metrics.json       # Data pipeline metrics
-+-- scripts/
-�   +-- prepare_data.py    # Data preparation script
-�   +-- train_model.py     # Model training script
-�   +-- validate_model.py  # Model validation script
-+-- backend/tests/         # Backend tests
-+-- models/                # Model artifacts
-+-- sonar-project.properties  # SonarCloud config
-+-- docker-compose.staging.yml
-+-- docker-compose.prod.yml
-+-- CI-CD-SETUP.md        # This file
+├── .github/
+│   └── workflows/
+│       ├── ci.yml                  # Pipeline CI
+│       ├── deploy.yml              # Pipeline triển khai
+│       └── code-quality.yml        # Kiểm tra chất lượng mã nguồn
+├── backend/
+│   ├── tests/....
+│   ├── ...
+├── frontend/
+.                
+├── docker-compose.staging.yml
+├── docker-compose.prod.yml
+└── CI-CD-SETUP.md                  # Tài liệu cấu hình CI/CD
 ```
 
-## Workflows Overview
+## Tổng quan Workflows
 
-### CI Workflow (ci.yml)
+### CI Workflow (`ci.yml`)
+
 - **Lint**: Black, isort, flake8
-- **Test**: pytest with coverage
-- **Build**: Docker image creation
-- **Security**: Trivy scanning
+- **Test**: pytest + coverage
+- **Build**: Build Docker image
+- **Security**: Quét lỗ hổng bằng Trivy
 
-**Triggers**: Push to main/develop, PRs
+**Kích hoạt khi:**
+- Push lên nhánh `main` / `develop`
+- Tạo Pull Request
 
-### Deploy Workflow (deploy.yml)
-- Deploy to staging (develop branch)
-- Deploy to production (main + tags)
-- Health checks
-- Slack notifications
+### Deploy Workflow (`deploy.yml`)
 
-**Triggers**: Push to main/develop, tags
+- Deploy môi trường staging (`develop`)
+- Deploy production (`main` + tags)
+- Kiểm tra health check
+- Gửi thông báo Slack
 
-### Code Quality (code-quality.yml)
-- Radon complexity
-- Bandit security
-- SonarCloud analysis
+**Kích hoạt khi:**
+- Push lên `main` / `develop`
+- Push tag release
 
-**Triggers**: Push to main/develop, PRs
+### Code Quality Workflow (`code-quality.yml`)
 
-## Quick Start
+- Phân tích độ phức tạp bằng Radon
+- Kiểm tra bảo mật bằng Bandit
+- Phân tích mã nguồn với SonarCloud
 
-### 1. Initialize repository
+**Kích hoạt khi:**
+- Push lên `main` / `develop`
+- Tạo Pull Request
 
-```bash
-# Clone repo
-git clone <your-repo>
-cd <your-repo>
-```
+### 1. Thêm GitHub Secrets
 
-### 2. Add data
+Vào:
 
-```bash
-# Create data directory
-mkdir -p data/raw
-# Add your images to data/raw/
-```
+`Repository Settings → Secrets and variables → Actions`
 
-### 3. Add GitHub secrets
+Thêm các secrets sau:
 
-In repository settings ? Secrets and variables ? Actions:
+```text
 
-```
-DEPLOY_KEY
-DEPLOY_HOST_STAGING
-DEPLOY_HOST_PROD
-DEPLOY_USER
-SONAR_TOKEN
-SLACK_WEBHOOK
 ```
