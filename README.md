@@ -47,7 +47,7 @@
 
 - **Anti-spam Cooldown**: Áp dụng cooldown mặc định 60s sau mỗi lần điểm danh thành công.
 - Người lạ chỉ bị ghi nhận DENIED khi xuất hiện liên tục > 3.5 giây nhằm giảm log rác.
-- Tự động phân loại trạng thái: *Thành công*, *Trong giờ ân hạn* hoặc *Muộn* dựa trên `WORK_START`.
+- Tự động phân loại trạng thái: *Thành công*, *Trong giờ được phép* hoặc *Muộn*.
 
 ### <span style="color: #D97706;">2.3. Logic quản lý</span>
 
@@ -83,7 +83,7 @@ User:
   password: user123
 ```
 
-*Cấu hình trong `.env` và có thể thay đổi trước khi chạy.*
+*Cấu hình trong `.env` và có thể thay đổi trước khi chạy (xem mẫu `.env_example`).*
 
 ### <span style="color: #D97706;">4.2. Tài khoản nhân viên</span>
 
@@ -254,7 +254,6 @@ Content-Type: application/json
 }
 ```
 ## <span style="color: #059669;">8. API chính</span>
-```http
 | Nhóm API | Endpoint | Chức năng |
 |---|---|---|
 | **Authentication** | `POST /api/v1/auth/login` | Đăng nhập |
@@ -277,7 +276,6 @@ Content-Type: application/json
 |  | `GET /admin/system-stats` | Thống kê tổng quan hệ thống |
 | **System** | `GET /health` | Health Check |
 |  | `GET /metrics` | Metrics cho Prometheus |
-```
 ---
 
 ## <span style="color: #059669;">9. Quản lý dữ liệu (Volumes)</span>
