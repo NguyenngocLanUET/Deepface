@@ -68,28 +68,7 @@
 - **Lịch sử điểm danh**: Theo dõi log thời gian thực, sắp xếp theo thời gian mới nhất, hiển thị trạng thái SUCCESS/DENIED và lý do từ chối.
 
 - **Lưu trữ dữ liệu**: PostgreSQL lưu log, MinIO lưu ảnh gốc, Qdrant lưu vector khuôn mặt.
-
-### <span style="color: #D97706;">3.1. Logic đăng ký ảnh</span>
-
-- Sử dụng nhiều ảnh ở các góc khác nhau để tính **Average Vector** và chuẩn hóa L2.
-- Hỗ trợ xử lý burst mode 10 ảnh liên tục, chọn ảnh có Score tốt nhất.
-- Tự động loại bỏ ảnh mờ, thiếu sáng hoặc không có khuôn mặt.
-
-### <span style="color: #D97706;">3.2. Logic điểm danh</span>
-
-- **Anti-spam Cooldown**: Áp dụng cooldown mặc định 60s sau mỗi lần điểm danh thành công.
-- Người lạ chỉ bị ghi nhận DENIED khi xuất hiện liên tục > 3.5 giây nhằm giảm log rác.
-- Tự động phân loại trạng thái: *Thành công*, *Trong giờ được phép* hoặc *Muộn*.
-
-### <span style="color: #D97706;">3.3. Logic quản lý</span>
-
-- **Bulk Import**: Import hàng nghìn nhân viên qua file ZIP, hỗ trợ metadata.json hoặc cấu trúc thư mục.
-- **Phân quyền cửa**:
-  - Theo cá nhân.
-  - **Quick Setup** theo phòng ban và khung giờ.
-- Dashboard cập nhật realtime qua WebSocket với Score và lý do từ chối.
-- Tự động dọn log và snapshot người lạ lúc 2h sáng hằng ngày.
-
+- 
 ---
 
 ## <span style="color: #059669;">4. Logic xử lý</span>
