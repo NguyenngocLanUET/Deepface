@@ -1,0 +1,97 @@
+[33m1393ee4[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{0}: commit (amend): final_test
+[33me79f8e0[m HEAD@{1}: commit: final_test
+[33mad91c1e[m HEAD@{2}: commit: final_test
+[33m596a94c[m HEAD@{3}: pull --tags origin main: Merge made by the 'ort' strategy.
+[33mc353c8a[m HEAD@{4}: commit: test new vercel app
+[33m6cc988c[m HEAD@{5}: pull --tags origin main: Merge made by the 'ort' strategy.
+[33mb79e6c8[m HEAD@{6}: commit: refine
+[33m96aa095[m HEAD@{7}: commit: update database.py
+[33mb208356[m HEAD@{8}: commit: update configuration
+[33m1238582[m HEAD@{9}: pull --tags origin main: Merge made by the 'ort' strategy.
+[33m5c3a45f[m HEAD@{10}: commit:
+[33mde06e51[m HEAD@{11}: commit: - fix ci/cd yml
+[33m4cc7f37[m HEAD@{12}: commit: - fix the Dockerfile for the initial build
+[33m7f2ea59[m HEAD@{13}: checkout: moving from main to main
+[33m7f2ea59[m HEAD@{14}: checkout: moving from main to main
+[33m7f2ea59[m HEAD@{15}: reset: moving to origin/main
+[33m7f2ea59[m HEAD@{16}: checkout: moving from main to main
+[33m7f2ea59[m HEAD@{17}: reset: moving to origin/main
+[33m7f2ea59[m HEAD@{18}: reset: moving to HEAD
+[33m7f2ea59[m HEAD@{19}: reset: moving to origin/main
+[33m3dad1ec[m HEAD@{20}: reset: moving to HEAD
+[33m3dad1ec[m HEAD@{21}: commit: revert App.tsx
+[33m6dce996[m HEAD@{22}: pull --tags origin main: Merge made by the 'ort' strategy.
+[33mb2516c5[m HEAD@{23}: commit: enhance attendance.py, App.tsx, style.css
+[33mccffebe[m HEAD@{24}: commit: revert App.tsx
+[33m3dbc718[m HEAD@{25}: commit: delete deploy.yml
+[33m6784ccb[m HEAD@{26}: pull --tags origin main: Merge made by the 'ort' strategy.
+[33mbe86668[m HEAD@{27}: commit: fix CI/CD
+[33m93a9474[m HEAD@{28}: commit: update links
+[33m35571e0[m HEAD@{29}: commit: update variables
+[33mf5ded6e[m HEAD@{30}: commit: feat: enhance real-time monitoring and upgrade frontend UX
+[33m3d83b91[m HEAD@{31}: commit: feat: enhance real-time monitoring and upgrade frontend UX
+[33mdd7180d[m HEAD@{32}: commit: feat: enhance real-time monitoring and upgrade frontend UX
+[33me67cd4f[m HEAD@{33}: commit: feat: enhance real-time monitoring and upgrade frontend UX
+[33m44e3498[m HEAD@{34}: commit: fix App + attendance
+[33m2ac3bca[m HEAD@{35}: commit: fix
+[33m54d42bd[m HEAD@{36}: commit: enhance App
+[33md53d6b9[m HEAD@{37}: pull --tags origin main: Merge made by the 'ort' strategy.
+[33ma224909[m HEAD@{38}: commit: test
+[33m06df5b9[m HEAD@{39}: commit: fix App
+[33mce54016[m HEAD@{40}: commit: update useTinyFace...
+[33mb3361fb[m HEAD@{41}: commit: fix App
+[33m3eaff69[m HEAD@{42}: commit: fix App
+[33mb3d760c[m HEAD@{43}: commit: add Grafana security embedding option and wrap main content in App component
+[33m2c811e9[m HEAD@{44}: commit: add Grafana plugin path configuration to docker-compose
+[33m5abf07f[m HEAD@{45}: commit: remove unused metrics from DashboardPage component
+[33m3bf83c4[m HEAD@{46}: commit: add WebSocket support for real-time attendance monitoring and implement system maintenance task
+[33mf3da990[m HEAD@{47}: commit: add card width adjustment and hover effects for metrics
+[33m1899a55[m HEAD@{48}: commit: fix App
+[33m2ba5674[m HEAD@{49}: commit: fix app
+[33m215f001[m HEAD@{50}: commit: refactor styles for topbar and section-heading layout
+[33m2fc7858[m HEAD@{51}: commit: enhance attendance processing with async embedding extraction and add monitoring page
+[33ma5d6aa8[m HEAD@{52}: commit: fix attendance
+[33m6b99833[m HEAD@{53}: commit: fix attendance
+[33mb2169f7[m HEAD@{54}: commit: fix App
+[33m4a5398f[m HEAD@{55}: commit: fix attendance log
+[33me9ca39e[m HEAD@{56}: commit: enhance flexibility of changing permissions
+[33m11bfb38[m HEAD@{57}: commit: enhance logic to display the permission of the departments
+[33m7d103c0[m HEAD@{58}: commit: Implement employee photo management in EmployeesPage: add photo loading, updating, and modal display features
+[33me73f8e7[m HEAD@{59}: commit: Refactor EmployeesPage: remove unused employee photo and history log functionalities
+[33m9b67c39[m HEAD@{60}: commit: Implement employee history log feature in EmployeesPage: add multi-select for employees, load history, and display in modal
+[33mbc64979[m HEAD@{61}: commit: Refactor EmployeesPage and RegisterPage: remove history log functionality and add employee photo update feature
+[33m92919f0[m HEAD@{62}: commit: Add AttrDict class for attribute-style access and update get_employee_by_id to return AttrDict
+[33m1aa4eac[m HEAD@{63}: commit: Implement employee history log feature in EmployeesPage: add selection, loading, and modal display
+[33m5dcfc8e[m HEAD@{64}: commit: Fix employee name retrieval in get_employee_photos endpoint
+[33m30cd22b[m HEAD@{65}: commit: Enhance employee photo management in EmployeesPage: implement photo upload, display, and error handling
+[33m68db26b[m HEAD@{66}: commit: Refactor EmployeesPage to remove image modal functionality and enhance employee search capabilities
+[33m5cbdcd8[m HEAD@{67}: commit: Refactor EmployeesPage and App components to streamline history modal functionality and improve session handling
+[33m3d7e874[m HEAD@{68}: commit: Remove history modal implementation from EmployeesPage
+[33m99d1957[m HEAD@{69}: commit: Implement employee history modal and multi-select functionality in EmployeesPage
+[33ma598fd2[m HEAD@{70}: commit: Refactor KioskPage and EmployeesPage to improve notice handling and streamline image identification process
+[33mdd51b21[m HEAD@{71}: commit: Add endpoint to retrieve attendance history
+[33m8f9af3a[m HEAD@{72}: commit: Update onNotice type to allow null values in multiple pages
+[33mc35a093[m HEAD@{73}: commit: Refactor KioskPage dependencies and fix formatting for result display
+[33m077a8f5[m HEAD@{74}: commit: Add multi-image identification endpoint and update related frontend logic
+[33mf71fc5f[m HEAD@{75}: pull --tags origin main: Merge made by the 'ort' strategy.
+[33m3f38ec2[m HEAD@{76}: commit: Enhance attendance and employee management features
+[33m0cb5d41[m HEAD@{77}: commit: Add methods to handle recent denied stranger logs and cleanup in DBService
+[33m9111c77[m HEAD@{78}: commit: Refactor employee search parameters to accept lists and improve loading state management
+[33m10b2f8a[m HEAD@{79}: commit: Refactor timezone handling in database service and update styles for button transformations
+[33m20b3145[m HEAD@{80}: commit: Update VN_TZ to use timezone instead of ZoneInfo for consistency
+[33m3efc4b5[m HEAD@{81}: revert: Revert "update camera"
+[33mb97485e[m HEAD@{82}: commit: Add horizontal flip transformation to button styles
+[33m5b4c5b2[m HEAD@{83}: reset: moving to HEAD
+[33m5b4c5b2[m HEAD@{84}: commit: Remove unnecessary transform properties from button styles
+[33mab443cf[m HEAD@{85}: pull --tags origin main: Merge made by the 'ort' strategy.
+[33mcbaf379[m HEAD@{86}: commit: Fix attendance logging with Vietnam timezone and improve error handling in AdminToolsPage
+[33me65a18c[m HEAD@{87}: commit: Enhance employee search functionality with advanced filtering options and update log deletion response
+[33mbc62b33[m HEAD@{88}: commit: Add recent success log check for attendance identification and enhance database service
+[33m6f114b5[m HEAD@{89}: commit: Enhance bulk import functionality with detailed summary of import results
+[33meb01c43[m HEAD@{90}: commit: Enhance attendance identification with access denial logging and update database configuration settings
+[33mdac4601[m HEAD@{91}: commit: Refactor KioskPage logic to improve identification process and enhance result handling
+[33md2ff718[m HEAD@{92}: commit: Refactor attendance logging to use door_id instead of door_name and optimize capture cooldown timing
+[33m4959064[m HEAD@{93}: reset: moving to HEAD
+[33m4959064[m HEAD@{94}: commit: Add bulk import functionality and enhance attendance logging with snapshots for denied access
+[33m9127fc6[m HEAD@{95}: commit: Update compiled Python files for attendance logging and database services
+[33m273d050[m HEAD@{96}: commit: Enhance attendance l

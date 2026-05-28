@@ -69,19 +69,23 @@
 
 - **Lưu trữ dữ liệu**: PostgreSQL lưu log, MinIO lưu ảnh gốc, Qdrant lưu vector khuôn mặt.
 
-### <span style="color: #D97706;">3.1. Logic đăng ký ảnh</span>
+---
+
+## <span style="color: #059669;">4. Logic xử lý</span>
+
+### <span style="color: #D97706;">4.1. Logic đăng ký ảnh</span>
 
 - Sử dụng nhiều ảnh ở các góc khác nhau để tính **Average Vector** và chuẩn hóa L2.
 - Hỗ trợ xử lý burst mode 10 ảnh liên tục, chọn ảnh có Score tốt nhất.
 - Tự động loại bỏ ảnh mờ, thiếu sáng hoặc không có khuôn mặt.
 
-### <span style="color: #D97706;">3.2. Logic điểm danh</span>
+### <span style="color: #D97706;">4.2. Logic điểm danh</span>
 
 - **Anti-spam Cooldown**: Áp dụng cooldown mặc định 60s sau mỗi lần điểm danh thành công.
 - Người lạ chỉ bị ghi nhận DENIED khi xuất hiện liên tục > 3.5 giây nhằm giảm log rác.
 - Tự động phân loại trạng thái: *Thành công*, *Trong giờ được phép* hoặc *Muộn*.
 
-### <span style="color: #D97706;">3.3. Logic quản lý</span>
+### <span style="color: #D97706;">4.3. Logic quản lý</span>
 
 - **Bulk Import**: Import hàng nghìn nhân viên qua file ZIP, hỗ trợ metadata.json hoặc cấu trúc thư mục.
 - **Phân quyền cửa**:
@@ -89,37 +93,6 @@
   - **Quick Setup** theo phòng ban và khung giờ.
 - Dashboard cập nhật realtime qua WebSocket với Score và lý do từ chối.
 - Tự động dọn log và snapshot người lạ lúc 2h sáng hằng ngày.
-
----
-
-## <span style="color: #059669;">4. Logic xử lý</span>
-
-### <span style="color: #D97706;">4.1. Logic đăng ký khuôn mặt</span>
-
-- Sử dụng nhiều góc ảnh để tạo Average Vector.
-- Chuẩn hóa vector bằng L2 Normalization.
-- Tự động loại bỏ:
-  - Ảnh mờ.
-  - Thiếu sáng.
-  - Không có khuôn mặt.
-- Hỗ trợ burst mode 10 ảnh liên tục.
-
-### <span style="color: #D97706;">4.2. Logic điểm danh</span>
-
-- Anti-spam Cooldown 60 giây.
-- Unknown face chỉ log khi xuất hiện > 3.5s.
-- Tự động phân loại:
-  - Thành công.
-  - Đúng giờ.
-  - Muộn.
-  - Từ chối.
-
-### <span style="color: #D97706;">4.3. Logic quản trị</span>
-
-- Bulk import hàng nghìn nhân viên.
-- Quick setup phân quyền theo phòng ban.
-- Dashboard realtime bằng WebSocket.
-- Tự động cleanup log hằng ngày.
 
 ---
 
@@ -224,8 +197,52 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-### 4. Các dịch vụ chính
-Để có thể sử dụng frontend, trên giao diện chính mục variables của vercel cần phải được setup VITE_API_BASE_URL (ngrok domain url: ví dụ ....ngrok-free.dev/api/v1) và upload thêm file `.env`. 
+### 4. Deploy Frontend với Vercel
+
+Để sử dụng giao diện frontend trên Vercel:
+
+#### Bước 1: Push source code lên GitHub
+
+```bash id="0v6n2d"
+git add .
+git commit -m "Initial commit"
+git push origin main
+```
+
+Nếu repository chưa được liên kết với GitHub:
+
+```bash id="k2x8ml"
+git remote add origin https://github.com/your-username/your-repo.git
+git branch -M main
+git push -u origin main
+```
+
+#### Bước 2: Import repository vào Vercel
+
+* Truy cập Vercel và chọn **Add New Project**
+* Import GitHub repository chứa frontend
+
+#### Bước 3: Cấu hình Environment Variables
+
+Trong mục **Settings → Environment Variables**, thêm biến:
+
+```env id="1tq8xr"
+VITE_API_BASE_URL=https://your-ngrok-domain.ngrok-free.dev/api
+```
+
+Ví dụ:
+
+```env id="2f9zcm"
+VITE_API_BASE_URL=https://abc123.ngrok-free.dev/api/v1
+```
+
+#### Bước 4: Redeploy project
+
+Sau khi cấu hình xong environment variables, redeploy project để áp dụng thay đổi.
+
+
+### 5. Các dịch vụ chính
+
 ```yaml
 Frontend: https://deepface-azure.vercel.app
 Backend Docs: http://localhost:8000/docs
@@ -235,14 +252,14 @@ Prometheus: http://localhost:9090
 Qdrant: http://localhost:6333/dashboard
 ```
 
-### 5. Xem log
+### 6. Xem log
 
 ```bash
 docker compose logs -f backend
 docker compose logs -f worker
 ```
 
-### 6. Dừng hệ thống
+### 7. Dừng hệ thống
 
 ```bash
 docker compose down
